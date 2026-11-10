@@ -19,7 +19,7 @@ from mcgyvr import unitkey
 from mcgyvr.config import Config, Unit, whose
 from mcgyvr.seal import SealKey
 
-_ROLES = ("orchestrator", "verifier", "jev")
+_ROLES = ("proposer", "verifier", "jev")
 
 
 class SourceProbe(TypingProtocol):
@@ -312,7 +312,7 @@ class SourceMap:
     def role(self, role: str) -> RoleBinding | None:
         """The binding for a role, or `None` when the config binds none.
 
-        The role must be one of `orchestrator`, `verifier` and `jev`. One bound
+        The role must be one of `proposer`, `verifier` and `jev`. One bound
         to a unit that was skipped raises `SourceUnavailableError` rather than
         reading as unbound.
         """
@@ -352,13 +352,13 @@ def source_map(config: Config, probe: SourceProbe | None = None) -> SourceMap:
 
     def _served(unit: Unit, name: str) -> int:
         # Requests this unit is asked to take at once: the width it states,
-        # or one. The exception is a deployment that runs its orchestrator
-        # locally: the unit bound to `orchestrator.unit` needs no credential
+        # or one. The exception is a deployment that runs its proposer
+        # locally: the unit bound to `proposer.unit` needs no credential
         # and takes one request per user, so where it states no width its
         # slot count is the configured `users` rather than one.
         if (
-            config.provisions_local_orchestrator
-            and name == config.get("orchestrator.unit")
+            config.provisions_local_proposer
+            and name == config.get("proposer.unit")
             and not unit.requires_credential
         ):
             return unit.width or int(config.get("users", 1))

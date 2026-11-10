@@ -1,5 +1,7 @@
 """Write a setup — fleet.yaml and policy.yaml — from what this machine runs.
 
+(Named for `init`, now `mcgyvr setup`; the module name stays.)
+
 `initialize` detects the machine (cards, local model servers, whether a Docker
 daemon answers), asks `propose` for one rung per model a running server lists,
 and turns that into the two config files the loader validates. Every value it
@@ -43,7 +45,6 @@ from mcgyvr.config import (
     LAUNCHER_NATIVE,
     LOCAL_ONLY,
     MCGYVR_CODE,
-    ORCHESTRATOR_FIELDS,
     POLICY_FILENAME,
     SANDBOX_FIELDS,
     SCHEMA,
@@ -52,7 +53,7 @@ from mcgyvr.config import (
     ConfigError,
     Field,
     default_launcher,
-    local_orchestrator,
+    local_proposer,
 )
 from mcgyvr.config import load as load_config
 from mcgyvr.config import parse as parse_config
@@ -588,7 +589,7 @@ def build(
     gave them. Then one unit per `--api` spec, whose key is named by variable.
     The ladder is the rung names in proposal order followed by the hosted units;
     `fanout` and `triage` are left unset for the use case to decide, review
-    keeps the schema's `enabled`, the orchestrator, verifier and Jev blocks
+    keeps the schema's `enabled`, the proposer, verifier and Jev blocks
     stay unbound, and the sandbox mode follows whether a
     Docker daemon answered. `deployment` falls back to `_deployment_default`."""
     backends = {backend.name: backend for backend in detection.backends}
@@ -659,10 +660,9 @@ def build(
         # The switches of the stages a batch is ordered by keep the schema's
         # defaults, written out so the one file shows every switch.
         **_defaults(SCHEMA, "infer_dependencies", "same_file"),
-        # No orchestrator unit is bound: `orchestrator.type` keeps the schema's
-        # default, and a unit is named only when a person names one.
-        "orchestrator": {
-            **_defaults(ORCHESTRATOR_FIELDS, "type"),
+        # No proposer unit is bound: a unit is named only when a person names
+        # one.
+        "proposer": {
             "unit": None,
             "model": None,
         },
@@ -807,7 +807,7 @@ def _limits(
     Detection and proposal notes come through as they are; a rung whose served
     window could not be read gets the note saying a code dispatch to it refuses;
     the hosted case gets the note about spend, review and the unbound
-    orchestrator, and the local case the note about which rung reviews which; and
+    proposer, and the local case the note about which rung reviews which; and
     with no Docker daemon the tempdir note is added."""
     limits = list(detection.notes) + list(proposal.notes)
     backends = {backend.name: backend for backend in detection.backends}
@@ -836,7 +836,7 @@ def _limits(
             f"for a hosted named one above it on the ladder whose own model "
             f"wrote the work. Work with no "
             f"such local rung above it is accepted and labelled unverified. "
-            f"`orchestrator` is still unbound."
+            f"`proposer` is still unbound."
         )
     else:
         limits.append(
@@ -844,7 +844,7 @@ def _limits(
             "deterministic gate is the acceptance bar, and each rung's work is "
             "reviewed by the next dearer local rung serving another model; work with "
             "no such rung above it is accepted and labelled unverified. Bind "
-            "`orchestrator` once you have a key."
+            "`proposer` once you have a key."
         )
     if not detection.docker:
         limits.append(
@@ -1058,16 +1058,16 @@ def initialize(
         + (f"Use case {use_case!r} under deployment {chosen_deployment!r}.",)
         + _opt_in_decisions(jev=jev)
     )
-    # A local-only install with one seat provisions the resident orchestrator on
+    # A local-only install with one seat provisions the resident proposer on
     # the card the ladder serves from. That is worth saying, so it is recorded as
     # a decision — nothing here refuses it.
-    if local_orchestrator(
+    if local_proposer(
         use_case=use_case,
         local_only=chosen_deployment == LOCAL_ONLY,
         users=int(data.get("users", 1)),
     ).flag_single_user:
         decisions += (
-            "Local-only on a single-user install: the resident orchestrator "
+            "Local-only on a single-user install: the resident proposer "
             "consumes the card the ladder would otherwise use — flagged, not "
             "refused.",
         )

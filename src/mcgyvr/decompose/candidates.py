@@ -4,13 +4,13 @@ Each contract field is enumerated as a ranked :class:`CandidateSet` of
 :class:`FieldCandidate` values: one value per rank, with rank 0 the value
 :func:`collapse` folds into a :class:`~mcgyvr.decompose.decompose.Proposal`.
 A :class:`Provenance` tag records whether a template authored the value
-(DETERMINISTIC) or a jev answer chose it (MODEL). The classifier proposer
+(DETERMINISTIC) or a jev answer chose it (MODEL). The fill proposer
 builds a plan, promotes its jev answers to rank 0 with :func:`choose`, and
 collapses it, so the emitted proposal is byte-identical to the one it
 hand-built before this layer existed.
 
 :func:`enumerate_candidates` and :func:`collapse` are also the no-jev
-proposer, ``delegate.deterministic_proposer``: with no model to ask, the
+proposer, ``delegate.scaffold_proposer``: with no model to ask, the
 collapse picks the first type, target and symbol, and the request as the task.
 No field states a reply cap: every request is sent its unit's maximum.
 """
@@ -167,7 +167,7 @@ def subject(target: str, symbol: str | None) -> str:
 
 
 def completable(vocabulary: Sequence[TaskType]) -> tuple[TaskType, ...]:
-    """The servable types a classifier can propose: those needing no commands.
+    """The servable types a fill proposer can propose: those needing no commands.
 
     A type whose evidence requires acceptance or demonstration commands is left
     out, because a typed answer cannot supply the commands themselves.
@@ -183,7 +183,7 @@ def completable(vocabulary: Sequence[TaskType]) -> tuple[TaskType, ...]:
 
 
 def task_type_candidates(evidence: Evidence) -> CandidateSet:
-    """The servable types a classifier can complete, cheapest family first."""
+    """The servable types a fill proposer can complete, cheapest family first."""
     return _set(
         "task_type", tuple(kind.name for kind in completable(evidence.vocabulary))
     )
@@ -213,7 +213,7 @@ def task_candidates(
 
     Rank 0 is `request` verbatim, so a rank-0 collapse carries the user's own
     words into the contract; rank 1 is `directive`, the type's doc line and the
-    subject. Whichever one a classifier picks goes into the contract unchanged.
+    subject. Whichever one a fill proposer picks goes into the contract unchanged.
     A request that is empty, or already the directive, leaves the directive alone.
     """
     if kind is None:
@@ -237,7 +237,7 @@ def interface_candidates(
 ) -> CandidateSet:
     """None, then the chosen symbol's signature or a few of the target's.
 
-    Rank 0 is "" (the classifier states none). With a symbol chosen, the only
+    Rank 0 is "" (the fill proposer states none). With a symbol chosen, the only
     other option is that symbol's own signature: the work keeps one interface,
     and every other signature in the file only lengthened the question until a
     file of 62 definitions overflowed it. With no symbol chosen, up to
@@ -313,7 +313,7 @@ def sources_candidates(evidence: Evidence, target: str) -> CandidateSet:
 def acceptance_candidates(evidence: Evidence, kind: TaskType | None) -> CandidateSet:
     """Acceptance commands from the baseline run only (no disk probe here).
 
-    Rank 0 is () — the classifier states none. When the kind derives evidence
+    Rank 0 is () — the fill proposer states none. When the kind derives evidence
     and a baseline was observed, its acceptance commands are the rank-1
     candidate.
     """
@@ -328,7 +328,7 @@ def acceptance_candidates(evidence: Evidence, kind: TaskType | None) -> Candidat
 def demonstration_candidates(evidence: Evidence, kind: TaskType | None) -> CandidateSet:
     """Demonstration commands from the baseline run only (no disk probe here).
 
-    Rank 0 is () — the classifier states none. When the kind derives evidence
+    Rank 0 is () — the fill proposer states none. When the kind derives evidence
     and a baseline was observed, its demonstration commands are the rank-1
     candidate.
     """
@@ -372,8 +372,8 @@ def enumerate_candidates(evidence: Evidence) -> CandidatePlan:
 
     The rank-0 target and kind pick the rank-0 symbol, which in turn derives
     the rank-0 task and stop conditions. Its collapse is what
-    `delegate.deterministic_proposer` emits when no jev unit is bound; the
-    classifier re-chooses each field it asks.
+    `delegate.scaffold_proposer` emits when no jev unit is bound; the
+    fill proposer re-chooses each field it asks.
     """
     kinds = completable(evidence.vocabulary)
     kind = kinds[0] if kinds else None  # rank-0 task type

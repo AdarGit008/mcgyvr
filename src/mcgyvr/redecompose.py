@@ -1,16 +1,16 @@
-"""Re-planning a contract whose ladder is spent: what the orchestrator is handed.
+"""Re-decomposing a contract whose ladder is spent: what the proposer is handed.
 
 A climb that tried every rung and produced no acceptable change ends
 ``ladder_spent`` (:class:`mcgyvr.escalate.Outcome`). The same contract would
 come to the same answer anywhere, so a batch (``mcgyvr PROMPT``) hands
-it back to the proposer to be re-planned instead of stopping there, up to
-``max_replans`` times for one line of work.
+it back to the proposer to be re-decomposed instead of stopping there, up to
+``max_redecompositions`` times for one line of work.
 
 What goes back is :class:`Spent`: the contract, and the failure-notes records
 its climb left (``mcgyvr.failure_notes/1``, :class:`mcgyvr.notes.FailureNotes`),
 read back from the result file's ``attempts[].notes`` by :func:`failures_of` —
-the records the gate, the reviewer and the reply parser built after the fact,
-never a model's account of them. The orchestrator is asked for the spent
+the records the gate, the verifier and the reply parser built after the fact,
+never a model's account of them. The proposer is asked for the spent
 contract's own work again (:func:`request_for`), and :func:`render` shows it
 the records as evidence: under a section that says what they are, delimited,
 held to the bounds the worker prompt holds a climb's notes to
@@ -19,10 +19,11 @@ held to the bounds the worker prompt holds a climb's notes to
 worker is told to fix them with.
 
 The bound is read from the contracts, not from memory: each contract proposed
-in a spent one's place carries ``replan`` (:class:`mcgyvr.contract.Lineage`) —
+in a spent one's place carries ``lineage`` (:class:`mcgyvr.contract.Lineage`) —
 the id it replaces and its round, one more than the spent contract's
-(:func:`next_round`, :func:`stamped`). A contract already at ``max_replans``
-is not re-planned again.
+(:func:`next_round`, :func:`with_lineage`). A contract already at
+``max_redecompositions``
+is not re-decomposed again.
 """
 
 from __future__ import annotations
@@ -31,7 +32,7 @@ from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any
 
-from mcgyvr.config import MAX_REPLANS_DEFAULT
+from mcgyvr.config import MAX_REDECOMPOSITIONS_DEFAULT
 from mcgyvr.contract import Contract, Lineage
 from mcgyvr.notes import ClimbNotes, FailureNotes, NotesError
 from mcgyvr.worker.prompt import MAX_NOTES_SHOWN, MAX_RECORDS_SHOWN
@@ -40,9 +41,9 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.config import Config
     from mcgyvr.decompose.decompose import Decomposition
 
-#: The outcome a batch re-plans: the ladder honestly tried and not up to the
+#: The outcome a batch re-decomposes: the ladder honestly tried and not up to the
 #: work. The ceilings, an error and a ladder with nothing to run say nothing
-#: about the plan, so they are not re-planned.
+#: about the decomposition, so they are not re-decomposed.
 SPENT = "ladder_spent"
 
 #: The line that closes the notes section; no rendered line can be it, since
@@ -51,7 +52,7 @@ _END = "END OF FAILURE NOTES"
 
 #: The most characters of one value shown: a note's line, a task, an
 #: interface. `MAX_NOTES_SHOWN` bounds how many lines; this bounds each, so one
-#: traceback-sized message cannot grow the orchestrator's prompt without limit.
+#: traceback-sized message cannot grow the proposer's prompt without limit.
 MAX_LINE_CHARS = 400
 
 
@@ -63,9 +64,9 @@ class Spent:
     failures: ClimbNotes = ()
 
 
-#: What re-plans a spent contract: the orchestrator asked again, its proposals
+#: What re-decomposes a spent contract: the proposer asked again, its proposals
 #: checked and emitted as a decomposition is.
-Replanner = Callable[[Spent], "Decomposition"]
+Redecomposer = Callable[[Spent], "Decomposition"]
 
 
 def failures_of(result: Mapping[str, Any]) -> ClimbNotes:
@@ -88,10 +89,10 @@ def failures_of(result: Mapping[str, Any]) -> ClimbNotes:
 
 
 def request_for(contract: Contract) -> str:
-    """The request a re-plan asks the orchestrator: the spent contract's own work.
+    """The request a re-decomposition asks the proposer: the spent contract's own work.
 
     Its task, on its target, with the interface it was to expose, so the
-    resolution reads the same files the first plan did.
+    resolution reads the same files the first decomposition did.
     """
     lines = [contract.task, "", f"Target: {contract.target}"]
     if contract.interface:
@@ -100,9 +101,9 @@ def request_for(contract: Contract) -> str:
 
 
 def render(spent: Spent) -> str:
-    """The re-plan section of the orchestrator's prompt.
+    """The re-decomposition section of the proposer's prompt.
 
-    It says the request was already planned as the spent contract and that every
+    It says the request was already decomposed as the spent contract and that every
     rung was tried on it, asks for different work, then states the spent
     contract and its records as data. The latest record is shown whole, at most
     `MAX_NOTES_SHOWN` of its lines with the rest counted, and the records before
@@ -110,7 +111,7 @@ def render(spent: Spent) -> str:
     """
     contract = spent.contract
     lines = [
-        f"RE-PLAN: the request above was already planned as contract "
+        f"RE-DECOMPOSITION: the request above was already decomposed as contract "
         f"{contract.id} on {contract.target}, and every rung of the ladder was "
         f"tried on it without an acceptable change. Propose different work for "
         f"the same request — smaller contracts, or a narrower one — that does "
@@ -154,7 +155,7 @@ def _records(climb: Sequence[FailureNotes]) -> list[str]:
 def flat(value: str) -> str:
     """`value` on one line, whitespace runs collapsed, cut at `MAX_LINE_CHARS`.
 
-    A message is what a check or a reviewer printed, and may hold newlines: on
+    A message is what a check or a verifier printed, and may hold newlines: on
     one line it cannot close the data section or start a line of its own.
     """
     flat = " ".join(value.split())
@@ -167,39 +168,39 @@ def flat(value: str) -> str:
 _flat = flat
 
 
-def max_replans(config: Config) -> int:
-    """`max_replans` as the config states it, or its default when unset."""
-    stated = config.get("max_replans", MAX_REPLANS_DEFAULT)
-    return MAX_REPLANS_DEFAULT if stated is None else int(stated)
+def max_redecompositions(config: Config) -> int:
+    """`max_redecompositions` as the config states it, or its default when unset."""
+    stated = config.get("max_redecompositions", MAX_REDECOMPOSITIONS_DEFAULT)
+    return MAX_REDECOMPOSITIONS_DEFAULT if stated is None else int(stated)
 
 
 def next_round(contract: Contract, bound: int) -> int | None:
-    """The round a re-plan of `contract` would be, or None past `bound`.
+    """The round a re-decomposition of `contract` would be, or None past `bound`.
 
-    `bound` is `max_replans`; the round is one more than the contract's own.
+    `bound` is `max_redecompositions`; the round is one more than the contract's own.
     """
-    upcoming = contract.replan.round + 1
+    upcoming = contract.lineage.round + 1
     return upcoming if upcoming <= bound else None
 
 
-def stamped(
+def with_lineage(
     contracts: Iterable[Contract], spent: Contract, round_: int
 ) -> tuple[Contract, ...]:
-    """`contracts`, each carrying the lineage of a re-plan of `spent` at `round_`."""
+    """`contracts`, each carrying the lineage of a re-decomposition of `spent`."""
     lineage = Lineage(replaces=spent.id, round=round_)
-    return tuple(replace(contract, replan=lineage) for contract in contracts)
+    return tuple(replace(contract, lineage=lineage) for contract in contracts)
 
 
 def hint(bound: int) -> str:
-    """What a single run that spent its ladder says about re-planning.
+    """What a single run that spent its ladder says about re-decomposing.
 
     A contract someone wrote and ran with `mcgyvr direct` has no proposer to hand
     it back to, so it stops at `ladder_spent` and says where the work goes on.
-    (A batch that `mcgyvr PROMPT` planned re-plans; `direct` never does.)
+    (A batch that `mcgyvr PROMPT` decomposed re-decomposes; `direct` never does.)
     """
     return (
-        f"replan: every rung was tried on this contract. A batch re-plans a "
-        f"contract like this (max_replans: {bound}): `mcgyvr "
+        f"re-decompose: every rung was tried on this contract. A batch re-decomposes a "
+        f"contract like this (max_redecompositions: {bound}): `mcgyvr "
         f"PROMPT` hands it back to the proposer with the failure notes in "
         f"this result and runs what comes back in its place. `mcgyvr direct` "
         f"stops here; send the request through `mcgyvr PROMPT`, or "

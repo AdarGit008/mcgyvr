@@ -1,5 +1,8 @@
 """Everything one run of a contract does, behind `mcgyvr PROMPT` and `mcgyvr direct`.
 
+(Named for the `run` verb, which is gone;
+the name stays: it still runs one contract.)
+
 `_run` loads a contract, refuses a repository that is not a git checkout, settles
 the session, the config, the journal directory and the delivery policy, and then
 takes one of two paths: a deterministic contract runs the program its task type
@@ -144,7 +147,7 @@ def _run(args: argparse.Namespace) -> int:
         config_error = exc
     if config is None and not contract.is_deterministic:
         # No config and a contract that has to climb: there is no ladder, no unit
-        # to ask and no reviewer, so nothing could run or judge the work. Stop
+        # to ask and no verifier, so nothing could run or judge the work. Stop
         # here and point at the document that sets a setup up, rather than climb
         # something the caller never declared.
         print(f"error: {config_error} {setup_doc()} says how.", file=sys.stderr)
@@ -344,7 +347,7 @@ def _run(args: argparse.Namespace) -> int:
                 file=sys.stderr,
             )
     # The pointer is for a run on its own. In a batch (both verbs) the result is
-    # read in process (the Board, the re-planner), so nothing is printed.
+    # read in process (the Board, the re-decomposer), so nothing is printed.
     if not getattr(args, "in_batch", False):
         print(f"result: {written}")
     return code
@@ -583,7 +586,7 @@ def _climb(
     from mcgyvr.drive import DriveError, acceptance_for, worker_attempt
     from mcgyvr.escalate import Outcome, ascent, escalate, redundant_relief
     from mcgyvr.local_pool import SourceUnavailableError, source_map
-    from mcgyvr.replan import max_replans
+    from mcgyvr.redecompose import max_redecompositions
     from mcgyvr.route import RouteError
     from mcgyvr.sandbox.base import SandboxError, open_sandbox
     from mcgyvr.triage import stated
@@ -605,7 +608,7 @@ def _climb(
     # The pool: every ladder unit and relief rung that can actually run, with its
     # model, its endpoint and the role bindings, plus the rungs skipped and why.
     # It is built once and handed to everything below, the route, the capacity,
-    # the reviewers, the driver and the climb itself, so they all agree on which
+    # the verifiers, the driver and the climb itself, so they all agree on which
     # sources exist.
     pool = source_map(config)
 
@@ -667,11 +670,11 @@ def _climb(
         )
 
     # A contract whose kind judges a change is reviewed by a fresh context: the
-    # reviewer comes from the config's `verifier` settings, through the same pool
+    # verifier comes from the config's `verifier` settings, through the same pool
     # and capacity as the work. A verifier that is enabled and cannot run is
     # refused here with the keys that would fix it, because accepting the change
     # without it would report an assurance the run does not have. Kinds that do
-    # not judge a change get no reviewers at all.
+    # not judge a change get no verifiers at all.
     try:
         reviewers = (
             reviewers_for(config, pool, capacity=capacity)
@@ -757,9 +760,11 @@ def _climb(
                 outcome,
                 recording,
                 report,
-                # A batch re-plans the contract itself and says so on the
+                # A batch re-decomposes the contract itself and says so on the
                 # result, so the hint is for a run on its own.
-                replans=0 if getattr(args, "in_batch", False) else max_replans(config),
+                redecompositions=0
+                if getattr(args, "in_batch", False)
+                else max_redecompositions(config),
             )
     except (DriveError, SandboxError, CapacityError, WakeJudgeError) as exc:
         return _error(report, str(exc))
@@ -820,21 +825,22 @@ def _report_climb(
     recording: Recording | None,
     report: RunResult,
     *,
-    replans: int = 0,
+    redecompositions: int = 0,
 ) -> int:
     """Print the climb, record it, and deliver whatever it accepted.
 
     Each attempt in the history is printed and given a correction row per draw,
     then copied into the result's attempts. A halt sets the result's outcome and
-    detail and exits 1; a spent ladder notes, when `replans` (`max_replans`) is
-    above zero, that a batch re-plans such a contract and this run does not. A
+    detail and exits 1; a spent ladder notes, when `redecompositions`
+    (`max_redecompositions`) is
+    above zero, that a batch re-decomposes such a contract and this run does not. A
     delivery says which rung it landed on, what it cost in attempts and
     escalations, and what the assurance is, then commits a change; a judgement
     that bound no content is an error, because there would be nothing to
     deliver.
     """
     from mcgyvr.escalate import Assurance, Delivered, Outcome
-    from mcgyvr.replan import hint as replan_hint
+    from mcgyvr.redecompose import hint as redecompose_hint
     from mcgyvr.result import AttemptResult
     from mcgyvr.route import Verdict
     from mcgyvr.telemetry import correct
@@ -909,8 +915,8 @@ def _report_climb(
         report.detail = outcome.detail
         print(f"\n{contract.id}: {outcome.outcome.value}", file=sys.stderr)
         print(f"error: {outcome.detail}", file=sys.stderr)
-        if outcome.outcome is Outcome.LADDER_SPENT and replans > 0:
-            said = replan_hint(replans)
+        if outcome.outcome is Outcome.LADDER_SPENT and redecompositions > 0:
+            said = redecompose_hint(redecompositions)
             print(f"note: {said}", file=sys.stderr)
             report.notes.append(said)
         return 1
@@ -930,12 +936,12 @@ def _report_climb(
     report.rung = outcome.rung
     report.assurance = outcome.assurance.value
     # The judgement's own words become the result's detail, so a reader sees why
-    # the accepted rung was accepted, the reviewer's note or the checks that
+    # the accepted rung was accepted, the verifier's note or the checks that
     # passed, and not only the verdict.
     report.detail = outcome.judgement.detail
     if outcome.assurance is Assurance.UNVERIFIED:
         # No independent review approved this: say so on stderr, because an
-        # acceptance with no reviewer behind it is the one a caller can miss.
+        # acceptance with no verifier behind it is the one a caller can miss.
         print(
             f"UNVERIFIED: {contract.id} is accepted with no independent review "
             f"approving it — {outcome.judgement.detail}",

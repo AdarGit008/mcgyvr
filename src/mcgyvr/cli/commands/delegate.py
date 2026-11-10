@@ -1,16 +1,20 @@
-"""The bare verb, `mcgyvr PROMPT`: plan a prompt into contracts and run them.
+"""The bare verb, `mcgyvr PROMPT`: decompose a prompt into contracts and run them.
 
-`_delegate` loads the config the orchestrator role is bound in — a bare install,
+(Named for the `delegate` verb, which is gone;
+the name stays: `delegate` is the bare `mcgyvr PROMPT` mode.)
+
+`_delegate` loads the config the proposer role is bound in — a bare install,
 with no setup named or found, is refused rather than failed — resolves it into a
-`SourceMap`, and picks a proposer from `orchestrator.authoring`. It attaches the
+`SourceMap`, and picks a proposer from `proposer.authoring`. It attaches the
 repository, says once what a sandbox built from it leaves out, builds the index,
 and hands the evidence to `decompose`. The contracts that come back are reported,
 written as `DIR/<id>.json` with `--output` (and nothing more), or printed and
 run (`_run_delegated`) through the machinery each run has, in the order their
 dependency tree allows, up to `--jobs` of them at once — a contract whose
 provider did not land is held, not run, and one whose ladder is spent is handed
-back to the orchestrator to be re-planned (`mcgyvr.replan`, up to
-`max_replans`; the top rung re-plans when no orchestrator model is bound), what
+back to the proposer to be re-decomposed (`mcgyvr.redecompose`, up to
+`max_redecompositions`; the top rung re-decomposes when no proposer model is
+bound), what
 comes back taking its place. A proposal vetting refuses goes to the top rung of
 the ladder to be corrected (`mcgyvr.repropose`, up to `max_reproposals`).
 With `--log PATH` how the command ended is written there as one
@@ -47,7 +51,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.decompose.decompose import Decomposition, Proposer
     from mcgyvr.delegate import TopRungProposer
     from mcgyvr.local_pool import SourceMap
-    from mcgyvr.replan import Replanner, Spent
+    from mcgyvr.redecompose import Redecomposer, Spent
     from mcgyvr.session import Session
     from mcgyvr.tree import Hold
 
@@ -80,7 +84,7 @@ class _Logbook:
 
     def __init__(self, path: str | None) -> None:
         self.path = Path(path) if path else None
-        #: Where the classifier's typed decisions are recorded under `--log`:
+        #: Where the fill proposer's typed decisions are recorded under `--log`:
         #: beside the record, `<PATH>.decisions.jsonl`.
         self.decisions = (
             self.path.with_name(f"{self.path.name}.decisions.jsonl")
@@ -222,7 +226,7 @@ def _refuse_before_delegating(
         "a prompt",
         "--result",
         "--notes-from",
-        why="its contracts are proposed new, not known before it is planned",
+        why="its contracts are proposed new, not known before it is decomposed",
     )
     if problem is None and args.run:
         kind = DelegateKind.SESSION_UNRESOLVED
@@ -274,9 +278,9 @@ def _delegate_logged(args: argparse.Namespace, book: _Logbook) -> int:
     The config is loaded before anything else: `--config` when it is given,
     otherwise whatever the environment names and discovery finds. A missing
     setup is a bare install only when nothing named one; a bare install has no
-    orchestrator role to ask, so it is refused, while any other load failure is
+    proposer role to ask, so it is refused, while any other load failure is
     an error. The config is resolved into a `SourceMap`, and the proposer
-    `orchestrator.authoring` asks for is built, so a role declared but not
+    `proposer.authoring` asks for is built, so a role declared but not
     runnable is reported as a failure and a missing one as a refusal.
 
     `attach` yields the root every step below reads: a local checkout in place,
@@ -284,11 +288,11 @@ def _delegate_logged(args: argparse.Namespace, book: _Logbook) -> int:
     the block exits. The sandbox note is printed, the index is built, and
     `decompose` turns the prompt into contracts from that index, the proposer,
     the config and `--budget`. The contracts are reported, then written to
-    `--output` and left there, or printed and each of them run, re-planning a
-    contract whose ladder is spent through the orchestrator model, or the top
+    `--output` and left there, or printed and each of them run, re-decomposing a
+    contract whose ladder is spent through the proposer model, or the top
     rung when none is bound, on the same checkout. The exit code is 0 when
     contracts were emitted; 3 (`Exit.REFUSED`) when there is no config at all,
-    when prose authoring is chosen with no orchestrator role, or when no
+    when draft authoring is chosen with no proposer role, or when no
     contract came of the request; 1 when the config, attaching, indexing or proposing
     failed; and when they run, the batch's, the last non-zero exit of its runs
     (3 for a contract held `blocked`). A batch with no session to file it
@@ -301,7 +305,7 @@ def _delegate_logged(args: argparse.Namespace, book: _Logbook) -> int:
     from mcgyvr.config import ConfigError
     from mcgyvr.decompose import decompose
     from mcgyvr.delegate import (
-        NO_ORCHESTRATOR_ROLE,
+        NO_PROPOSER_ROLE,
         NO_SETUP,
         DelegationError,
         UnreadableProposalError,
@@ -328,7 +332,7 @@ def _delegate_logged(args: argparse.Namespace, book: _Logbook) -> int:
     # `chosen` is the path `--config` names and `named` is that, or the setup
     # the environment names, so a None `named` means nothing was named here.
     # A missing setup is a bare install only when nothing named one: that is
-    # refused as no orchestrator role, while any other load failure is an error.
+    # refused as no proposer role, while any other load failure is an error.
     bare_install = isinstance(config_error, ConfigMissingError) and named is None
     if config is None and not bare_install:
         print(f"error: {config_error}", file=sys.stderr)
@@ -338,7 +342,7 @@ def _delegate_logged(args: argparse.Namespace, book: _Logbook) -> int:
         return 1
     if config is None:
         print(NO_SETUP, file=sys.stderr)
-        book.ended(DelegateKind.CONFIG_NO_ORCHESTRATOR, NO_SETUP, bare_install=True)
+        book.ended(DelegateKind.CONFIG_NO_PROPOSER, NO_SETUP, bare_install=True)
         return Exit.REFUSED
     raw = requires_mcgyvr_code(config)
     if raw is not None:
@@ -353,22 +357,22 @@ def _delegate_logged(args: argparse.Namespace, book: _Logbook) -> int:
         propose = _proposer_for_delegate(config, pool, decisions=book.decisions)
     except SourceUnavailableError as exc:
         said = (
-            f"the orchestrator role is declared but cannot run: {exc}. "
-            f"Bind `orchestrator.unit` to a usable unit, or author contracts "
+            f"the proposer role is declared but cannot run: {exc}. "
+            f"Bind `proposer.unit` to a usable unit, or author contracts "
             f"yourself and run them with `mcgyvr direct`."
         )
         print(f"error: {said}", file=sys.stderr)
         book.ended(
-            DelegateKind.ORCHESTRATOR_UNRUNNABLE,
+            DelegateKind.PROPOSER_UNRUNNABLE,
             said,
             error_class=type(exc).__name__,
         )
         return 1
     if propose is None:
-        print(NO_ORCHESTRATOR_ROLE, file=sys.stderr)
+        print(NO_PROPOSER_ROLE, file=sys.stderr)
         book.ended(
-            DelegateKind.CONFIG_NO_ORCHESTRATOR,
-            NO_ORCHESTRATOR_ROLE,
+            DelegateKind.CONFIG_NO_PROPOSER,
+            NO_PROPOSER_ROLE,
             bare_install=False,
             path=_str_or_none(getattr(config, "path", None)),
         )
@@ -407,7 +411,9 @@ def _delegate_logged(args: argparse.Namespace, book: _Logbook) -> int:
                     decomposition,
                     written,
                     config,
-                    replan=_replanner(args, repo.root, config, pool, propose, fix),
+                    redecompose=_redecomposer(
+                        args, repo.root, config, pool, propose, fix
+                    ),
                     book=book,
                 )
             return 0
@@ -427,7 +433,7 @@ def _delegate_logged(args: argparse.Namespace, book: _Logbook) -> int:
             book.ended(exc.kind, str(exc), **exc.detail)
         elif isinstance(exc, RunnerError):
             book.ended(
-                DelegateKind.ORCHESTRATOR_DISPATCH_FAILED,
+                DelegateKind.PROPOSER_DISPATCH_FAILED,
                 str(exc),
                 error_class=type(exc).__name__,
             )
@@ -449,34 +455,34 @@ def _str_or_none(value: object) -> str | None:
 
 
 def _print_raw_reply(reply: str) -> None:
-    """Print the orchestrator's unreadable reply, whole and delimited, on stderr.
+    """Print the proposer's unreadable reply, whole and delimited, on stderr.
 
     Nothing else keeps it — no journal is open before the contracts exist — so
     a caller capturing only the command's output still has the reply to read.
     The lines between the two markers are the reply verbatim, plus a closing
     newline when it lacks one.
     """
-    print(f"--- the orchestrator's raw reply ({len(reply)} chars) ---", file=sys.stderr)
+    print(f"--- the proposer's raw reply ({len(reply)} chars) ---", file=sys.stderr)
     print(reply, end="" if reply.endswith("\n") else "\n", file=sys.stderr)
-    print("--- end of the orchestrator's raw reply ---", file=sys.stderr)
+    print("--- end of the proposer's raw reply ---", file=sys.stderr)
 
 
 def _proposer_for_delegate(
     config: Config, pool: SourceMap, *, decisions: Path | None = None
 ) -> Proposer | None:
-    """The proposer `orchestrator.authoring` asks for, or None if none can run.
+    """The proposer `proposer.authoring` asks for, or None if none can run.
 
-    The prose proposer on the `orchestrator` role is built whenever a model
-    is bound there. The typed classifier — Jev's fill when a `jev` unit is
+    The draft proposer on the `proposer` role is built whenever a model
+    is bound there. The fill proposer — Jev's fill when a `jev` unit is
     opted in, the scaffold alone when none is — is built when the strategy is
-    "classifier", the default, refined until each proposal is on one file and
+    "fill", the default, refined until each proposal is on one file and
     jev says it cannot be split further, within `max_splits_per_file` and
     `max_refine_fanout`; `proposer_by_authoring` then puts it in front of the
-    prose one where there is one, which stands in when the classifier
+    draft one where there is one, which stands in when the fill proposer
     declines, and runs it alone where there is none. A strategy that is not a
-    string is passed as None, which selects prose. None comes back when prose
-    was chosen and no `orchestrator` model is bound. With `decisions` (`--log`
-    names it) the classifier's shadow sink is that file, so every typed
+    string is passed as None, which selects draft. None comes back when draft
+    was chosen and no `proposer` model is bound. With `decisions` (`--log`
+    names it) the fill proposer's shadow sink is that file, so every typed
     decision it asks is recorded there with its model.
     """
     from mcgyvr import refine
@@ -495,7 +501,7 @@ def _proposer_for_delegate(
             max_splits=refine.max_splits(config),
             max_fanout=refine.max_fanout(config),
         )
-        if strategy == "classifier"
+        if strategy == "fill"
         else None
     )
     return proposer_by_authoring(
@@ -505,22 +511,22 @@ def _proposer_for_delegate(
     )
 
 
-def _replanner(
+def _redecomposer(
     args: argparse.Namespace,
     root: Path,
     config: Config,
     pool: SourceMap,
     propose: Proposer,
     fix: Proposer | None = None,
-) -> Replanner:
-    """What re-plans a spent contract: the orchestrator, asked again on `root`.
+) -> Redecomposer:
+    """What re-decomposes a spent contract: the proposer, asked again on `root`.
 
     The index is built again, since what landed before the spend is in the
     tree now — under `--jobs`, between two deliveries of the runs beside it —
     and the spent contract's own work is decomposed with its failure notes on
-    the evidence. A prose proposer is asked, since it is the one that is shown
-    the notes: the `orchestrator` model when one is bound, else `fix`, the top
-    rung, which corrects the re-plan's refusals too; `propose` stands in when
+    the evidence. A draft proposer is asked, since it is the one that is shown
+    the notes: the `proposer` model when one is bound, else `fix`, the top
+    rung, which corrects the re-decomposition's refusals too; `propose` stands in when
     neither is there.
     """
     from contextlib import nullcontext
@@ -528,7 +534,7 @@ def _replanner(
     from mcgyvr.decompose import decompose
     from mcgyvr.delegate import proposer_for
     from mcgyvr.deliver import between_deliveries
-    from mcgyvr.replan import request_for
+    from mcgyvr.redecompose import request_for
     from mcgyvr.repo import build_index
     from mcgyvr.repropose import max_reproposals
 
@@ -537,7 +543,7 @@ def _replanner(
     # between two deliveries, never in the middle of one.
     beside = getattr(args, "jobs", 1) != 1
 
-    def replan(spent: Spent) -> Decomposition:
+    def redecompose(spent: Spent) -> Decomposition:
         with between_deliveries(root) if beside else nullcontext():
             index = build_index(root)
         dec = decompose(
@@ -553,7 +559,7 @@ def _replanner(
         _report_decomposition(dec)
         return dec
 
-    return replan
+    return redecompose
 
 
 def _report_decomposition(dec: Decomposition, *, said: str = "proposed") -> None:
@@ -609,7 +615,7 @@ def _run_delegated(
     written: Sequence[Path],
     config: Config,
     *,
-    replan: Replanner | None = None,
+    redecompose: Redecomposer | None = None,
     book: _Logbook | None = None,
 ) -> int:
     """Run the emitted contracts through `_run`, `--jobs` at once, as the tree allows.
@@ -618,7 +624,7 @@ def _run_delegated(
     `--output` are run in place; when they were printed instead, they are staged
     into a temporary directory first, so either way every run reads a contract
     file. The session the runs are filed under is `args.session`, resolved from
-    `--session` before the orchestrator role was asked (`_unusable_writer`).
+    `--session` before the proposer role was asked (`_unusable_writer`).
 
     The contracts go on the repository's live dependency tree (`mcgyvr.tree`,
     `Board.live`) read against its committed tree: a fresh one, or the one
@@ -650,13 +656,13 @@ def _run_delegated(
     read and changed on this thread only, under the repository's delivery
     lock, which serialises them with every other batch on it.
 
-    A contract whose run came to `ladder_spent` is handed to `replan` with the
-    failure notes its result carries, while its `replan` round is below
-    `max_replans` (`mcgyvr.replan`). The contracts that come back, each
+    A contract whose run came to `ladder_spent` is handed to `redecompose` with the
+    failure notes its result carries, while its `lineage` round is below
+    `max_redecompositions` (`mcgyvr.redecompose`). The contracts that come back, each
     carrying the spent one's id and the round, are written beside the others
     and take its place on the tree, which frees what it held; the spent result
-    says so under `replanned`. The last non-zero exit code, in the order the
-    runs ended, is returned, not counting a run whose contract was re-planned,
+    says so under `redecomposed`. The last non-zero exit code, in the order the
+    runs ended, is returned, not counting a run whose contract was re-decomposed,
     since its work goes on. When anything was held, `book` is told which and
     where the tree's state file is (`batch_held`). A run that raises stops the
     batch: nothing more is started, the runs beside it are waited for and
@@ -673,7 +679,7 @@ def _run_delegated(
     from mcgyvr.capacity import run_eager
     from mcgyvr.cli import streams
     from mcgyvr.config import journal_dir
-    from mcgyvr.replan import SPENT
+    from mcgyvr.redecompose import SPENT
     from mcgyvr.tree import State
 
     paths = list(written)
@@ -685,7 +691,7 @@ def _run_delegated(
             path.write_text(document + "\n", encoding="utf-8")
             paths.append(path)
     path_of = {c.id: p for c, p in zip(dec.contracts, paths, strict=True)}
-    # Where a re-planned contract is written: beside the batch's own.
+    # Where a re-decomposed contract is written: beside the batch's own.
     folder = staging if staging is not None else paths[0].parent
 
     session: Session = args.session
@@ -768,20 +774,20 @@ def _run_delegated(
             skipped.discard(contract.id)
             return
         settled = came(contract, code)
-        # A spent contract is re-planned before it is settled, so the tree
+        # A spent contract is re-decomposed before it is settled, so the tree
         # every batch reads never shows it failed while what replaces it is
         # still being asked for.
         if (
-            replan is not None
+            redecompose is not None
             and settled["outcome"] == SPENT
             and settled.get("result")
-            and _replanned(
+            and _redecomposed(
                 args,
                 board,
                 tree_id,
                 contract,
                 Path(settled["result"]),
-                replan,
+                redecompose,
                 config,
                 folder,
                 path_of,
@@ -795,7 +801,7 @@ def _run_delegated(
 
     def abandon(contract: Contract, code: int) -> None:
         # The batch is stopping: what ended beside the failure is put on the
-        # tree as it came, and nothing is re-planned.
+        # tree as it came, and nothing is re-decomposed.
         if contract.id in skipped:
             skipped.discard(contract.id)
             return
@@ -940,23 +946,23 @@ def _jobs(text: str) -> int:
     return jobs
 
 
-def _replanned(
+def _redecomposed(
     args: argparse.Namespace,
     board: Board,
     tree_id: str,
     spent: Contract,
     result: Path,
-    replan: Replanner,
+    redecompose: Redecomposer,
     config: Config,
     folder: Path,
     path_of: dict[str, Path],
 ) -> bool:
-    """Re-plan a contract whose ladder is spent; whether anything took its place.
+    """Re-decompose a contract whose ladder is spent; whether anything took its place.
 
-    Nothing is asked when `max_replans` is 0, and the result is left as it is.
-    Past the bound, a re-plan that could not be had, and one that proposed
+    Nothing is asked when `max_redecompositions` is 0, and the result is left as it is.
+    Past the bound, a re-decomposition that could not be had, and one that proposed
     nothing the batch does not already hold are each said on the spent result's
-    `replanned`, and the tree keeps holding what waited on it. Otherwise the
+    `redecomposed`, and the tree keeps holding what waited on it. Otherwise the
     new contracts carry the lineage, are written into `folder`, take the spent
     one's place on the tree, and the result names them.
     """
@@ -965,45 +971,52 @@ def _replanned(
     from mcgyvr.contract import dumps
     from mcgyvr.delegate import DelegationError
     from mcgyvr.local_pool import SourceUnavailableError
-    from mcgyvr.replan import Spent, failures_of, max_replans, next_round, stamped
+    from mcgyvr.redecompose import (
+        Spent,
+        failures_of,
+        max_redecompositions,
+        next_round,
+        with_lineage,
+    )
     from mcgyvr.repo import IndexBuildError
     from mcgyvr.runner import RunnerError
 
-    bound = max_replans(config)
+    bound = max_redecompositions(config)
     if bound <= 0:
         return False
     try:
         doc = json.loads(result.read_text(encoding="utf-8"))
     except (OSError, ValueError) as exc:
         print(
-            f"error: {spent.id} is not re-planned: its result {result} could not "
+            f"error: {spent.id} is not re-decomposed: its result {result} could not "
             f"be read ({exc})",
             file=sys.stderr,
         )
         return False
     round_ = next_round(spent, bound)
     if round_ is None:
-        _say_replanned(
+        _say_redecomposed(
             args,
             result,
             doc,
-            spent.replan.round,
+            spent.lineage.round,
             bound,
             (),
-            f"not re-planned: it is already re-plan round {spent.replan.round} "
-            f"of max_replans {bound}.",
+            f"not re-decomposed: it is already re-decomposition round "
+            f"{spent.lineage.round} "
+            f"of max_redecompositions {bound}.",
         )
         return False
     try:
-        dec = replan(Spent(contract=spent, failures=failures_of(doc)))
+        dec = redecompose(Spent(contract=spent, failures=failures_of(doc)))
     except (
         DelegationError,
         RunnerError,
         SourceUnavailableError,
         IndexBuildError,
     ) as exc:
-        _say_replanned(
-            args, result, doc, round_, bound, (), f"the re-plan failed: {exc}."
+        _say_redecomposed(
+            args, result, doc, round_, bound, (), f"the re-decomposition failed: {exc}."
         )
         return False
     fresh = _runnable_replacements(
@@ -1011,19 +1024,19 @@ def _replanned(
     )
     if not fresh:
         refused = "; ".join(str(r) for r in dec.refusals)
-        _say_replanned(
+        _say_redecomposed(
             args,
             result,
             doc,
             round_,
             bound,
             (),
-            "the re-plan proposed nothing new"
+            "the re-decomposition proposed nothing new"
             + (f" (refused: {refused})" if refused else "")
             + ", so what waited on it stays held.",
         )
         return False
-    replacing = stamped(fresh, spent, round_)
+    replacing = with_lineage(fresh, spent, round_)
     try:
         for contract in replacing:
             path = folder / f"{contract.id}.json"
@@ -1031,25 +1044,25 @@ def _replanned(
             path_of[contract.id] = path
         board.replace(tree_id, spent.id, *replacing)
     except (OSError, ValueError) as exc:
-        _say_replanned(
+        _say_redecomposed(
             args,
             result,
             doc,
             round_,
             bound,
             (),
-            f"the re-plan could not be put in its place: {exc}.",
+            f"the re-decomposition could not be put in its place: {exc}.",
         )
         return False
     ids = tuple(c.id for c in replacing)
-    _say_replanned(
+    _say_redecomposed(
         args,
         result,
         doc,
         round_,
         bound,
         ids,
-        f"re-planned (round {round_} of max_replans {bound}) as "
+        f"re-decomposed (round {round_} of max_redecompositions {bound}) as "
         f"{', '.join(ids)}, which take its place in the batch.",
     )
     return True
@@ -1075,7 +1088,7 @@ def _runnable_replacements(
         kept = runnable
 
 
-def _say_replanned(
+def _say_redecomposed(
     args: argparse.Namespace,
     result: Path,
     doc: dict[str, Any],
@@ -1094,9 +1107,9 @@ def _say_replanned(
     detail = str(doc.get("detail") or "")
     changes = {
         "detail": f"{detail} {said}".strip(),
-        "replanned": {
+        "redecomposed": {
             "round": round_,
-            "max_replans": bound,
+            "max_redecompositions": bound,
             "contracts": list(contracts),
             "detail": said,
         },
@@ -1234,15 +1247,15 @@ def _write_held(
 #: The epilog of both verbs' `--help`: the exit codes and the `--log` kinds behind them.
 EPILOG = """\
 exit codes (the --log record's `kind` in brackets):
-  0  contracts planned [emitted, emitted_with_refusals]; when they run, the
+  0  contracts decomposed [emitted, emitted_with_refusals]; when they run, the
      batch's: the last non-zero exit of its runs, in the order they ended
   1  a failure: the config [config_invalid, config_missing], the proposer or
-     its reply [orchestrator_*, source_unavailable, reply_*, proposal_*], the
+     its reply [proposer_*, source_unavailable, reply_*, proposal_*], the
      repository [repo_*], or a crash [internal_error]
   2  usage [usage_invalid]: a --branch that cannot be honoured, a flag with no
      meaning on this side, a contract path that is not there; or a batch with
      no session to file its runs under [session_unresolved]
-  3  refused: no proposer [config_no_orchestrator], a raw use case
+  3  refused: no proposer [config_no_proposer], a raw use case
      [use_case_raw], no contract came of the prompt or passed vetting
      [none_emitted], or a contract was held and never sent [batch_held]
 New kinds may be added under mcgyvr.delegate_log/1; a reader tolerates one it
@@ -1276,7 +1289,7 @@ def add_flags(parser: argparse.ArgumentParser) -> None:
         metavar="PATH",
         help=(
             "config that binds the ladder the contracts climb and, for a "
-            f"prompt, the proposer that plans it (default: {CONFIG_DEFAULT_HELP})"
+            f"prompt, the proposer that decomposes it (default: {CONFIG_DEFAULT_HELP})"
         ),
     )
     parser.add_argument("--into", default=None, **said("--into"))
@@ -1309,7 +1322,7 @@ def add_flags(parser: argparse.ArgumentParser) -> None:
 def prompt_parser() -> argparse.ArgumentParser:
     """The parser of the bare verb, `mcgyvr PROMPT [flags]`.
 
-    It plans the prompt into contracts and runs them, what `delegate --run`
+    It decomposes the prompt into contracts and runs them, what `delegate --run`
     did; with `--output` it writes them and runs none. It is a parser of its
     own, not a subcommand, since the prompt is the first word; its `func` is
     `_delegate`.
@@ -1318,7 +1331,7 @@ def prompt_parser() -> argparse.ArgumentParser:
         prog="mcgyvr",
         usage="mcgyvr PROMPT [flags]",
         description=(
-            "Plan PROMPT into contracts against the repository and run them, in "
+            "Decompose PROMPT into contracts against the repository and run them, in "
             "the order their dependency tree allows: the proposer bound in the "
             "config proposes, every proposal is vetted, a refusal says what to "
             "change. `mcgyvr direct` runs contracts you wrote, with the same flags."
@@ -1328,7 +1341,7 @@ def prompt_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "prompt",
-        help="the natural-language request to plan into contracts",
+        help="the natural-language request to decompose into contracts",
     )
     add_flags(parser)
     parser.set_defaults(func=_delegate)

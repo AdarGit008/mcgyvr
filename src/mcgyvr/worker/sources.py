@@ -6,7 +6,7 @@ states them, and it reads under the rules every read of the tree for a worker
 follows: a path must stay inside the workspace (no absolute path, no `.git`
 entry, no symlink crossing, no climb out of the root), no file on the way to it
 may be one `holds_a_secret` recognizes, and it must be a text file the run's base
-tree still has and that the orchestrator will read at its size. A source that
+tree still has and that the session agent will read at its size. A source that
 fails any of these raises `SourceError` naming the source and saying nothing was
 sent, so the attempt is refused before a token is spent — a single unreadable
 source does not silently vanish from the prompt.
@@ -69,7 +69,7 @@ def _read(workspace: Path, index: int, rel: str) -> str:
     if raw is SkipReason.LARGE:
         raise refused(
             f"is over {DEFAULT_MAX_FILE_BYTES} bytes, the most of one file the "
-            f"orchestrator reads"
+            f"session agent reads"
         )
     assert isinstance(raw, bytes)
     return raw.decode("utf-8", "surrogateescape")

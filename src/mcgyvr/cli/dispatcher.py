@@ -62,14 +62,14 @@ _TOP_LEVEL_OPTIONS = frozenset({"-h", "--help", "--version"})
 #: The verbs that are gone, and what took their place.
 _REMOVED = {
     "run": "`mcgyvr direct FILE...` runs contracts you wrote",
-    "delegate": "`mcgyvr PROMPT` plans a prompt and runs it, and with "
+    "delegate": "`mcgyvr PROMPT` decomposes a prompt and runs it, and with "
     "`--output DIR` writes the contracts alone",
 }
 
 #: The top-level epilog: the bare verb, which is not a subcommand.
 _EPILOG = """\
 the bare verb:
-  mcgyvr PROMPT [flags]   plan PROMPT into contracts and run them; the flags are
+  mcgyvr PROMPT [flags]   decompose PROMPT into contracts and run them; the flags are
                           `direct`'s (`mcgyvr direct -h`). A prompt whose first
                           word is a command is written after `--`, the flags
                           before it: `mcgyvr [flags] -- PROMPT`."""
@@ -197,8 +197,8 @@ def _not_a_prompt(argv: Sequence[str], commands: frozenset[str]) -> str | None:
     A removed verb is named with what took its place, and one word close to a
     command is taken for a typo of it, so neither is sent to a proposer.
     """
-    if "--orchestrator" in argv:
-        return "--orchestrator is gone: name the session with --session ID."
+    if "--proposer" in argv:
+        return "--proposer is gone: name the session with --session ID."
     first = argv[0]
     if first in _REMOVED:
         return f"`mcgyvr {first}` is gone: {_REMOVED[first]}."
@@ -208,7 +208,7 @@ def _not_a_prompt(argv: Sequence[str], commands: frozenset[str]) -> str | None:
     if close:
         return (
             f"{first!r} is not a command: did you mean `mcgyvr {close[0]}`? "
-            f"To plan it as a prompt, write `mcgyvr -- {first}`."
+            f"To decompose it as a prompt, write `mcgyvr -- {first}`."
         )
     return None
 

@@ -1,7 +1,7 @@
 """The self-contained retry loop (W6): re-ask a refused field, then re-emit.
 
-`iterate` drives one classifier proposal through the same `emit_one` seam
-`decompose` uses. When the proposal is refused on a field the classifier can
+`iterate` drives one fill proposal through the same `emit_one` seam
+`decompose` uses. When the proposal is refused on a field the fill proposer can
 re-ask, the loop records the refusal's ``what_to_change`` as a constraint,
 drops the rejected candidate value, carries the already-decided upstream fields
 forward, and asks again — each retry gated by an injected ``approve`` callable.
@@ -43,7 +43,7 @@ MAX_REFUSAL_RETRIES = 3
 
 
 class Classifier(Protocol):
-    """The classifier seam `iterate` drives: one proposal per call, or a refusal."""
+    """The fill proposer seam `iterate` drives: one proposal per call, or a refusal."""
 
     def propose(
         self,
@@ -71,7 +71,7 @@ def _plan_value(proposal: Proposal, field: str) -> Any:
 
 
 def reaskable(refusal: Refusal) -> bool:
-    """Whether the classifier decides `refusal.field`, so it can be asked again."""
+    """Whether the fill proposer decides `refusal.field`, so it can be asked again."""
     return refusal.field in FIELD_ORDER
 
 
@@ -85,12 +85,12 @@ def reask(
     constraints: dict[str, str],
     rejected: dict[str, frozenset[Any]],
 ) -> Proposal | Refusal:
-    """Ask the classifier again for the field `refusal` names, once.
+    """Ask the fill proposer again for the field `refusal` names, once.
 
     The refusal's ``what_to_change`` becomes that field's constraint. When
     `refused` is the proposal that was refused, its value for the field is
     dropped from the next question and the fields upstream of it are carried
-    as decided; a refusal from the classifier itself keeps what was decided.
+    as decided; a refusal from the fill proposer itself keeps what was decided.
     `decided`, `constraints` and `rejected` are updated in place, so a caller
     that re-asks again carries them on.
     """
@@ -129,9 +129,9 @@ def iterate(
     max_attempts: int = MAX_REFUSAL_RETRIES,
     max_input_tokens: int = _DEFAULT_MAX_INPUT_TOKENS,
 ) -> Decomposition:
-    """Turn one prompt into one contract through a classifier, retrying refusals.
+    """Turn one prompt into one contract through a fill proposer, retrying refusals.
 
-    The classifier emits a single proposal (`N=1`). On a refusal that names a
+    The fill proposer emits a single proposal (`N=1`). On a refusal that names a
     re-askable field, the loop re-asks only that field — carrying the upstream
     fields already decided and the rejected candidate out of the next question,
     with the refusal's ``what_to_change`` rendered as a constraint — until the
@@ -183,7 +183,7 @@ def iterate(
                 )
             refusal = emitted
 
-        # A field the classifier never decides (type_check, request, a
+        # A field the fill proposer never decides (type_check, request, a
         # catch-all, ...) cannot be re-asked: this is terminal.
         if not reaskable(refusal):
             refusals.append(refusal)

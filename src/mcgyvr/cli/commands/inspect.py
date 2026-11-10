@@ -200,7 +200,7 @@ def _local_pool(args: argparse.Namespace) -> int:
         for skip in pool.relief_skipped:
             print(f"  {skip.name:<20} skipped\n      ↳ {skip.reason}")
 
-    for role in ("orchestrator", "verifier", JEV_ROLE):
+    for role in ("proposer", "verifier", JEV_ROLE):
         try:
             model = pool.role_model(role)
         except SourceUnavailableError as exc:

@@ -399,7 +399,7 @@ def sleeper(unit: Mapping[str, Any], state: str) -> bool:
     """Whether a slot holds a sleeper: a unit laid out asleep whose role is
     ``sleeps-until-needed``, which the sample swaps in through the card
     switches."""
-    return state == ASLEEP and unit.get("role") == ROLE_SLEEPER
+    return state == ASLEEP and unit.get("sleep") == ROLE_SLEEPER
 
 
 def _slots(slots: Sequence[Any]) -> list[Any]:

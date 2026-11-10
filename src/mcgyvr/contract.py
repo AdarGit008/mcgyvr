@@ -3,7 +3,7 @@
 `SCHEMA` names every key and what it may hold, `parse` checks a document against
 that table and then against the rules spanning several fields in
 `_cross_validate`, and `Contract` is the frozen result that the prompt builder,
-the gate and the planner all read.
+the gate and the scheduler all read.
 """
 
 from __future__ import annotations
@@ -21,6 +21,7 @@ import yaml
 from mcgyvr.catalog import CatalogError, catalog
 from mcgyvr.catalog import Evidence as CatalogEvidence
 from mcgyvr.catalog import TaskType as CatalogTaskType
+from mcgyvr.renamed import warn_renamed
 from mcgyvr.schema import Dialect, join_path, walk_block
 from mcgyvr.schema import Field as Field
 from mcgyvr.scope import Scope, enters_git_dir
@@ -222,8 +223,8 @@ VERIFICATION_FIELDS: tuple[Field, ...] = (
         "enum",
         "How the change is judged. `gate_only` is honoured only for work a "
         "deterministic tool does; work a model does is raised to `model`, "
-        "which asks a fresh-context reviewer to agree. An install with no "
-        "reviewer labels such an acceptance unverified.",
+        "which asks a fresh-context verifier to agree. An install with no "
+        "verifier labels such an acceptance unverified.",
         default="gate_only",
         choices=("gate_only", "model"),
     ),
@@ -252,23 +253,24 @@ RENAME_FIELDS: tuple[Field, ...] = (
     ),
 )
 
-REPLAN_FIELDS: tuple[Field, ...] = (
+LINEAGE_FIELDS: tuple[Field, ...] = (
     Field(
         "replaces",
         "str",
         "The id of the contract this one was proposed in place of, when a "
-        "batch handed that contract back to the orchestrator because its "
-        "ladder was spent (`max_replans`).",
+        "batch handed that contract back to the proposer because its "
+        "ladder was spent (`max_redecompositions`).",
         default="",
         hint="e.g. code-1f2e3d4c5b",
     ),
     Field(
         "round",
         "int",
-        "Which re-plan this contract came from: 1 for one proposed in place of "
-        "a contract nobody re-planned, one more than the contract it replaces "
-        "otherwise. A batch re-plans a spent contract only while this is "
-        "below `max_replans`, so the bound is read from the contract.",
+        "Which re-decomposition this contract came from: 1 for one proposed in "
+        "place of "
+        "a contract nobody re-decomposed, one more than the contract it replaces "
+        "otherwise. A batch re-decomposes a spent contract only while this is "
+        "below `max_redecompositions`, so the bound is read from the contract.",
         default=0,
         min_value=0,
     ),
@@ -552,13 +554,13 @@ SCHEMA: tuple[Field, ...] = (
         block=RENAME_FIELDS,
     ),
     Field(
-        "replan",
+        "lineage",
         "block",
         "Where this contract came from when it was proposed in place of one "
-        "whose ladder was spent: the id it replaces and the re-plan round. "
-        "Written by the batch that re-planned it, never by hand. Not "
+        "whose ladder was spent: the id it replaces and the re-decomposition round. "
+        "Written by the batch that re-decomposed it, never by hand. Not "
         "worker-facing.",
-        block=REPLAN_FIELDS,
+        block=LINEAGE_FIELDS,
     ),
 )
 
@@ -590,9 +592,9 @@ class Rename:
 
 @dataclass(frozen=True)
 class Lineage:
-    """Which spent contract this one was re-planned from, and in which round.
+    """Which spent contract this one was re-decomposed from, and in which round.
 
-    Empty (`replaces` "" and `round` 0) on a contract nobody re-planned.
+    Empty (`replaces` "" and `round` 0) on a contract nobody re-decomposed.
     """
 
     replaces: str = ""
@@ -656,9 +658,9 @@ class Contract:
     #: The rung the climb starts on, decided ahead of time; empty when the
     #: contract states none and the climb starts as the config says.
     start_rung: str = ""
-    #: The spent contract this one was re-planned from, and the round; empty on
-    #: a contract nobody re-planned.
-    replan: Lineage = Lineage()
+    #: The spent contract this one was re-decomposed from, and the round; empty on
+    #: a contract nobody re-decomposed.
+    lineage: Lineage = Lineage()
     #: The text of each entry in `sources`, in that order, filled in when the
     #: contract is dispatched against a workspace rather than parsed from a
     #: document. It is empty, or of another length, when the sources were never
@@ -807,12 +809,12 @@ class Contract:
             **({"start_rung": self.start_rung} if self.start_rung else {}),
             **(
                 {
-                    "replan": {
-                        "replaces": self.replan.replaces,
-                        "round": self.replan.round,
+                    "lineage": {
+                        "replaces": self.lineage.replaces,
+                        "round": self.lineage.round,
                     }
                 }
-                if self.replan.stated
+                if self.lineage.stated
                 else {}
             ),
             "verification": {"policy": self.verification.policy},
@@ -834,6 +836,11 @@ def load(path: Path) -> Contract:
     except OSError as exc:
         raise ContractFileError(f"{path}: cannot be read ({exc.strerror}).") from exc
     return parse(text, path=path)
+
+
+#: The key `lineage` had before it was renamed: a contract or result file
+#: written before carries it, and `parse` reads it as `lineage` for one release.
+OLD_LINEAGE_KEY = "replan"
 
 
 def loads(text: str) -> Contract:
@@ -861,6 +868,14 @@ def parse(text: str, path: Path | None = None) -> Contract:
             f"This build reads version {SCHEMA_VERSION}."
         )
 
+    if isinstance(raw, dict) and OLD_LINEAGE_KEY in raw:
+        if "lineage" in raw:
+            raise ContractSchemaError(
+                f"{where}carries both `lineage` and `{OLD_LINEAGE_KEY}`, its old "
+                f"name: keep `lineage`"
+            )
+        warn_renamed(f"{where}contract", OLD_LINEAGE_KEY, "lineage")
+        raw = {("lineage" if k == OLD_LINEAGE_KEY else k): v for k, v in raw.items()}
     data = _block(raw, SCHEMA, "")
     _cross_validate(data)
     return _build(data)
@@ -904,8 +919,8 @@ def _build(data: Mapping[str, Any]) -> Contract:
         no_semantic_change=data["no_semantic_change"],
         type_check=data["type_check"],
         start_rung=data["start_rung"],
-        replan=Lineage(
-            replaces=data["replan"]["replaces"], round=data["replan"]["round"]
+        lineage=Lineage(
+            replaces=data["lineage"]["replaces"], round=data["lineage"]["round"]
         ),
     )
 
@@ -1239,7 +1254,7 @@ def _cross_validate(data: Mapping[str, Any]) -> None:
             )
         waiting.add(needed)
 
-    _check_lineage(data["replan"], identity)
+    _check_lineage(data["lineage"], identity)
 
     seen: set[str] = set()
     for index, dep in enumerate(data["deps"]):
@@ -1262,10 +1277,10 @@ def _cross_validate(data: Mapping[str, Any]) -> None:
 
 
 def _check_lineage(lineage: Mapping[str, Any], identity: str) -> None:
-    """Refuse a `replan` lineage that could not name a contract it replaced.
+    """Refuse a `lineage` that could not name a contract it replaced.
 
     Both halves or neither: a round with no id names nothing it replaced, and an
-    id at round 0 claims a re-plan that never counted. The id has to be one a
+    id at round 0 claims a re-decomposition that never counted. The id has to be one a
     contract could carry, and not this contract's own.
     """
     replaces, rounds = lineage["replaces"], lineage["round"]
@@ -1273,22 +1288,22 @@ def _check_lineage(lineage: Mapping[str, Any], identity: str) -> None:
         return
     if not replaces:
         raise ContractSchemaError(
-            f"replan.round: {rounds} names no contract it replaces. State "
-            f"replan.replaces beside it, or drop the replan block."
+            f"lineage.round: {rounds} names no contract it replaces. State "
+            f"lineage.replaces beside it, or drop the lineage block."
         )
     if rounds < 1:
         raise ContractSchemaError(
-            f"replan.round: a contract that replaces {replaces!r} was proposed "
+            f"lineage.round: a contract that replaces {replaces!r} was proposed "
             f"in some round, so it is at least 1."
         )
     if replaces == identity:
         raise ContractSchemaError(
-            f"replan.replaces: {replaces!r} is this contract's own id; a "
-            f"re-planned contract replaces another one."
+            f"lineage.replaces: {replaces!r} is this contract's own id; a "
+            f"re-decomposed contract replaces another one."
         )
     if not _ID.match(replaces):
         raise ContractSchemaError(
-            f"replan.replaces: {replaces!r} is not a usable contract id, so no "
+            f"lineage.replaces: {replaces!r} is not a usable contract id, so no "
             f"contract could have carried it."
         )
 

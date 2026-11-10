@@ -27,7 +27,7 @@ HELP: dict[str, tuple[str | None, str]] = {
     "--output": (
         "DIR",
         (
-            "stop once the contracts are planned: write each one that passed "
+            "stop once the contracts are decomposed: write each one that passed "
             "vetting to DIR/<id>.json and run none of them, so `mcgyvr direct "
             "DIR` can run them later. Without it a prompt's contracts are "
             "printed on stdout and run from a temporary directory, and `direct` "
@@ -94,7 +94,7 @@ HELP: dict[str, tuple[str | None, str]] = {
             "(`direct` with one file); mcgyvr keeps its own copy under the "
             "journal directory either way. Refused for more than one contract, "
             "and for a prompt, whose contracts are not known before it is "
-            "planned"
+            "decomposed"
         ),
     ),
     "--notes-from": (
@@ -108,7 +108,7 @@ HELP: dict[str, tuple[str | None, str]] = {
             "run, under `retry_notes: climb`; the result's `seeded` says what "
             "was read and handed. For a rerun on another ladder or machine. "
             "Refused for a prompt, whose contracts are proposed new and whose "
-            "re-plans carry their own notes"
+            "re-decompositions carry their own notes"
         ),
     ),
 }

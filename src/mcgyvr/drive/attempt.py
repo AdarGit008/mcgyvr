@@ -5,7 +5,7 @@ rung, answering a `Judgement` for it. An attempt reads the tree the run started
 from, assembles the contract's prompt, sends it once per draw the rung is
 configured for — greedy for the first, sampled for the rest — parses each reply,
 gates every draw that parsed, tidies the winner and puts it through the
-reviewer's typed questions, then asks the reviewer for a verdict when the
+verifier's typed questions, then asks the verifier for a verdict when the
 contract owes one. Every dispatch is one journal row.
 
 What it does not decide is what a failure means for the run: a rung with no free
@@ -120,7 +120,7 @@ def worker_attempt(
     The whole attempt lives in the returned callable, which is why what it needs
     once is bound here: the ladder's config and source map, the contract, the
     sandbox the draws are written into and gated in, the language adapters, the
-    journal, the cooldown and the reviewer selector. A driver outlives one
+    journal, the cooldown and the verifier selector. A driver outlives one
     attempt — the climb calls it again, on this rung and on the rungs above — so
     it also keeps the climb's failure notes a later attempt is told about,
     starting from `seed`: records an earlier run of this contract left
@@ -137,12 +137,12 @@ def worker_attempt(
     climb: list[FailureNotes] = primed(seed, handing)
     checked: list[str] = []
     if reviewers is None and reviewer is not None:
-        # A bare `ask` seam stands in for the run's reviewer: it becomes one
+        # A bare `ask` seam stands in for the run's verifier: it becomes one
         # `Reviewer`, carrying the `verifier` role's model or no model at all
-        # when the role binds none, and that same reviewer answers for every
+        # when the role binds none, and that same verifier answers for every
         # builder. It is how a caller — a test — hands in a function where the
         # run hands in a configured unit, without a source map able to place the
-        # reviewer.
+        # verifier.
         only = Reviewer(model=pool.role_model(VERIFIER_ROLE) or "", ask=reviewer)
         reviewers = lambda builder: only  # noqa: E731
     # The temperature the draws after the first are sampled at, from
@@ -273,7 +273,7 @@ def worker_attempt(
         # before anything is read, so every attempt of every draw is asked the
         # same question and every reply is gated against the same base.
         sandbox.reset()
-        # The target's content in that starting tree: handed to the reviewer as
+        # The target's content in that starting tree: handed to the verifier as
         # the `original` it compares the change with, and used as the prompt's
         # base when the contract states no target content of its own.
         original = _base_content(sandbox, contract)
@@ -503,12 +503,12 @@ def worker_attempt(
             )
         else:
             gate, bound = picked.gate, picked.winner
-            # The reviewer this rung is judged by, if any: a contract whose kind
+            # The verifier this rung is judged by, if any: a contract whose kind
             # does not judge a change is never reviewed, and neither is a run
             # with no selector. The selector's answer is kept whole because a
             # `NoReviewer` is a reason to report and not a failure. It is asked
             # once the draws are in, since a draw can swap a sleeper in and put
-            # the reviewer down: a reviewer is never woken, the selector picks it
+            # the verifier down: a verifier is never woken, the selector picks it
             # from the rungs that are up, and its calls go straight to it.
             chosen: Reviewer | NoReviewer | None = (
                 reviewers(this.rung.name)
@@ -521,11 +521,11 @@ def worker_attempt(
                 gate, bound = _cleaned(
                     contract, sandbox, gate, bound, adapters=adapters, config=config
                 )
-            # The reviewer's typed questions run over the winner here, once, before
+            # The verifier's typed questions run over the winner here, once, before
             # the verdict: their findings and observations join the gate's, and the
             # change is re-read from the tree so what is bound is what those checks
             # saw. Nothing is asked when the gate rejected the change or when `jev`
-            # is `None` — no independent reviewer serving this builder's model.
+            # is `None` — no independent verifier serving this builder's model.
             gate, bound = _typed_checks(contract, sandbox, gate, bound, jev)
             judgement = _drive.judge(
                 contract,
@@ -535,8 +535,8 @@ def worker_attempt(
                 # is owed: none is when the selector answered a `NoReviewer`.
                 # `verify` is given the gate the change was accepted by, the
                 # change as it will be delivered, the models on both sides, the
-                # reviewer's `ask` and `decide` seams and the base content, so it
-                # can say what changed. A reviewer that cannot answer leaves the
+                # verifier's `ask` and `decide` seams and the base content, so it
+                # can say what changed. A verifier that cannot answer leaves the
                 # gate's acceptance standing and the verdict `unverified`; it
                 # never fails the work.
                 verifier=(
@@ -561,7 +561,7 @@ def worker_attempt(
                 absent=(
                     chosen.reason if isinstance(chosen, NoReviewer) else NO_REVIEWER
                 ),
-                # The reviewer's label for the verdict's detail: the unit or the
+                # The verifier's label for the verdict's detail: the unit or the
                 # model that answered, and the stand-in when one was used. Empty
                 # when nothing was asked, so the detail names nobody.
                 reviewer=reviewing.label if reviewing is not None else "",
@@ -584,7 +584,7 @@ def worker_attempt(
                 # it, and it is the file as the checks left it — tidied or
                 # repaired — not the reply's bytes. `gate.accepted` is the gate's
                 # own verdict, and `judge` can still fail the attempt on a
-                # reviewer's refusal, so a failed judgement delivers nothing even
+                # verifier's refusal, so a failed judgement delivers nothing even
                 # when it carries a content.
                 judgement = replace(judgement, accepted=bound)
 

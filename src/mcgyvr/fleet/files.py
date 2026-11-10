@@ -20,6 +20,7 @@ from typing import Any, TypeGuard
 
 import yaml
 
+from mcgyvr.renamed import warn_renamed
 from mcgyvr.strict_yaml import strict_loader
 
 
@@ -53,7 +54,7 @@ _UNIT_KEYS = frozenset(
         "container",
         "hf_cache",
         "sampling",
-        "role",
+        "sleep",
         "launcher",
         "expose",
         "launch",
@@ -63,8 +64,9 @@ _UNIT_KEYS = frozenset(
 
 #: The keys `policy.yaml` may carry: `ladder` plus how work moves and how much
 #: it may do — fanout, triage, dependents, attempts, draws, escalations,
-#: re-plans, re-proposals, refine bounds, retry notes, timeouts, the window fraction,
-#: breadth, cleanup, users — the units a job goes to (orchestrator, verifier,
+#: re-decompositions, re-proposals, refine bounds, retry notes, timeouts, the
+#: window fraction,
+#: breadth, cleanup, users — the units a job goes to (proposer, verifier,
 #: jev), what the gate refuses, and how a run is sandboxed, delivered, served
 #: and journaled.
 _POLICY_KEYS = frozenset(
@@ -84,7 +86,7 @@ _POLICY_KEYS = frozenset(
         "rider_slots",
         "max_escalations",
         "max_attempts",
-        "max_replans",
+        "max_redecompositions",
         "max_reproposals",
         "max_splits_per_file",
         "max_refine_fanout",
@@ -95,7 +97,7 @@ _POLICY_KEYS = frozenset(
         "breadth",
         "cleanup",
         "gate",
-        "orchestrator",
+        "proposer",
         "verifier",
         "jev",
         "sandbox",
@@ -125,6 +127,49 @@ RETIRED_POLICY_KEYS: dict[str, str] = {
         "it named the harness tools `type: mcorch` kept, and mcorch was removed"
     ),
 }
+
+#: Keys renamed outright: the old name is refused, naming the new one, rather
+#: than read (`proposer` has no `type`, the one value of which nothing read).
+#: Not retired keys: `mcgyvr setup` would offer to delete the user's binding.
+RENAMED_POLICY_KEYS: dict[str, str] = {"orchestrator": "proposer"}
+RENAMED_UNIT_KEYS: dict[str, str] = {"role": "sleep"}
+
+#: Names read under their old spelling for one release, with a warning
+#: (`mcgyvr.renamed`): a policy key, and the values of `proposer.authoring`.
+OLD_POLICY_KEYS: dict[str, str] = {"max_replans": "max_redecompositions"}
+OLD_AUTHORING: dict[str, str] = {"classifier": "fill", "prose": "draft"}
+
+
+def _refuse_renamed(key: str, new: str, where: str) -> None:
+    dropped = " and drop its `type` line" if key == "orchestrator" else ""
+    raise FleetFileError(
+        f"{where}: `{key}` is now `{new}`: rename it{dropped}. The old name is "
+        f"not read."
+    )
+
+
+def _read_renamed(given: dict[str, Any]) -> dict[str, Any]:
+    """`given` with each `OLD_POLICY_KEYS` key and `OLD_AUTHORING` value read
+    under its new name, each with a warning; both names at once is refused."""
+    out: dict[str, Any] = {}
+    for key, value in given.items():
+        new = OLD_POLICY_KEYS.get(key)
+        if new is not None:
+            if new in given:
+                raise FleetFileError(
+                    f"policy.yaml: carries both `{new}` and `{key}`, its old "
+                    f"name: keep `{new}`"
+                )
+            warn_renamed("policy.yaml", key, new)
+            key = new
+        out[key] = value
+    block = out.get("proposer")
+    if isinstance(block, Mapping) and block.get("authoring") in OLD_AUTHORING:
+        old = str(block["authoring"])
+        warn_renamed("policy.yaml: proposer.authoring", old, OLD_AUTHORING[old])
+        out["proposer"] = {**block, "authoring": OLD_AUTHORING[old]}
+    return out
+
 
 #: The top-level keys `fleet.yaml` may carry; a policy setting, a `relief` block
 #: or anything else at that level is refused rather than carried along unseen.
@@ -363,7 +408,9 @@ def without_retired_lines(text: str) -> str:
 def _unit_block(raw: object, where: str) -> dict[str, Any]:
     given = _document(raw, where)
     for key in given:
-        if key in _POLICY_KEYS:
+        if key in RENAMED_UNIT_KEYS:
+            _refuse_renamed(key, RENAMED_UNIT_KEYS[key], where)
+        elif key in _POLICY_KEYS:
             _refuse_policy_setting(key, where)
         elif key not in _UNIT_KEYS:
             _unknown_key(key, where, _UNIT_KEYS)
@@ -461,11 +508,13 @@ def load_policy(text: str) -> dict[str, Any]:
     one error. A fact about a unit, a `relief` block or an unknown key raises
     `FleetFileError` naming the file it belongs in.
     """
-    given = _document(_yaml(text), "policy.yaml")
+    given = _read_renamed(_document(_yaml(text), "policy.yaml"))
     _refuse_retired(given)
     data: dict[str, Any] = {}
     for key, value in given.items():
-        if key in _UNIT_KEYS:
+        if key in RENAMED_POLICY_KEYS:
+            _refuse_renamed(key, RENAMED_POLICY_KEYS[key], "policy.yaml")
+        elif key in _UNIT_KEYS:
             _refuse_unit_fact(key)
         elif key in _RELIEF_FILE_KEYS:
             _refuse_relief("policy.yaml")

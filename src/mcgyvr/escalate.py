@@ -1,6 +1,6 @@
 """The climb above the attempt seam: judge one attempt, plan it, spend it.
 
-`judge` turns an attempt's gate result and its reviewer into a `Judgement`;
+`judge` turns an attempt's gate result and its verifier into a `Judgement`;
 `ascent` says which families a contract may be carried through and what
 that may cost before anything is spent; `escalate` climbs them, charging
 every attempt to the configured ceilings, and returns a `Delivered` or the
@@ -59,7 +59,7 @@ MODEL = "model"
 
 # The two verification policies, cheapest first. `gate_only` accepts a
 # change on the deterministic gate alone; `model` adds a fresh-context
-# reviewer. A policy this build does not know ranks as `model`, so an
+# verifier. A policy this build does not know ranks as `model`, so an
 # unknown name can only raise the bar.
 _POLICY_RANK: dict[str, int] = {GATE_ONLY: 0, MODEL: 1}
 
@@ -86,8 +86,8 @@ class Assurance(StrEnum):
     """What accepting a change or a reply rests on.
 
     `deterministic` is a tool's output accepted on the gate alone,
-    `verified` a change a reviewer agreed with, `unverified` a change
-    accepted on the gate alone because no usable reviewer was there, and
+    `verified` a change a verifier agreed with, `unverified` a change
+    accepted on the gate alone because no usable verifier was there, and
     `unchecked` a reply, which nothing checks or reviews.
     """
 
@@ -97,9 +97,9 @@ class Assurance(StrEnum):
     UNCHECKED = "unchecked"
 
 
-#: Why a change was accepted without a reviewer, as a sentence rather than a
+#: Why a change was accepted without a verifier, as a sentence rather than a
 #: flag: it lands in a judgement's detail, where the user reads it.
-NO_REVIEWER = "no reviewer is configured — set `verifier.unit`"
+NO_REVIEWER = "no verifier is configured — set `verifier.unit`"
 
 
 def reply_judged(name: str) -> str:
@@ -115,7 +115,7 @@ def how_judged(kind: TaskType) -> str:
     """Say what acceptance of this task type rests on, and how sure it is.
 
     A tool's output is the deterministic gate; work that judges a change is
-    the gate and then a reviewer; a reply is served unchecked. Each
+    the gate and then a verifier; a reply is served unchecked. Each
     sentence names the `Assurance` the same path would report, so a printed
     bar and a recorded one cannot drift apart.
     """
@@ -126,7 +126,7 @@ def how_judged(kind: TaskType) -> str:
         )
     if kind.judges_a_change:
         return (
-            "the deterministic gate, then a fresh-context reviewer: assurance "
+            "the deterministic gate, then a fresh-context verifier: assurance "
             f"`{Assurance.VERIFIED}` when one agrees, `{Assurance.UNVERIFIED}` "
             "when none is configured (set `verifier.unit`) or it cannot be used."
         )
@@ -134,10 +134,10 @@ def how_judged(kind: TaskType) -> str:
 
 
 class Opinion(StrEnum):
-    """What a reviewer said about a change.
+    """What a verifier said about a change.
 
     `agreed` and `refused` are verdicts; `unusable` is the absence of one —
-    the reviewer could not be asked, or answered something that names no
+    the verifier could not be asked, or answered something that names no
     outcome.
     """
 
@@ -148,7 +148,7 @@ class Opinion(StrEnum):
 
 @dataclass(frozen=True)
 class Review:
-    """One reviewer's answer about a change, with the sentence it gave.
+    """One verifier's answer about a change, with the sentence it gave.
 
     The named constructors are the only way to build one, so a verdict is
     never a bare boolean where a `False` would have to mean either "refused"
@@ -180,7 +180,7 @@ class Judgement:
     `policy` is the verification policy it was judged under, with `upgraded`
     saying whether that was raised above the contract's own. `retry` is the
     failure-notes record of a failed try — what a later try must fix, naming
-    the rung and attempt it is about — `reviewer_failed` says a reviewer was asked
+    the rung and attempt it is about — `reviewer_failed` says a verifier was asked
     and answered nothing usable, and the draw fields are the breadth
     bookkeeping a `Result` carries into the history.
     """
@@ -250,7 +250,7 @@ def judge(
     rung: str = "",
     attempt: int = 0,
 ) -> Judgement:
-    """Judge one attempt: the gate first, then a reviewer only where one is owed.
+    """Judge one attempt: the gate first, then a verifier only where one is owed.
 
     A gate that rejected the change fails the attempt and carries what it
     observed as a failure-notes record, placed at `rung` and `attempt` — the
@@ -316,7 +316,7 @@ def judge(
             detail=(
                 f"unverified: {why}; accepted on the deterministic gate alone, "
                 f"where work in the {family.name!r} family is reviewed when a "
-                f"reviewer is available."
+                f"verifier is available."
             ),
         )
 
@@ -328,7 +328,7 @@ def judge(
             policy=policy,
             upgraded=upgraded,
             detail=(
-                f"verified by {reviewer or 'the reviewer'}: "
+                f"verified by {reviewer or 'the verifier'}: "
                 f"{review.detail or 'it agreed with the applied change.'}"
             ),
         )
@@ -338,21 +338,21 @@ def judge(
             policy=policy,
             upgraded=upgraded,
             # A refusal is the builder's failure, so the attempt fails and
-            # carries what to fix: the reviewer's sentence, then whatever
+            # carries what to fix: the verifier's sentence, then whatever
             # the non-blocking jev rung saw. The gate passed, so no gate
             # findings are here, and without the jev lines a retry would
             # hear the verifier and nothing else.
             retry=FailureNotes.of_refusal(
                 review.detail, gate, rung=rung, family=family.name, attempt=attempt
             ),
-            # The detail is the reviewer's own sentence: nothing here
+            # The detail is the verifier's own sentence: nothing here
             # invents a reason for a refusal that was stated.
             detail=f"refused by {reviewer or 'the verifier'}: {review.detail}",
         )
     # An unusable review is neither an approval nor the builder's fault:
     # the change is accepted on the gate alone, labelled unverified so a
     # result is never reported as more assured than it is, and flagged so a
-    # caller can see that a reviewer was asked and answered nothing usable.
+    # caller can see that a verifier was asked and answered nothing usable.
     return Judgement(
         verdict=Verdict.PASSED,
         assurance=Assurance.UNVERIFIED,
@@ -733,7 +733,7 @@ class Delivered:
 
     @property
     def verified(self) -> bool:
-        """Whether a reviewer agreed with the change, rather than the gate alone."""
+        """Whether a verifier agreed with the change, rather than the gate alone."""
         return self.assurance is Assurance.VERIFIED
 
 
@@ -1337,21 +1337,22 @@ def redundant_relief(config: Config) -> tuple[str, ...]:
 
 @dataclass(frozen=True)
 class Disposition:
-    """Whether a halted task's work may be handed to another orchestrator, and why."""
+    """Whether a halted task's work may be handed to another session agent, and why."""
 
     reassignable: bool
     detail: str
 
 
-def disposition(outcome: Outcome, *, replans: int = 0) -> Disposition:
+def disposition(outcome: Outcome, *, redecompositions: int = 0) -> Disposition:
     """The disposition for one outcome: whether to reassign, and why.
 
     Accepted work has no question left to answer, a spent or empty ladder
     and a ladder that declined throughout would give the same answer
     elsewhere, and the two ceilings and an error settled nothing about the
-    work — those are the ones worth handing on. `replans` is `max_replans`:
-    above zero, a spent ladder's remedy is the re-plan a batch makes of it
-    (`mcgyvr.replan`), not a hand-narrowed contract.
+    work — those are the ones worth handing on. `redecompositions` is
+    `max_redecompositions`:
+    above zero, a spent ladder's remedy is the re-decomposition a batch makes of it
+    (`mcgyvr.redecompose`), not a hand-narrowed contract.
     """
     match outcome:
         case Outcome.ACCEPTED:
@@ -1385,15 +1386,16 @@ def disposition(outcome: Outcome, *, replans: int = 0) -> Disposition:
                     "that can pay for it."
                 ),
             )
-        case Outcome.LADDER_SPENT if replans > 0:
+        case Outcome.LADDER_SPENT if redecompositions > 0:
             return Disposition(
                 reassignable=False,
                 detail=(
                     "ladder_spent: every rung this install offers was tried "
                     "and none produced an acceptable change, so the same "
                     "contract would give the same answer anywhere. It goes "
-                    "back to the orchestrator with its failure notes to be "
-                    f"re-planned — `max_replans` is {replans}, and "
+                    "back to the proposer with its failure notes to be "
+                    f"re-decomposed — `max_redecompositions` is "
+                    f"{redecompositions}, and "
                     "`mcgyvr PROMPT` runs what comes back in its place "
                     "— rather than to another ladder; binding a dearer rung "
                     "remains the other remedy."
@@ -1445,7 +1447,7 @@ def disposition(outcome: Outcome, *, replans: int = 0) -> Disposition:
                     "was reached, so the ladder was never given a chance to "
                     "answer. The failure is in the attempt machinery, not in "
                     "the work — address the cause and retry, or hand it to "
-                    "another orchestrator."
+                    "another session agent."
                 ),
             )
         case _:  # pragma: no cover - unreachable while the match is exhaustive

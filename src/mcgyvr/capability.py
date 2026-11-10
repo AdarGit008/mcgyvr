@@ -93,7 +93,7 @@ class CapabilityTable:
 #: A level is closed: a key it does not declare is refused by name, and the
 #: refusal lists the keys declared for it. So no figure — a quality score, a
 #: benchmark reading, a reading of a card — enters the table without first
-#: being declared here, where a reviewer reads it. A row states what a model
+#: being declared here, where a verifier reads it. A row states what a model
 #: costs to serve, and these keys are the only terms it can state that in.
 #: The `backends block` level declares only `_doc`, the block's own prose:
 #: what sits under `backends` is a mapping whose keys name servers, not facts,

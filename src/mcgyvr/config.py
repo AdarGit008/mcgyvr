@@ -41,7 +41,7 @@ from mcgyvr.hostos import DARWIN, WINDOWS
 # The use cases an install may serve, in the order setup offers them, are the
 # wire's: `mcgyvr-code` opts in to mcgyvr between a model and you (contracts
 # proposed, vetted, run up the ladder, gated, repaired, reviewed and
-# re-planned, each stage under its own switch, `SWITCHES`, every one on by
+# re-decomposed, each stage under its own switch, `SWITCHES`, every one on by
 # default); `code` is a coding model mcgyvr recommends, served raw; `chat` a
 # raw, un-gated text endpoint; `agent` a raw, un-gated endpoint with
 # tool-calling.
@@ -137,9 +137,9 @@ TRIAGE_CHOICES: tuple[str, ...] = ("none", "jev")
 DEPENDENTS_CHOICES: tuple[str, ...] = ("hold", "run")
 
 #: How many times a batch (`mcgyvr PROMPT`) hands a line of work whose
-#: ladder is spent back to the proposer to be re-planned (see
-#: `mcgyvr.replan`); 0 turns re-planning off.
-MAX_REPLANS_DEFAULT = 1
+#: ladder is spent back to the proposer to be re-decomposed (see
+#: `mcgyvr.redecompose`); 0 turns re-decomposing off.
+MAX_REDECOMPOSITIONS_DEFAULT = 1
 
 #: How many attempts a unit with no entry under `attempts` gets on its rung:
 #: one, so a failed attempt escalates rather than retries. The contract's
@@ -150,7 +150,7 @@ UNSET_RUNG_ATTEMPTS = 1
 #: ladder with what to change (see `mcgyvr.repropose`); 0 turns it off.
 MAX_REPROPOSALS_DEFAULT = 1
 
-#: How many split rounds classifier authoring may take on any one file, and
+#: How many split rounds fill authoring may take on any one file, and
 #: into how many parts one split may go (see `mcgyvr.refine`). The first is a
 #: stop: what three rounds made is emitted. A split into more parts than the
 #: second is refused with what to change rather than emitted unsplit.
@@ -343,7 +343,7 @@ JOURNAL_FIELDS: tuple[Field, ...] = (
         "dir",
         "str",
         "Where every run journals what it asked, what came back and how it "
-        "landed: one `<orchestrator>.jsonl` per writer, the prompts and replies "
+        "landed: one `<session>.jsonl` per writer, the prompts and replies "
         "content-addressed under `blobs/`, and each run's result file under "
         "`results/`. Deterministic runs are here too, with a row naming the "
         "program instead of a model. This is mcgyvr's own record, it never "
@@ -436,7 +436,7 @@ GATE_FIELDS: tuple[Field, ...] = (
         "judge it again, and no repair runs, since a repair answers a rejection. "
         "The scope and secret checks and the parse of a structured file still "
         "refuse, because they guard the repository rather than judge the "
-        "answer. The reviewer (`verifier.enabled`) is a switch of its own.",
+        "answer. The verifier (`verifier.enabled`) is a switch of its own.",
         default=True,
     ),
     Field(
@@ -795,7 +795,7 @@ UNIT_FIELDS: tuple[Field, ...] = (
         choices=("request", "server"),
     ),
     Field(
-        "role",
+        "sleep",
         "enum",
         "Whether this unit is up whenever its launch spec is (`always-on`) or "
         "is a swap partner that starts asleep (`sleeps-until-needed`). A "
@@ -1038,25 +1038,13 @@ ROLE_UNIT_FIELDS: tuple[Field, ...] = (
     ),
 )
 
-#: What the bound orchestrator unit is: a `proposer` that drafts contracts for
-#: `mcgyvr PROMPT`, the only type there is.
-ORCHESTRATOR_TYPES: tuple[str, ...] = ("proposer",)
-
-ORCHESTRATOR_FIELDS: tuple[Field, ...] = (
-    Field(
-        "type",
-        "enum",
-        "What the bound unit is. `proposer`, the only type: the bound unit "
-        "drafts contracts for `mcgyvr PROMPT`.",
-        default="proposer",
-        choices=ORCHESTRATOR_TYPES,
-    ),
+PROPOSER_FIELDS: tuple[Field, ...] = (
     Field(
         "authoring",
         "enum",
         "How `mcgyvr PROMPT` gets its proposals; vetting then turns them into "
         "contracts, and what it refuses goes to the top rung of the ladder to "
-        "be corrected (`max_reproposals`). `classifier`, the default: the "
+        "be corrected (`max_reproposals`). `fill`, the default: the "
         "scaffold lays out each field's candidates from the repository, with "
         "no model asked, and with a `jev` unit opted in Jev picks from them — "
         "it answers typed questions (task type, target, symbol, task, "
@@ -1071,15 +1059,15 @@ ORCHESTRATOR_FIELDS: tuple[Field, ...] = (
         "parts than `max_refine_fanout` is refused. With no `jev` unit opted "
         "in the scaffold runs alone: each field takes its first candidate — "
         "the first servable type and target, the target's first symbol, and "
-        "the request as the task — and no `orchestrator` model is needed. "
-        "Where one is bound it stands in, in prose, when Jev declines or there "
-        "is no target or servable type to pick. `prose`, an opt-in: the bound "
-        "`orchestrator` unit is asked for JSON proposals "
+        "the request as the task — and no `proposer` model is needed. "
+        "Where one is bound it stands in, as a draft, when Jev declines or there "
+        "is no target or servable type to pick. `draft`, an opt-in: the bound "
+        "`proposer` unit is asked for JSON proposals "
         "(`delegate.build_prompt`), and `mcgyvr PROMPT` refuses when none is "
-        "bound. Unset is `classifier` under `use_case: mcgyvr-code`, and "
-        "`prose` otherwise.",
-        choices=("prose", "classifier"),
-        bind_hint="name one of `prose`, `classifier`",
+        "bound. Unset is `fill` under `use_case: mcgyvr-code`, and "
+        "`draft` otherwise.",
+        choices=("draft", "fill"),
+        bind_hint="name one of `fill`, `draft`",
     ),
     *ROLE_UNIT_FIELDS,
 )
@@ -1090,7 +1078,7 @@ JEV_FIELDS: tuple[Field, ...] = (
         "bool",
         "Whether the bound Jev unit is asked. Off, every typed decision is asked "
         "as if no unit were bound -- the verifier, the reviewing rung, the fast "
-        "rung or the orchestrator answers, triage asks nobody, and the scaffold "
+        "rung or the proposer answers, triage asks nobody, and the scaffold "
         "proposes alone -- while the binding stays written, so turning it "
         "back on is one line.",
         default=True,
@@ -1103,7 +1091,7 @@ VERIFIER_UNIT_FIELDS: tuple[Field, ...] = (
         "enabled",
         "bool",
         "Model verification of the applied diff, on top of the gate. On unless "
-        "set to `false`. With no `unit`, the reviewer is the next dearer local "
+        "set to `false`. With no `unit`, the verifier is the next dearer local "
         "rung whose model is not the builder's; where there is none, the work "
         "is accepted and labelled unverified. A hosted unit reviews only when "
         "`unit` names it, or stands in for a hosted `unit` as `unit` says.",
@@ -1132,11 +1120,11 @@ VERIFIER_UNIT_FIELDS: tuple[Field, ...] = (
 DEPLOYMENT_FIELD = Field(
     "deployment",
     "enum",
-    "How mcgyvr is run. `hybrid` drives it from an API-tier "
-    "orchestrator in the user's session; scoped work is offloaded to the "
+    "How mcgyvr is run. `hybrid` drives it from the user's own API-tier "
+    "session agent; scoped work is offloaded to the "
     "local cheap-to-dear ladder, whose dearest rung is an API model so a "
     "task always completes. `local-only` makes mcgyvr the backend: "
-    "`mcgyvr-code` provisions a local orchestrator unit, and a raw use case "
+    "`mcgyvr-code` provisions a local proposer unit, and a raw use case "
     "(`code`, `chat`, `agent`) is just the ladder serving its model.",
     choices=("hybrid", "local-only"),
     default="hybrid",
@@ -1148,7 +1136,7 @@ SCHEMA: tuple[Field, ...] = (
         "enum",
         "Which of the four use cases this install serves. `mcgyvr-code` opts in "
         "to mcgyvr between the model and you: contracts proposed, vetted, run up "
-        "the ladder, gated, repaired, reviewed and re-planned, each stage under "
+        "the ladder, gated, repaired, reviewed and re-decomposed, each stage under "
         "its own switch, every one on by default. `code` (a coding model), "
         "`chat` (a text endpoint) and `agent` (an endpoint with tool-calling) "
         "serve the model raw: no stage runs, and `mcgyvr PROMPT` and `mcgyvr "
@@ -1332,24 +1320,25 @@ SCHEMA: tuple[Field, ...] = (
         bind_hint="set a whole number of moves up the ladder, or leave it unset",
     ),
     Field(
-        "max_replans",
+        "max_redecompositions",
         "int",
         "How many times a batch of contracts (`mcgyvr PROMPT`) hands "
         "a line of work whose ladder is spent back to the proposer to be "
-        "re-planned. A contract that tried every rung and came to "
+        "re-decomposed. A contract that tried every rung and came to "
         "`ladder_spent` goes back with the failure notes its climb left, as "
         "evidence; the contract or contracts the proposer proposes in its "
-        "place take its place in the batch, carry `replan` (the id they "
+        "place take its place in the batch, carry `lineage` (the id they "
         "replace and the round), and what waited on it waits on them. A "
-        "contract already at this round is not re-planned again, and one the "
-        "proposer proposes unchanged is not run again. The `orchestrator` unit "
-        "re-plans when a model is bound there, and the top rung of the ladder "
-        "(as for `max_reproposals`) when none is. 0 turns re-planning "
+        "contract already at this round is not re-decomposed again, and one the "
+        "proposer proposes unchanged is not run again. The `proposer` unit "
+        "re-decomposes when a model is bound there, and the top rung of the ladder "
+        "(as for `max_reproposals`) when none is. 0 turns re-decomposing "
         "off: a spent contract stops there, as under `mcgyvr direct`, which "
-        "never re-plans.",
-        default=MAX_REPLANS_DEFAULT,
+        "never re-decomposes.",
+        default=MAX_REDECOMPOSITIONS_DEFAULT,
         min_value=0,
-        bind_hint="set a whole number of re-plans, or 0 to stop at a spent ladder",
+        bind_hint="set a whole number of re-decompositions, or 0 to stop at a spent "
+        "ladder",
     ),
     Field(
         "max_reproposals",
@@ -1359,7 +1348,7 @@ SCHEMA: tuple[Field, ...] = (
         "`max_escalations` — with the refused field and what to change, "
         "before it reports the refusal. The top rung is shown the proposal and "
         "its refusal as data and asked for it corrected, and nothing else; "
-        "the proposer that made it (the scaffold, Jev or the prose unit) is "
+        "the proposer that made it (the scaffold, Jev or the draft unit) is "
         "not asked again. What comes back is checked as a first answer is: "
         "what it emits takes the refusal's place, and what is refused again is "
         "reported, or handed over again while rounds remain. A refusal of the "
@@ -1374,8 +1363,8 @@ SCHEMA: tuple[Field, ...] = (
     Field(
         "max_splits_per_file",
         "int",
-        "How many split rounds classifier authoring (`orchestrator.authoring: "
-        "classifier`, with a `jev` unit bound) takes on any one file. A "
+        "How many split rounds fill authoring (`proposer.authoring: "
+        "fill`, with a `jev` unit bound) takes on any one file. A "
         "proposal stops being split when it is on one file and either jev "
         "answers that it cannot be split further or its file has been split "
         "this many rounds; it is then emitted as it stands, not refused. "
@@ -1388,7 +1377,7 @@ SCHEMA: tuple[Field, ...] = (
     Field(
         "max_refine_fanout",
         "int",
-        "How many parts classifier authoring may split one proposal into at "
+        "How many parts fill authoring may split one proposal into at "
         "once: the files of a scope over several, or the parts of the split "
         "jev picks. A split into more is refused with this key to raise rather "
         "than emitted unsplit.",
@@ -1400,7 +1389,7 @@ SCHEMA: tuple[Field, ...] = (
         "retry_notes",
         "enum",
         "What a try is told about the attempts before it that failed. Each "
-        "failed attempt leaves a record of what the gate, the reviewer or the "
+        "failed attempt leaves a record of what the gate, the verifier or the "
         "reply parser observed, naming its rung and attempt. `climb`: every "
         "record of the climb, so a rung above starts with what the rungs "
         "below it were refused for — the latest in full, up to 20 notes, and "
@@ -1442,20 +1431,23 @@ SCHEMA: tuple[Field, ...] = (
         "users",
         "int",
         "Users this install serves at once, and therefore the slot count the "
-        "local orchestrator unit is served at: one session per user. A "
-        "written `width` on the orchestrator's unit wins. `1` is a "
+        "local proposer unit is served at: one session per user. A "
+        "written `width` on the proposer's unit wins. `1` is a "
         "single-user install, which for a local-only `mcgyvr-code` install is "
-        "flagged, not refused — the resident orchestrator consumes the card "
+        "flagged, not refused — the resident proposer consumes the card "
         "the ladder would otherwise use.",
         default=1,
         min_value=1,
     ),
     Field(
-        "orchestrator",
+        "proposer",
         "block",
-        "Which unit turns a prompt plus a repository into contracts, and what "
-        "that unit is.",
-        block=ORCHESTRATOR_FIELDS,
+        "How the propose stage of a decomposition runs: `authoring` picks "
+        "`fill` (the scaffold, filled by Jev when Jev is on) or `draft` (a "
+        "model writes the proposals), and `unit`/`model` bind the model that "
+        "drafts and re-decomposes. A policy.yaml still carrying the "
+        "old block of this name is refused, naming this one.",
+        block=PROPOSER_FIELDS,
     ),
     Field(
         "verifier",
@@ -1468,12 +1460,12 @@ SCHEMA: tuple[Field, ...] = (
         "block",
         "Which one unit answers every typed decision: a question answered "
         "with a single-token label rather than prose. Those are the gate's "
-        "Jev rung, the reviewer's verdict, the fleet's choice of whether to "
+        "Jev rung, the verifier's verdict, the fleet's choice of whether to "
         "wake a smarter rung, the typed "
         "proposer and, under `triage: jev`, the rung a climb starts on. Left "
         "unbound, each of those keeps asking the unit it asks "
         "today: the verifier, the reviewing rung, the fast rung or the "
-        "orchestrator, and triage asks nobody. `enabled: false` keeps the "
+        "proposer, and triage asks nobody. `enabled: false` keeps the "
         "binding and asks as if it were unbound.",
         block=JEV_FIELDS,
     ),
@@ -1661,31 +1653,29 @@ class Ladder:
 
 
 #: The deployment in which mcgyvr is the backend: `mcgyvr-code` provisions a
-#: local orchestrator unit, and a raw use case is the ladder serving its model.
+#: local proposer unit, and a raw use case is the ladder serving its model.
 LOCAL_ONLY = "local-only"
 
 
 @dataclass(frozen=True)
-class LocalOrchestrator:
-    """What `local_orchestrator` decided: whether an orchestrator unit is
+class LocalProposer:
+    """What `local_proposer` decided: whether a proposer unit is
     provisioned, at what width, and whether a single-user install is flagged."""
 
-    #: True when this install provisions a local orchestrator unit.
+    #: True when this install provisions a local proposer unit.
     provision: bool
-    #: Slots the orchestrator is served at, one per user; None when it is not
+    #: Slots the proposer is served at, one per user; None when it is not
     #: provisioned.
     width: int | None = None
     #: True for a single-user install, which is flagged rather than refused: the
-    #: resident orchestrator consumes the card the ladder would otherwise use.
+    #: resident proposer consumes the card the ladder would otherwise use.
     flag_single_user: bool = False
 
 
-def local_orchestrator(
-    *, use_case: str, local_only: bool, users: int
-) -> LocalOrchestrator:
-    """Whether this install provisions a local orchestrator unit.
+def local_proposer(*, use_case: str, local_only: bool, users: int) -> LocalProposer:
+    """Whether this install provisions a local proposer unit.
 
-    A hybrid deployment provisions none, because an API-tier orchestrator
+    A hybrid deployment provisions none, because an API-tier session agent
     drives it, and neither does a raw use case (`code`, `chat`, `agent`),
     which has no proposer in its path: it is the ladder serving the model.
     `mcgyvr-code` under local-only provisions one, served at `users` slots
@@ -1694,14 +1684,14 @@ def local_orchestrator(
     other paths do not look at it.
     """
     if not local_only:
-        return LocalOrchestrator(provision=False)
+        return LocalProposer(provision=False)
     if use_case != MCGYVR_CODE:
-        return LocalOrchestrator(provision=False)
+        return LocalProposer(provision=False)
     if users < 1:
         raise ValueError(
-            f"users must be at least 1 to provision a local orchestrator, got {users}"
+            f"users must be at least 1 to provision a local proposer, got {users}"
         )
-    return LocalOrchestrator(
+    return LocalProposer(
         provision=True,
         width=users,
         flag_single_user=users == 1,
@@ -1754,13 +1744,13 @@ class Config:
 
     @property
     def authoring(self) -> str:
-        """How proposals are authored: `orchestrator.authoring` when stated;
-        otherwise `classifier` under `mcgyvr-code` — Jev's fill when Jev is on,
-        the scaffold alone when it is not — else `prose`."""
-        stated = self.get("orchestrator.authoring")
+        """How proposals are authored: `proposer.authoring` when stated;
+        otherwise `fill` under `mcgyvr-code` — Jev's fill when Jev is on,
+        the scaffold alone when it is not — else `draft`."""
+        stated = self.get("proposer.authoring")
         if stated is not None:
             return str(stated)
-        return "classifier" if self.use_case == MCGYVR_CODE else "prose"
+        return "fill" if self.use_case == MCGYVR_CODE else "draft"
 
     @property
     def ride_scope(self) -> str:
@@ -1779,11 +1769,11 @@ class Config:
         return str(self.get("deployment", DEPLOYMENT_FIELD.default))
 
     @property
-    def provisions_local_orchestrator(self) -> bool:
-        """Whether this install provisions a local orchestrator unit, as
-        `local_orchestrator` decides it from `use_case`, `deployment` and
+    def provisions_local_proposer(self) -> bool:
+        """Whether this install provisions a local proposer unit, as
+        `local_proposer` decides it from `use_case`, `deployment` and
         `users`."""
-        return local_orchestrator(
+        return local_proposer(
             use_case=self.use_case,
             local_only=self.deployment == LOCAL_ONLY,
             users=int(self.get("users", 1)),
@@ -1886,11 +1876,11 @@ KNOBS: dict[int, str] = {
 SWITCHES: tuple[Switch, ...] = (
     Switch(
         "authoring",
-        ("orchestrator.authoring",),
-        "`prose`",
+        ("proposer.authoring",),
+        "`draft`",
         "how a request becomes proposals: the scaffold, with typed Jev "
-        "questions when Jev is on, or one prose reply",
-        stage="classifier",
+        "questions when Jev is on, or one drafted reply",
+        stage="fill",
     ),
     Switch(
         "Jev decisions",
@@ -1966,11 +1956,11 @@ SWITCHES: tuple[Switch, ...] = (
         stage="reviewer",
     ),
     Switch(
-        "replan",
-        ("max_replans",),
+        "re-decompose",
+        ("max_redecompositions",),
         "`0`",
-        "a contract whose ladder is spent goes back to be re-planned",
-        stage="replan",
+        "a contract whose ladder is spent goes back to be re-decomposed",
+        stage="redecompose",
     ),
     Switch(
         "re-propose",
@@ -2027,14 +2017,17 @@ def stages(config: Config) -> dict[str, bool]:
         return dict.fromkeys(STAGE_NAMES, False)
     gate = config.get("gate.enabled") is not False
     on = {
-        "classifier": config.authoring == "classifier",
+        "fill": config.authoring == "fill",
         "jev": config.jev_on,
         "ladder": len(config.ladder.names) > 1 and config.get("max_escalations") != 0,
         "retry_notes": config.get("retry_notes", "climb") != "none",
         "gate": gate,
         "repair": gate and config.get("cleanup.enabled") is not False,
         "reviewer": config.get("verifier.enabled") is not False,
-        "replan": int(config.get("max_replans", MAX_REPLANS_DEFAULT) or 0) > 0,
+        "redecompose": int(
+            config.get("max_redecompositions", MAX_REDECOMPOSITIONS_DEFAULT) or 0
+        )
+        > 0,
         "repropose": int(config.get("max_reproposals", MAX_REPROPOSALS_DEFAULT) or 0)
         > 0,
         "inferred_edges": config.get("infer_dependencies") is not False,
@@ -2056,7 +2049,7 @@ def requires_mcgyvr_code(config: Config) -> str | None:
         return None
     return (
         f"use case `{config.use_case}` serves its model raw: no proposer, gate, "
-        f"repair, reviewer or ladder is in its path, so contracts are not run "
+        f"repair, verifier or ladder is in its path, so contracts are not run "
         f"here. `mcgyvr use mcgyvr-code` opts in to them."
     )
 
@@ -2629,7 +2622,7 @@ def _build(
             container=block["container"],
             hf_cache=block["hf_cache"],
             sampling=block.get("sampling") or "request",
-            role=block.get("role") or ROLE_ALWAYS_ON,
+            role=block.get("sleep") or ROLE_ALWAYS_ON,
             launcher=block.get("launcher") or LAUNCHER_DOCKER,
             expose=block.get("expose"),
             launch=block["launch"],
@@ -2818,7 +2811,7 @@ def _cross_validate_fleet(data: Mapping[str, Any]) -> None:
 
 
 #: The roles a unit is bound to by name, each a block with a `unit` key.
-_ROLE_BLOCKS = ("orchestrator", "verifier", "jev")
+_ROLE_BLOCKS = ("proposer", "verifier", "jev")
 
 
 def _bindable(data: Mapping[str, Any]) -> str:

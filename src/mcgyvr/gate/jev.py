@@ -63,7 +63,7 @@ JEV_QUESTIONS: Mapping[str, Question] = {
 _REGRESSION_LEVEL = 1.0
 
 #: Seam that turns a state into a Decision. It is injected rather than built
-#: here, so a caller can wrap it — with a wake, or a reviewer's remembered
+#: here, so a caller can wrap it — with a wake, or a verifier's remembered
 #: refusal — and a test can answer without a wire.
 type Decide = Callable[[Any], Decision]
 

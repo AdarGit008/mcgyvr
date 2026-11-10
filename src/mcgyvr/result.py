@@ -91,7 +91,7 @@ class RunResult:
     #: `nothing_to_run`, `declined_throughout`), `blocked` when the dependency
     #: tree held the contract and nothing was dispatched (`mcgyvr.tree`), or
     #: `error` when nothing was judged at all — and `detail` says it in a
-    #: sentence, and on a re-planned contract what took its place.
+    #: sentence, and on a re-decomposed contract what took its place.
     detail: str = ""
     #: `delivery` is where the work went: the commit, the fact that the change
     #: was left in the tree uncommitted, or why the write to it was refused —
@@ -154,12 +154,13 @@ class RunResult:
     #: `none` or on the deterministic floor. `None` on a run that was not
     #: seeded, and then the key is left out of the file.
     seeded: dict[str, Any] | None = None
-    #: `replanned` is what a batch made of a `ladder_spent` contract after its
-    #: run (`mcgyvr.replan`): the `round` and the `max_replans` it was held to,
-    #: the `contracts` proposed in its place (none when it was not re-planned)
+    #: `redecomposed` is what a batch made of a `ladder_spent` contract after its
+    #: run (`mcgyvr.redecompose`): the `round` and the `max_redecompositions` it
+    #: was held to,
+    #: the `contracts` proposed in its place (none when it was not re-decomposed)
     #: and a `detail` sentence. `None` on every other run, and then the key is
     #: left out of the file.
-    replanned: dict[str, Any] | None = None
+    redecomposed: dict[str, Any] | None = None
 
     def as_json(self) -> dict[str, Any]:
         data = asdict(self)
@@ -170,8 +171,8 @@ class RunResult:
             del data["blocked_by"]
         if self.seeded is None:
             del data["seeded"]
-        if self.replanned is None:
-            del data["replanned"]
+        if self.redecomposed is None:
+            del data["redecomposed"]
         return data
 
 
@@ -219,7 +220,7 @@ def amend(path: Path, changes: dict[str, Any]) -> Path:
     """Rewrite the result file at `path` with `changes` over what it holds.
 
     For what is learned about a run after its result was written, such as the
-    contracts a batch re-planned it into. The rest of the file is kept as it
+    contracts a batch re-decomposed it into. The rest of the file is kept as it
     was, `finished` included, and the file is replaced whole.
     """
     data = json.loads(path.read_text(encoding="utf-8"))

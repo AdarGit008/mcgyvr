@@ -1789,7 +1789,7 @@ def add_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None
         metavar="USE_CASE",
         help=(
             "which use case this install serves: mcgyvr-code (mcgyvr between "
-            "the model and you: the gate, repair, reviewer, ladder and the "
+            "the model and you: the gate, repair, verifier, ladder and the "
             "rest, each switchable), or code, chat or agent (the model served "
             "raw); default: mcgyvr-code"
         ),
@@ -1800,9 +1800,9 @@ def add_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None
         choices=DEPLOYMENT_FIELD.choices,
         metavar="MODEL",
         help=(
-            "how mcgyvr is run: hybrid (an API-tier orchestrator drives it) or "
+            "how mcgyvr is run: hybrid (an API-tier session agent drives it) or "
             "local-only (mcgyvr is the backend and provisions a local "
-            f"orchestrator for mcgyvr-code); default: {DEPLOYMENT_FIELD.default}"
+            f"proposer for mcgyvr-code); default: {DEPLOYMENT_FIELD.default}"
         ),
     )
     setup.add_argument(

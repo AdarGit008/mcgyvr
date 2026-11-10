@@ -173,7 +173,7 @@ def lay_out(setup: Path, rigs: Mapping[str, str], rooms: Mapping[str, int]) -> N
         body.setdefault("room_mib", int(rooms[name]) if name in rooms else None)
         body.setdefault("request_timeout_s", DEFAULT_REQUEST_TIMEOUT_S)
         body["unit_id"] = unit_id(body)
-        state = ASLEEP if body.get("role") == ROLE_SLEEPER else AWAKE
+        state = ASLEEP if body.get("sleep") == ROLE_SLEEPER else AWAKE
         layout.setdefault(str(body["rig"]), []).append([name, state])
     fleet["rigs"] = {rig: {"rig_id": rigs[rig]} for rig in layout}
     fleet["fleets"] = {FLEET: {"layout": layout, "next": []}}
@@ -295,7 +295,7 @@ def _contract_run(
     The bundled contract is dumped to `contract.yaml` and its files committed into
     a repository under `where`, and the contract runner is handed the `direct` argv
     naming the contract, that repository, the staged setup, this sample's
-    orchestrator id and where the result goes. Whatever the runner wrote there is
+    session id and where the result goes. Whatever the runner wrote there is
     returned as a dict; a result that is missing, unreadable or not an object
     becomes an `error` outcome rather than passing for a run that never happened.
     """

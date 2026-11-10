@@ -7,8 +7,8 @@ rank-0 id, whether jev abstained, its confidence, whether its reply failed to
 parse, the round-trip latency, and the model and seed that produced it. A
 :class:`ShadowSink` appends one JSON line per record to a path it is given.
 Its one writer is ``mcgyvr PROMPT`` (:mod:`mcgyvr.cli.commands.delegate`), and
-only under ``--log PATH`` with the classifier authoring strategy: the typed
-classifier then records to ``<PATH>.decisions.jsonl``. Otherwise no
+only under ``--log PATH`` with the fill authoring strategy: the typed
+fill proposer then records to ``<PATH>.decisions.jsonl``. Otherwise no
 sink is built and nothing is written. The pure helpers below answer the
 wave-2 metric questions over any iterable of records: ``recall_at_k``,
 ``override_rate``, ``abstain_rate``, ``parse_fail_rate``,

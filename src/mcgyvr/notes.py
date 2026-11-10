@@ -2,7 +2,7 @@
 
 One :class:`FailureNotes` per failed attempt, built after the fact from what was
 observed, never from what a model said about it: the gate's findings and the
-rungs it could not decide (:meth:`FailureNotes.of_gate`), a reviewer's refusal
+rungs it could not decide (:meth:`FailureNotes.of_gate`), a verifier's refusal
 and what the jev rung saw beside it (:meth:`FailureNotes.of_refusal`), or a
 reply nothing could read (:meth:`FailureNotes.unreadable`). Each
 :class:`FailureNote` in it is one observation of one check. A field a check did
@@ -65,7 +65,7 @@ SCHEMA_ID = "mcgyvr.failure_notes/1"
 #: parser refused what came back.
 REPLY_CHECK = "reply"
 
-#: The check a reviewer's refusal is filed under.
+#: The check a verifier's refusal is filed under.
 VERIFIER_CHECK = "verifier"
 
 
@@ -77,7 +77,7 @@ class NoteKind(StrEnum):
     """What one note observed.
 
     `finding` is a check that rejected the change, `inconclusive` a rung that
-    ran and could not decide, `refusal` a reviewer that refused a change the
+    ran and could not decide, `refusal` a verifier that refused a change the
     gate passed, and `unreadable` a reply nothing could gate.
     """
 
@@ -100,7 +100,7 @@ NOTE_FIELDS: tuple[Field, ...] = (
         "kind",
         "enum",
         "`finding`: the check rejected the change. `inconclusive`: the rung "
-        "ran and could not decide. `refusal`: a reviewer refused a change the "
+        "ran and could not decide. `refusal`: a verifier refused a change the "
         "gate passed. `unreadable`: the reply could not be read, so nothing "
         "was gated.",
         required=True,
@@ -334,9 +334,9 @@ class FailureNotes:
         family: str,
         attempt: int,
     ) -> FailureNotes:
-        """The record of a change the gate passed and a reviewer refused.
+        """The record of a change the gate passed and a verifier refused.
 
-        The reviewer's sentence comes first, then whatever the non-blocking jev
+        The verifier's sentence comes first, then whatever the non-blocking jev
         rung saw, as findings and observations. `jev` is named only when that
         rung saw something, so a refusal with no detail claims no more of it
         than it has.
@@ -384,7 +384,7 @@ class FailureNotes:
 
     @property
     def findings(self) -> tuple[str, ...]:
-        """The lines a gate or a reviewer held against the change.
+        """The lines a gate or a verifier held against the change.
 
         What a result's `findings` carries: every note but an unreadable
         reply's, which no check judged — its sentence is the attempt's detail.
@@ -405,7 +405,7 @@ class FailureNotes:
         """The banner the record is rendered under, naming the attempt it is about.
 
         It says what happened to that attempt and nothing about any other: a
-        gate's rejection, a reviewer's refusal of a change the gate passed, or a
+        gate's rejection, a verifier's refusal of a change the gate passed, or a
         reply that could not be read and so was never gated.
         """
         kinds = {note.kind for note in self.notes}
@@ -417,7 +417,7 @@ class FailureNotes:
             )
         if NoteKind.REFUSAL in kinds:
             return (
-                f"{where} PASSED THE GATE AND WAS REFUSED BY THE REVIEWER. Fix "
+                f"{where} PASSED THE GATE AND WAS REFUSED BY THE VERIFIER. Fix "
                 f"exactly these and change nothing else:"
             )
         return (
@@ -493,7 +493,7 @@ def json_schema() -> dict[str, Any]:
         "title": "mcgyvr failure notes",
         "description": (
             f"{SCHEMA_ID}: the record of one failed attempt, built from what the "
-            f"gate, the reviewer or the reply parser observed. Generated from "
+            f"gate, the verifier or the reply parser observed. Generated from "
             f"src/mcgyvr/notes.py by `make docs`; do not edit."
         ),
         "$ref": "#/$defs/FailureNotes",

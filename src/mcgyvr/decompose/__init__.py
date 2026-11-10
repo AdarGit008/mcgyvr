@@ -4,7 +4,7 @@
 evidence to a ``Proposer``, and turns its ``Proposal``s into a
 ``Decomposition`` of contracts and ``Refusal``s. ``iterate`` re-asks a refused
 field and re-emits; ``candidates`` and ``fields`` are the per-field choices a
-classifier proposer picks from; ``provides`` reads what a contract says it
+fill proposer picks from; ``provides`` reads what a contract says it
 creates or changes; ``baseline`` reads the repository's test baseline before any
 work is proposed.
 
