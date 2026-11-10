@@ -11,6 +11,16 @@ archived outside this repository, under the same paths.
 
 ### Changed
 
+- **The rule for an address a peer can be at is defined once, in
+  `mcgyvr.hubwire.is_peer_address`.** `rig/tunnel.py` (`is_lan`, `may_aim_at`)
+  and `rig/probe.py` (`reachable`) each spelled the same five checks (not
+  loopback, link-local, multicast, reserved or unspecified). They now read the
+  one predicate: `probe.reachable` is it, `tunnel.is_lan` is it and private,
+  and `may_aim_at` is it outside the tunnel's network and this machine's own
+  addresses. No address is classified differently. Reading interfaces is
+  unchanged and still Linux only; macOS and Windows rigs still name their
+  `endpoints` by hand.
+
 - **The agent channel's limits, shapes and codes are defined once, in
   `mcgyvr.hubwire`.** The protocol version, frame limits, the counts and
   bounds of every frame (models, sessions, endpoints, features, peers, allowed
