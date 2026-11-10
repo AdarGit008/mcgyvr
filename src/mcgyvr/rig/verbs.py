@@ -760,13 +760,12 @@ def _leave(args: argparse.Namespace) -> int:
 def _hub_sync(args: argparse.Namespace) -> tuple[str, str, str, Path] | int:
     """The hub, the key, its variable's name and the setup folder a sync of
     ``rungs`` or ``crew`` names, or the exit code it refuses with."""
-    import re
-
     from mcgyvr.config import ConfigError, config_path
+    from mcgyvr.fleet.files import is_variable_name
     from mcgyvr.rig import credentials, rungs
 
     key_env: str = args.key_env
-    if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", key_env):
+    if not is_variable_name(key_env):
         print(
             f"error: {key_env!r} is not a variable's name; --key-env takes the "
             "NAME of the variable holding your personal hub key, never the key",

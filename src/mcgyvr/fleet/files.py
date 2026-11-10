@@ -16,7 +16,7 @@ from __future__ import annotations
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, TypeGuard
 
 import yaml
 
@@ -527,9 +527,15 @@ def relief_key_env(text: str) -> str | None:
     return named.pop() if len(named) == 1 else None
 
 
+def is_variable_name(raw: object) -> TypeGuard[str]:
+    """Whether `raw` is an environment variable's name: `[A-Za-z_][A-Za-z0-9_]*`,
+    the shape `--key-env` takes and `relief.yaml` records."""
+    return isinstance(raw, str) and raw.isascii() and raw.isidentifier()
+
+
 def _key_env(raw: object, where: str) -> str:
     """`raw` as a variable's name, else `FleetFileError` at `where`."""
-    if not isinstance(raw, str) or not (raw.isascii() and raw.isidentifier()):
+    if not is_variable_name(raw):
         raise FleetFileError(
             f"{where}: is not a variable's name. It takes the NAME of the "
             "variable holding your personal hub key, never the key"

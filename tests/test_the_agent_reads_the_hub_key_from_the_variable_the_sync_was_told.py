@@ -104,6 +104,19 @@ def test_a_sync_told_no_name_records_the_default(setup: Path, hub: Hub) -> None:
     assert rungs.key_env(setup) == rungs.KEY_ENV == "MCGYVR_HUB_API_KEY"
 
 
+@pytest.mark.parametrize("name", ["1ST", "MY-KEY", "MY KEY", "KÉY", ""])
+def test_a_sync_told_a_name_that_is_not_a_variables_refuses_it(
+    setup: Path, hub: Hub, name: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from mcgyvr.exits import Exit
+
+    assert cli("--key-env", name) == Exit.USAGE
+
+    assert "NAME of the variable" in capsys.readouterr().err
+    assert hub.asked == []
+    assert not (setup / "relief.yaml").exists()
+
+
 # --- what the agent's refresh reads ------------------------------------------------
 
 
