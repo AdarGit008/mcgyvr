@@ -3,7 +3,7 @@
 Verification is settled in a fixed order. The family's policy decides whether a
 model review is owed at all, the identity check refuses a reviewer whose
 weights are the builder's, and only then is a reviewer asked. A reply that came
-back is read as one of four outcomes (:class:`ReviewOutcome`), two of which
+back is read as one of three outcomes (:class:`ReviewOutcome`), two of which
 agree with the change. A reviewer that could not be asked, could not be read,
 or was cut short yields an *unusable* review, which is never an approval.
 
@@ -15,6 +15,7 @@ the outcome token the first non-blank line opens with; the typed path reads a
 
 from __future__ import annotations
 
+import logging
 import re
 import unicodedata
 from collections.abc import Callable
@@ -102,29 +103,36 @@ class ReviewTruncatedError(RuntimeError):
     """
 
 
-class ReviewOutcome(StrEnum):
-    """The four tokens a prose review must open with.
+_log = logging.getLogger(__name__)
 
-    The two approving values map to agreement and the two refusing values to
-    refusal (`_OPINION`); the enum's string value is the token itself, which is
-    what `_TOKENS` matches against and what the prompt lists.
+
+class ReviewOutcome(StrEnum):
+    """The three tokens a prose review must open with.
+
+    The two approving values map to agreement and REFUSE to refusal
+    (`_OPINION`); the enum's string value is the token itself, which is what
+    `_TOKENS` matches against and what the prompt lists.
     """
 
     APPROVE = "APPROVE"
     APPROVE_WITH_NOTES = "APPROVE_WITH_NOTES"
-    REMEDIATE = "REMEDIATE"
-    ESCALATE = "ESCALATE"
+    REFUSE = "REFUSE"
 
 
 # What each outcome is worth to the escalation path: approval with notes is
-# still agreement, and an escalation is still a refusal of the change as
-# applied. The mapping is what keeps `as_review` from having to enumerate them.
+# still agreement. The mapping is what keeps `as_review` from having to
+# enumerate them.
 _OPINION: dict[ReviewOutcome, Opinion] = {
     ReviewOutcome.APPROVE: Opinion.AGREED,
     ReviewOutcome.APPROVE_WITH_NOTES: Opinion.AGREED,
-    ReviewOutcome.REMEDIATE: Opinion.REFUSED,
-    ReviewOutcome.ESCALATE: Opinion.REFUSED,
+    ReviewOutcome.REFUSE: Opinion.REFUSED,
 }
+
+#: The two refusal words the prompt listed before REFUSE replaced them. Both
+#: always meant a plain refusal, and a model tuned on the old prompt may still
+#: open with one, so for one release either is read as REFUSE, with a debug
+#: note. The prompt no longer lists them; drop this tuple in the next release.
+_RETIRED_REFUSALS: tuple[str, ...] = ("REMEDIATE", "ESCALATE")
 
 
 @dataclass(frozen=True)
@@ -138,7 +146,7 @@ class ReviewVerdict:
         """Convert to the plain agreed/refused review the escalation path reads.
 
         The detail is the outcome token and, when there are notes, the notes
-        after it, so the refusal text names the one of the four outcomes the
+        after it, so the refusal text names the one of the three outcomes the
         reviewer chose.
         """
         word = self.outcome.value
@@ -148,15 +156,20 @@ class ReviewVerdict:
         return Review.refused(detail)
 
 
-# One compiled pattern per outcome, longest value first, so that
-# APPROVE_WITH_NOTES is tried before APPROVE and cannot be read as a bare
+# One compiled pattern per word a reply may open with — each outcome's token
+# and each retired refusal word, which reads as REFUSE — longest word first, so
+# that APPROVE_WITH_NOTES is tried before APPROVE and cannot be read as a bare
 # APPROVE with notes. The underscore is matched as either `_` or a space, and
 # matching is case-insensitive; the pattern is used with `match`, and the
 # trailing `\b` keeps a longer word that merely starts with a token from
 # counting as that token.
-_TOKENS: tuple[tuple[ReviewOutcome, re.Pattern[str]], ...] = tuple(
-    (outcome, re.compile(outcome.value.replace("_", "[ _]") + r"\b", re.IGNORECASE))
-    for outcome in sorted(ReviewOutcome, key=lambda o: -len(o.value))
+_WORDS: tuple[tuple[str, ReviewOutcome], ...] = (
+    *((outcome.value, outcome) for outcome in ReviewOutcome),
+    *((word, ReviewOutcome.REFUSE) for word in _RETIRED_REFUSALS),
+)
+_TOKENS: tuple[tuple[ReviewOutcome, str, re.Pattern[str]], ...] = tuple(
+    (outcome, word, re.compile(word.replace("_", "[ _]") + r"\b", re.IGNORECASE))
+    for word, outcome in sorted(_WORDS, key=lambda pair: -len(pair[0]))
 )
 
 #: What may sit between the outcome token and the notes on the same line:
@@ -168,7 +181,8 @@ def read_verdict(reply: str) -> ReviewVerdict | None:
     """Read the verdict out of a prose reply, or None when it names none.
 
     Only the first non-blank line is inspected: it must *begin* with one of the
-    outcome tokens. The notes are whatever follows that token on the line, less
+    outcome tokens, or with a retired refusal word (`_RETIRED_REFUSALS`), which
+    is read as REFUSE. The notes are whatever follows that token on the line, less
     `_NOTE_SEPARATORS`, joined to every later line. A reply whose first non-blank
     line opens with anything else — including a reviewer that begins with a
     preamble and names its outcome further down — returns None, which the caller
@@ -179,10 +193,16 @@ def read_verdict(reply: str) -> ReviewVerdict | None:
         opening = line.strip()
         if not opening:
             continue
-        for outcome, pattern in _TOKENS:
+        for outcome, word, pattern in _TOKENS:
             found = pattern.match(opening)
             if found is None:
                 continue
+            if word != outcome.value:
+                _log.debug(
+                    "the reviewer opened with the retired verdict word %s; read as %s",
+                    word,
+                    outcome.value,
+                )
             head = opening[found.end() :].lstrip(_NOTE_SEPARATORS)
             tail = "\n".join(lines[index + 1 :]).strip()
             return ReviewVerdict(
@@ -190,7 +210,7 @@ def read_verdict(reply: str) -> ReviewVerdict | None:
                 notes="\n".join(part for part in (head, tail) if part),
             )
         # The first non-blank line is the only place a verdict may appear, and
-        # it holds none of the four tokens: this reply states no outcome.
+        # it holds none of the tokens: this reply states no outcome.
         return None
     return None
 
@@ -327,7 +347,7 @@ def build_prompt(
     The sections are, in order: who the reviewer is and that it wrote nothing
     here, the contract block, the deterministic gate summary, the original file,
     the change as applied to the target, and the instruction to open the reply
-    with exactly one of the four outcome tokens. `original` follows
+    with exactly one of the three outcome tokens. `original` follows
     `_original_block`, with None falling back to the contract's recorded target
     content.
     """
