@@ -350,6 +350,52 @@ keeps a climb on the rung it starts on. Vetting has no switch: it is what
 makes a proposal a runnable contract. Model loading, slots, the sandbox,
 locks and waking a card are machinery, not switches.
 
+## Glossary
+
+- **decomposition** — the whole step that turns a prompt into contracts (`decompose`): a survey of the
+  repository, then scaffold, then fill or draft, then vet.
+- **scaffold** — the candidates mcgyvr builds from the survey for each field of a contract, with no model
+  asked; the first of each set is the default.
+- **fill** — Jev picks each field of the scaffold from its fixed candidates (`authoring: classifier` in
+  today's policy.yaml).
+- **draft** — a model writes the proposals freely, as JSON (`authoring: prose` in today's policy.yaml).
+- **vet** — the deterministic checks every proposal and every hand-written contract passes before
+  anything runs; a proposal vetting refuses goes back to the proposer (`max_reproposals`).
+- **proposer** — the propose stage, fill or draft as `authoring` picks; policy.yaml binds its model in
+  the block spelled `orchestrator` today.
+- **direct** — you, or the session agent, write the contracts; `mcgyvr direct FILE...` (`/mcgyvr-direct`)
+  vets and runs them, and a spent contract comes back to its author.
+- **delegate** — you hand mcgyvr the prompt: `mcgyvr PROMPT` (`/mcgyvr`) decomposes it into contracts and
+  runs them. The session agent chooses direct or delegate; mcgyvr dispatches either way.
+- **ladder** — the rungs a task climbs, in the order policy.yaml's `ladder` lists them; `mcgyvr ladder
+  show` prints it as it resolves.
+- **rung** — one step of the ladder: a unit, and the model sent to it.
+- **top rung** — the dearest rung of the ladder, the last a climb tries.
+- **unit** — one configured model server, an entry of fleet.yaml's `units`: where it answers, the model
+  it serves and how many requests at once.
+- **standing session** — on the hub, a session the hub itself keeps running on a lent rig, serving one
+  model to the general pool or a crew pool.
+- **hitchhike** — slot sharing: a host offers open slots of their own units, and a rider's task takes one
+  only when the rider's own rung is full (`fanout: idle`), never as a step to climb. A host can read the
+  prompts sent to it.
+- **general pool** — the hub's shared pool: models an admin curates, run as standing sessions on rigs
+  lent to it, for any member.
+- **crew pool** — the same, invite only: one crew's owner curates its models, its rigs are lent to that
+  crew, and only its members are served.
+- **rig** — a machine: one mcgyvr serves from, or one lent to a hub (`mcgyvr rig`).
+- **host** — the person who offers slots to hitchhikers. The wire keeps its own `host` fields (a rig's
+  system, a lending member); the docs say rig for the machine and system for its OS. Host memory and host
+  cores are a machine's own RAM and CPU, as against a card's.
+- **system** — a rig's operating system block: OS, architecture and version.
+- **session** — two layers: the writer's chat (`--session`, the journal file a run is filed in), and a
+  pooled inference run across rigs (`mcgyvr rig`, the hub).
+- **writer** — the Claude Code or Pi chat a command was typed from; a run, its result and its journal
+  rows are filed under it.
+- **family** — the catalog kind a rung is served from: `deterministic` (tools), `local` or `api`,
+  cheapest first.
+- **floor** — the no-model path, the `deterministic` family: a tool makes the change, in one attempt, and
+  no tokens are spent.
+
 ## Value types
 
 | Type | Accepted |
