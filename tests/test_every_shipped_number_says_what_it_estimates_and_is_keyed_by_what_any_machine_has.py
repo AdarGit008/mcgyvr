@@ -24,6 +24,7 @@ from mcgyvr import config, derived
 from mcgyvr.fleet.links import LINK_CLASSES
 from mcgyvr.fleet.tolerance import CLASSES
 from tests import numbers_fixture as nf
+from tests.numbers_fixture import one_number
 
 #: The fields an entry of the shipped file may carry, and no others.
 ENTRY_FIELDS = {"kind", "estimates", "used_for", "unit", "key", "values", "note"}
@@ -82,7 +83,7 @@ def test_every_value_is_a_finite_number_inside_its_units_bounds() -> None:
             assert not isinstance(value, bool), (number, key)
             assert isinstance(value, (int, float)), (number, key)
             assert math.isfinite(value), (number, key)
-            answered = derived.lookup(number, key)
+            answered = one_number(number, key)
             assert answered.value == float(value)
             assert answered.source == "estimate"
             assert answered.unit == entry["unit"]
@@ -154,7 +155,7 @@ def test_a_shipped_value_outside_its_bounds_is_refused_by_name(
     path = tmp_path / "shipped.json"
     path.write_text(text, encoding="utf-8")
     with pytest.raises(derived.DerivedNumbersError) as was:
-        derived.lookup("invented_bound", "only", path=path)
+        one_number("invented_bound", "only", path=path)
     assert "invented_bound" in str(was.value)
     assert str(path) in str(was.value)
 
@@ -166,7 +167,7 @@ def test_a_shipped_value_on_the_open_side_of_its_bounds_is_answered(
     nf.use_invented_spaces(monkeypatch)
     entry = nf.Entry(id="invented_edge", unit=unit, key="lone", values={"only": value})
     path = nf.write_json(tmp_path / "shipped.json", nf.document([entry]))
-    assert derived.lookup("invented_edge", "only", path=path).value == value
+    assert one_number("invented_edge", "only", path=path).value == value
 
 
 def test_a_shipped_entry_in_a_unit_without_bounds_is_refused_by_name(
@@ -178,7 +179,7 @@ def test_a_shipped_entry_in_a_unit_without_bounds_is_refused_by_name(
     )
     path = nf.write_json(tmp_path / "shipped.json", nf.document([entry]))
     with pytest.raises(derived.DerivedNumbersError, match="invented_unit"):
-        derived.lookup("invented_unit", "only", path=path)
+        one_number("invented_unit", "only", path=path)
 
 
 @pytest.mark.parametrize("schema", [2, 0, "1", True, None])
@@ -194,7 +195,7 @@ def test_a_shipped_file_of_another_schema_is_refused_by_name(
         document["schema_version"] = schema
     path = nf.write_json(tmp_path / "shipped.json", document)
     with pytest.raises(derived.DerivedNumbersError) as was:
-        derived.lookup("invented_schema", "only", path=path)
+        one_number("invented_schema", "only", path=path)
     text = str(was.value)
     assert str(path) in text
     assert f"schema {derived.NUMBERS_SCHEMA}" in text
@@ -235,7 +236,7 @@ def test_a_shipped_entry_keyed_outside_its_key_space_is_refused_by_name(
     document["numbers"]["invented_keyed"].update(key=key, values=values)
     path = nf.write_json(tmp_path / "shipped.json", document)
     with pytest.raises(derived.DerivedNumbersError) as was:
-        derived.lookup("invented_good", "slow", path=path)
+        one_number("invented_good", "slow", path=path)
     text = str(was.value)
     assert str(path) in text
     assert "invented_keyed" in text and named in text
@@ -250,7 +251,7 @@ def test_a_shipped_entry_that_is_not_an_object_is_refused_by_name(
     document["numbers"]["invented_flat"] = 3.0
     path = nf.write_json(tmp_path / "shipped.json", document)
     with pytest.raises(derived.DerivedNumbersError) as was:
-        derived.lookup("invented_good", "slow", path=path)
+        one_number("invented_good", "slow", path=path)
     assert str(path) in str(was.value) and "invented_flat" in str(was.value)
 
 
@@ -267,7 +268,7 @@ def test_a_broken_shipped_unit_is_reported_against_the_shipped_file(
     path = nf.write_json(tmp_path / "shipped.json", nf.document([entry]))
     user = nf.write_user_file(tmp_path_factory, {"invented_unit": {"only": 2.0}})
     with pytest.raises(derived.DerivedNumbersError) as was:
-        derived.lookup("invented_unit", "only", path=path)
+        one_number("invented_unit", "only", path=path)
     text = str(was.value)
     assert "invented_unit" in text and "furlongs" in text
     assert str(path) in text
@@ -294,6 +295,6 @@ def test_a_shipped_refusal_spells_only_the_start_of_what_it_refuses(
         body[field] = _LONG
     path = nf.write_json(tmp_path / "shipped.json", document)
     with pytest.raises(derived.DerivedNumbersError) as was:
-        derived.lookup("invented_long", "only", path=path)
+        one_number("invented_long", "only", path=path)
     assert str(path) in str(was.value)
     assert len(str(was.value)) < len(str(path)) + 1_000

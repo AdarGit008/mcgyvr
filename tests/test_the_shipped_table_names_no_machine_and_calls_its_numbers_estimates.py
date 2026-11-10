@@ -17,7 +17,7 @@ Promises:
      address or a home path (:data:`MACHINE_SHAPES`).
 
    What these checks cannot see: a machine, a card model, a vendor or a host
-   named in the prose of a declared field (a note, a backend's limits); a
+   named in the prose of a declared field (a note); a
    date written in a form the shapes do not know (a two-digit year, a month
    and a year alone, dots between the parts); a number
    that belongs to one card (a core count, a memory bandwidth). Those are the
@@ -84,17 +84,11 @@ def _walk(node: Any, where: str = "") -> Iterator[tuple[str, str | None, Any]]:
 def _entries(document: dict[str, Any]) -> Iterator[tuple[str, str, dict[str, Any]]]:
     """Every (level, location, entry) of the file, walked here, not by the loader.
 
-    The levels are the ones the product declares keys for. Under ``backends``
-    every key but the block's own declared notes names a backend.
+    The levels are the ones the product declares keys for.
     """
     yield "table", "the table", document
     for index, model in enumerate(document.get("models", [])):
         yield "model row", f"models[{index}]", model
-    backends = document.get("backends", {})
-    yield "backends block", "backends", backends
-    for name, entry in backends.items():
-        if name not in DECLARED_KEYS["backends block"]:
-            yield "backend", f"backends.{name}", entry
 
 
 def test_every_key_in_the_shipped_table_is_one_the_product_declares() -> None:
@@ -109,8 +103,6 @@ def test_every_key_in_the_shipped_table_is_one_the_product_declares() -> None:
             f"{where}: {key!r} (a {level} declares {sorted(DECLARED_KEYS[level])})"
             for key in entry
             if key not in DECLARED_KEYS[level]
-            # Under ``backends`` an entry's key is the name of a backend.
-            and not (level == "backends block" and isinstance(entry[key], dict))
         )
 
     assert not undeclared, "keys the product does not declare:\n" + "\n".join(

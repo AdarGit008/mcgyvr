@@ -135,6 +135,27 @@ def test_every_command_repeated_gets_the_same_answer_and_starts_nothing_more(
     assert len(pool.box.of_type("session_status")) == 2  # ready, stopped: once each
 
 
+def test_the_reason_the_hub_stops_a_session_for_is_said_in_the_log(
+    pool: Pool,
+) -> None:
+    """The hub's reason reaches the rig's log, so the log tells why a session
+    was stopped; a stop that gives none says so."""
+    prepared(pool)
+    ack = pool.ask("session_stop", "x1", session_id="s1", reason="owner_reclaimed")
+    assert ack is not None and ack["type"] == "ack"
+    pool.wait_for("session_status", "stopped")
+    asked = pool.ask("session_prepare", "p2", session_id="s2", role="worker")
+    assert asked is None
+    pool.wait_for("session_prepared", count=2)
+    pool.ask("session_stop", "x2", session_id="s2")
+    pool.wait_for("session_status", "stopped", count=2)
+    said = [line for line in pool.logged if "the hub stops it" in line]
+    assert said == [
+        "session s1: the hub stops it: owner_reclaimed",
+        "session s2: the hub stops it: no reason given",
+    ]
+
+
 def test_the_same_session_asked_for_something_else_is_refused(pool: Pool) -> None:
     prepared(pool)
     other_role = pool.ask("session_prepare", "p2", session_id="s1", role="head")

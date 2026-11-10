@@ -22,7 +22,6 @@ from mcgyvr.config import FLEET_FILENAME
 from mcgyvr.config import load as load_config
 from mcgyvr.emit import (
     _locked_service,
-    render_compose,
     resolved_launch,
 )
 from mcgyvr.exits import Exit
@@ -30,6 +29,7 @@ from mcgyvr.fleet.files import load_fleet
 from mcgyvr.scan import Scan
 from mcgyvr.serving import ModelSpec, unit_for
 from tests import records
+from tests.emitted import compose_of
 
 WINDOW = 4096
 SMALL = ModelSpec(
@@ -92,7 +92,7 @@ def vllm_unit() -> Any:
 
 def test_resolved_launch_is_the_compose_service_for_a_llama_cpp_unit() -> None:
     unit = llama_unit()
-    service = service_of(render_compose(unit))
+    service = service_of(compose_of(unit))
 
     resolved = resolved_launch(unit)
 
@@ -107,7 +107,7 @@ def test_resolved_launch_is_the_compose_service_for_a_llama_cpp_unit() -> None:
 
 def test_resolved_launch_states_hf_cache_not_volumes_for_a_vllm_unit() -> None:
     unit = vllm_unit()
-    service = service_of(render_compose(unit))
+    service = service_of(compose_of(unit))
 
     resolved = resolved_launch(unit)
 

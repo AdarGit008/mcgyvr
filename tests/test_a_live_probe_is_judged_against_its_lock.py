@@ -69,14 +69,13 @@ from tests.reads import UNIT_3B
 @pytest.mark.parametrize(
     ("unit", "expected"),
     [
-        ({"engine": "vllm", "launch": {"n_cpu_moe": 4}}, "vllm"),
-        ({"engine": "llama.cpp", "launch": {"n_cpu_moe": 19}}, "cpu_experts"),
-        ({"engine": "llama.cpp", "launch": {"flags": ["--cpu-moe"]}}, "cpu_experts"),
+        ({"engine": "vllm", "launch": {"argv": ["--n-cpu-moe", "4"]}}, "vllm"),
+        ({"engine": "llama.cpp", "launch": {"argv": ["--cpu-moe"]}}, "cpu_experts"),
         (
-            {"engine": "llama.cpp", "launch": {"flags": ["--n-cpu-moe", "8"]}},
+            {"engine": "llama.cpp", "launch": {"argv": ["--n-cpu-moe", "8"]}},
             "cpu_experts",
         ),
-        ({"engine": "llama.cpp", "launch": {"flags": ["-ngl", "99"]}}, "llamacpp"),
+        ({"engine": "llama.cpp", "launch": {"argv": ["-ngl", "99"]}}, "llamacpp"),
         ({"launch": {}}, "llamacpp"),
     ],
 )
@@ -97,7 +96,7 @@ def test_the_locks_nvme_check_reads_the_same_class(tmp_path: Path) -> None:
     lock.write(tmp_path / "experts", FLEET, evidence, tolerances=TOLERANCES)
 
     plain = json.loads(json.dumps(FLEET))
-    plain["units"]["box1_deepseek"]["launch"] = {"flags": ["-ngl", "99"]}
+    plain["units"]["box1_deepseek"]["launch"] = {"argv": ["-ngl", "99"]}
     with pytest.raises(lock.LockRefusedError, match="baseline"):
         lock.write(tmp_path / "plain", plain, evidence, tolerances=TOLERANCES)
 

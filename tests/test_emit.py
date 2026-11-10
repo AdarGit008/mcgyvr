@@ -1,9 +1,7 @@
 """Emitting is writing a file. It is never starting a process.
 
 A rig is a machine with an operator; mcgyvr hands it a launch spec and stops.
-Docker is one rendering of that spec, a bare command line is another, and the
-two must not disagree -- a compose file that carries different arguments from
-the command it replaces is a second configuration nobody is reading.
+The spec is a compose file, and what it says is what the rig runs.
 """
 
 from __future__ import annotations
@@ -19,10 +17,11 @@ from typing import Any
 import pytest
 import yaml
 
-from mcgyvr.emit import EmitError, emit_all, render_command, render_compose
+from mcgyvr.emit import EmitError, emit_all
 from mcgyvr.scan import Scan
 from mcgyvr.serving import ModelSpec, Unit, unit_for
 from tests._paths import TESTS
+from tests.emitted import compose_of
 
 # An MoE is sized off its own GGUF geometry and nothing else: the row for
 # Qwen3.6-35B-A3B at IQ3_XXS, as `ggufscan` read it (40 placeable blocks of
@@ -103,7 +102,7 @@ def test_one_compose_file_per_host(units: dict[str, Unit], tmp_path: Path) -> No
 
 
 def test_compose_reserves_the_gpu_the_scan_found(units: dict[str, Unit]) -> None:
-    service = service_of(render_compose(units["box1"]))
+    service = service_of(compose_of(units["box1"]))
     devices = service["deploy"]["resources"]["reservations"]["devices"]
     assert devices[0]["device_ids"] == ["0"]
 
@@ -111,44 +110,26 @@ def test_compose_reserves_the_gpu_the_scan_found(units: dict[str, Unit]) -> None
 def test_compose_mounts_weights_rather_than_baking_them(
     units: dict[str, Unit],
 ) -> None:
-    service = service_of(render_compose(units["box1"]))
+    service = service_of(compose_of(units["box1"]))
     assert any(str(volume).endswith(":/models:ro") for volume in service["volumes"])
 
 
 def test_the_written_width_appears_in_the_launch_arguments(
     units: dict[str, Unit],
 ) -> None:
-    command = service_of(render_compose(units["box1"]))["command"]
+    command = service_of(compose_of(units["box1"]))["command"]
     assert command[command.index("--parallel") + 1] == "8"
 
 
 def test_the_offload_split_appears_in_the_launch_arguments(
     units: dict[str, Unit],
 ) -> None:
-    command = service_of(render_compose(units["box1"]))["command"]
+    command = service_of(compose_of(units["box1"]))["command"]
     assert "--n-cpu-moe" in command
 
 
-def test_the_same_unit_renders_to_a_bare_command(units: dict[str, Unit]) -> None:
-    assert render_command(units["box2"]).split()[0].endswith("llama-server")
-
-
-def test_the_bare_command_and_compose_carry_identical_arguments(
-    units: dict[str, Unit],
-) -> None:
-    service = service_of(render_compose(units["box2"]))
-    assert render_command(units["box2"]).split()[1:] == [
-        str(a) for a in service["command"]
-    ]
-
-
-def test_a_unit_from_an_unscanned_host_is_refused() -> None:
-    with pytest.raises(EmitError, match="unscanned"):
-        render_compose(None)
-
-
 def test_emit_is_deterministic(units: dict[str, Unit]) -> None:
-    assert render_compose(units["box1"]) == render_compose(units["box1"])
+    assert compose_of(units["box1"]) == compose_of(units["box1"])
 
 
 def test_nothing_is_written_outside_the_given_root(
@@ -159,7 +140,7 @@ def test_nothing_is_written_outside_the_given_root(
 
 
 def test_the_port_appears_in_the_launch_arguments(units: dict[str, Unit]) -> None:
-    command = service_of(render_compose(units["box1"]))["command"]
+    command = service_of(compose_of(units["box1"]))["command"]
     assert command[command.index("--port") + 1] == str(units["box1"].port)
 
 
@@ -178,27 +159,15 @@ def renamed(unit: Unit, model: str) -> Unit:
     return replace(unit, model=model, key=replace(unit.key, model=model))
 
 
-def test_the_bare_command_is_safe_to_paste_into_a_shell(units: dict[str, Unit]) -> None:
-    """A metacharacter in a path must stay a character rather than become syntax.
+def test_a_metacharacter_in_a_path_stays_one_argument(units: dict[str, Unit]) -> None:
+    """A metacharacter in a path stays a character rather than becoming syntax.
 
     The compose ``command`` is a list, so ``/srv/w;id/qwen.gguf`` is one
-    argument there whatever is in it; the bare rendering is one string a shell
-    re-reads, and unquoted the same path is a command separator followed by a
-    second command. That is the two-renderings drift this module exists to
-    prevent, in its sharpest form -- one rendering loads a model, the other
-    loads a shorter path and then runs something.
-
-    A real shell is asked here, not a parser, because "safe to paste" is a
-    claim about a shell and nothing else can falsify it.
+    argument there whatever is in it.
     """
-    unit = elsewhere(units["box2"], "/srv/w;id/qwen-3b.gguf")
-    echoed = subprocess.run(
-        ["sh", "-c", f"printf '%s\\n' {render_command(unit)}"],
-        capture_output=True,
-        text=True,
-        check=True,
-    ).stdout.splitlines()
-    assert echoed[1:] == [str(a) for a in service_of(render_compose(unit))["command"]]
+    path = "/srv/w;id/qwen-3b.gguf"
+    command = service_of(compose_of(elsewhere(units["box2"], path)))["command"]
+    assert command[command.index("--model") + 1] == path
 
 
 def test_two_models_that_spell_one_service_name_are_refused(

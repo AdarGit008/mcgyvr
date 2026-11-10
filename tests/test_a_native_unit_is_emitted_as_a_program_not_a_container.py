@@ -31,6 +31,7 @@ from mcgyvr.serving import (
     servelib,
     units_for,
 )
+from tests.emitted import compose_of
 
 MODEL = "Qwen3.6-35B-A3B-UD-IQ3_XXS"
 SCANS = {
@@ -82,7 +83,7 @@ def only_unit(text: str) -> Unit:
 
 
 def service_of(unit: Unit) -> dict[str, object]:
-    document = yaml.safe_load(emit.render_compose(unit))
+    document = yaml.safe_load(compose_of(unit))
     (service,) = document["services"].values()
     return dict(service)
 
@@ -109,7 +110,7 @@ def test_a_native_unit_that_names_another_address_is_refused() -> None:
         )
     )
     with pytest.raises(emit.EmitError, match=r"127\.0\.0\.1 alone"):
-        emit.render_compose(unit)
+        compose_of(unit)
 
 
 def test_a_native_unit_on_another_rig_is_refused() -> None:
@@ -117,7 +118,7 @@ def test_a_native_unit_on_another_rig_is_refused() -> None:
     scans = {"box1": replace_host(SCANS["localhost"], "box1")}
     (unit,) = units_for(parse(text), scans, specs=(), ctx_per_slot=4096)
     with pytest.raises(emit.EmitError, match="rig file of box1 records neither"):
-        emit.render_compose(unit)
+        compose_of(unit)
 
 
 def test_a_native_unit_keeps_a_path_with_a_space() -> None:
@@ -126,7 +127,7 @@ def test_a_native_unit_keeps_a_path_with_a_space() -> None:
     command = list(service_of(unit)["command"])  # type: ignore[call-overload]
     assert "/Users/Jane Doe/m.gguf" in command
     with pytest.raises(emit.EmitError, match="whitespace"):
-        emit.render_compose(replace(unit, launcher="docker"))
+        compose_of(replace(unit, launcher="docker"))
 
 
 def test_a_unit_that_states_nothing_is_a_container_on_the_pinned_image() -> None:
@@ -141,7 +142,7 @@ def test_vllm_has_no_native_build() -> None:
     vllm = '    engine: vllm\n    hf_cache: "/home/someone/.cache/huggingface"\n'
     unit = only_unit(config_text("    launcher: native\n", engine=vllm))
     with pytest.raises(emit.EmitError, match="vllm has none"):
-        emit.render_compose(unit)
+        compose_of(unit)
 
 
 def test_two_units_of_one_process_cannot_run_two_ways() -> None:
@@ -174,9 +175,7 @@ def test_a_launch_spec_mixing_the_two_launchers_is_refused(tmp_path: Path) -> No
 
 def test_a_native_service_is_read_with_its_cards(tmp_path: Path) -> None:
     path = tmp_path / "compose.localhost.yml"
-    path.write_text(
-        emit.render_compose(only_unit(config_text("    launcher: native\n")))
-    )
+    path.write_text(compose_of(only_unit(config_text("    launcher: native\n"))))
     (service,) = servelib.services(path)
     assert service.launcher == "native"
     assert service.devices == ("0",)

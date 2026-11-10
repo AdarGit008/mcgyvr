@@ -252,14 +252,16 @@ def test_a_scanned_fit_reports_the_scratch_allowance_it_carries(
 
     Everything else in that figure is read from the header, so what the fit
     "held back" is the compute scratch and the unnamed allocation the header
-    cannot supply -- ``vramfit.SCRATCH_AND_CONTEXT_MIB`` -- and it says so
-    rather than reporting a reserve it did not take.
+    cannot supply -- qwen35moe's measured reading at ubatch 512 on a CUDA card
+    (``hubwire.MEASURED_SCRATCH_MIB``), the one a split charges too -- and it
+    says so rather than reporting a reserve it did not take.
     """
-    from mcgyvr.serving import vramfit
+    from mcgyvr import hubwire
 
     sized = fit(scans["box2"], MOE, ctx_per_slot=WINDOW)
     assert sized.fits is True
-    assert sized.headroom_gb == vramfit.SCRATCH_AND_CONTEXT_MIB / 1024
+    reading = hubwire.MEASURED_SCRATCH_MIB["qwen35moe"][512]
+    assert sized.headroom_gb == int(reading * (1 << 20)) / (1 << 30)
 
 
 def test_fit_reads_free_vram_not_the_nameplate(scans: dict[str, Scan]) -> None:

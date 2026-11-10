@@ -19,6 +19,7 @@ from mcgyvr import derived
 from mcgyvr.fleet import links
 from tests import link_fixture as lf
 from tests import numbers_fixture as nf
+from tests.numbers_fixture import one_number
 
 
 def test_the_link_class_key_space_is_the_classes_of_a_link() -> None:
@@ -34,9 +35,9 @@ def test_link_numbers_keyed_by_class_are_answered(
 ) -> None:
     lf.own_folders(tmp_path, monkeypatch)
     for name, (gib_s, latency_us) in lf.ESTIMATED.items():
-        bandwidth = derived.lookup(derived.LINK_GIB_S, name)
+        bandwidth = one_number(derived.LINK_GIB_S, name)
         assert (bandwidth.value, bandwidth.unit) == (gib_s, "GiB/s")
-        lag = derived.lookup(derived.LINK_LATENCY_US, name)
+        lag = one_number(derived.LINK_LATENCY_US, name)
         assert (lag.value, lag.unit) == (latency_us, "microseconds")
 
 
@@ -47,7 +48,7 @@ def test_a_link_number_keyed_by_a_host_name_is_refused_by_name(tmp_path: Path) -
     numbers[derived.LINK_GIB_S]["values"][lf.HOST_A] = 1.0
     path = nf.write_json(tmp_path / "shipped.json", document)
     with pytest.raises(derived.DerivedNumbersError) as was:
-        derived.lookup(derived.LINK_GIB_S, links.PCIE, path=path)
+        one_number(derived.LINK_GIB_S, links.PCIE, path=path)
     assert lf.HOST_A in str(was.value) and str(path) in str(was.value)
 
 
@@ -67,7 +68,7 @@ def test_a_link_value_outside_its_units_bounds_is_refused_by_name(
     path = tmp_path / "shipped.json"
     path.write_text(text, encoding="utf-8")
     with pytest.raises(derived.DerivedNumbersError) as was:
-        derived.lookup(number, links.PCIE, path=path)
+        one_number(number, links.PCIE, path=path)
     assert number in str(was.value) and str(path) in str(was.value)
 
 
@@ -98,7 +99,7 @@ def test_a_rank_allowance_is_keyed_by_the_engine(tmp_path: Path) -> None:
 def test_the_shipped_file_states_every_link_number_for_every_class() -> None:
     for name in links.LINK_CLASSES:
         for number in (derived.LINK_GIB_S, derived.LINK_LATENCY_US):
-            answered = derived.lookup(number, name)
+            answered = one_number(number, name)
             assert answered.source == "estimate"
             assert answered.value > 0
 

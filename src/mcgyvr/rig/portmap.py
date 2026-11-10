@@ -574,7 +574,7 @@ class Upnp:
 
 
 def _upnp_error(action: str, code: int, values: dict[str, str]) -> MapError:
-    said = sessionwire.scrub(values.get("errorDescription", ""))[:200]
+    said = sessionwire.printable_tail(values.get("errorDescription", ""))[:200]
     if code == _UPNP_PERMANENT_ONLY:
         return MapError(PERMANENT_ONLY, f"UPnP {action}: only permanent leases")
     if code in _UPNP_CONFLICT:
