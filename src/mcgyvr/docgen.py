@@ -355,6 +355,10 @@ TEST_ENV_PREFIX = "MCGYVR_TEST_"
 #: (tests/test_the_direct_skill_names_the_unchanged_reply_finding.py).
 UNCHANGED_CHECK = "unchanged"
 UNCHANGED_CODE = "identical-to-base"
+#: The document of every verb and flag, rendered by `mcgyvr.cli.verbdoc` (held
+#: to its `COMMANDS_PATH` by
+#: tests/test_commands_md_lists_every_verb_and_flag_the_parser_defines.py).
+COMMANDS_DOC = "COMMANDS.md"
 #: The rig names *Lending to a hub: the port forward* states, held to
 #: `sharing.SHARING_FILE`, the `rig share` and `rig join` switches and
 #: `portmap.NOT_ALLOWED`/`PERMANENT_ONLY` by
@@ -364,153 +368,6 @@ PORT_FORWARD_SWITCH = "--port-forward"
 PERMANENT_FORWARD_SWITCH = "--permanent-forward"
 FORWARD_NOT_ALLOWED = hubwire.PORT_MAP_NOT_ALLOWED
 FORWARD_PERMANENT_ONLY = hubwire.PORT_MAP_PERMANENT_ONLY
-
-
-#: One verb of the parser tree: its full name, that name with its positionals,
-#: its parser, its help line and its aliases.
-_Verb = tuple[str, str, argparse.ArgumentParser, str, tuple[str, ...]]
-
-
-def _parser_verbs() -> list[_Verb]:
-    """Every verb the `mcgyvr` parser defines, depth first in the parser's order.
-
-    The tree is the CLI's own (`mcgyvr.cli.dispatcher.build_parser`), imported
-    here so rendering the other documents does not build it.
-    """
-    from mcgyvr.cli.dispatcher import build_parser
-
-    found: list[_Verb] = []
-
-    def walk(parser: argparse.ArgumentParser, path: str) -> None:
-        for action in parser._actions:
-            if not isinstance(action, argparse._SubParsersAction):
-                continue
-            choices = action._choices_actions
-            helps = {choice.dest: choice.help or "" for choice in choices}
-            names: dict[int, list[str]] = {}
-            parsers: dict[int, argparse.ArgumentParser] = {}
-            for name, child in action.choices.items():
-                names.setdefault(id(child), []).append(name)
-                parsers[id(child)] = child
-            for key, (name, *aliases) in names.items():
-                child = parsers[key]
-                if helps.get(name) == argparse.SUPPRESS:
-                    continue
-                positionals = " ".join(
-                    _shown_positional(each)
-                    for each in child._actions
-                    if not each.option_strings
-                    and each.help != argparse.SUPPRESS
-                    and not isinstance(each, argparse._SubParsersAction)
-                )
-                full = f"{path} {name}"
-                shown = f"{full} {positionals}" if positionals else full
-                found.append((full, shown, child, helps.get(name, ""), tuple(aliases)))
-                walk(child, full)
-
-    walk(build_parser(), "mcgyvr")
-    return found
-
-
-def _shown_positional(action: argparse.Action) -> str:
-    """A positional as `-h` shows it: its metavar, or its name upper-cased, with
-    `...` when it repeats and brackets when it may be left out."""
-    shown = str(action.metavar or action.dest.upper())
-    if action.nargs in ("*", "+", argparse.REMAINDER):
-        shown += " ..."
-    if action.nargs in ("?", "*"):
-        shown = f"[{shown}]"
-    return shown
-
-
-def _parser_flags(parser: argparse.ArgumentParser) -> list[argparse.Action]:
-    """The flags `parser` shows in `-h`: every option but `-h` and a hidden one."""
-    return [
-        action
-        for action in parser._actions
-        if action.option_strings
-        and not isinstance(action, argparse._HelpAction)
-        and action.help != argparse.SUPPRESS
-    ]
-
-
-def _flag_help(parser: argparse.ArgumentParser, action: argparse.Action) -> str:
-    """A flag's help as `-h` prints it, defaults filled in, as one sentence; the
-    setup every `--config` falls back to is named, not spelled again, and a `*`
-    is escaped so Markdown shows it."""
-    from mcgyvr.cli.common import CONFIG_DEFAULT_HELP
-
-    text = parser._get_formatter()._expand_help(action) if action.help else ""
-    text = " ".join(text.split()).replace(CONFIG_DEFAULT_HELP, "the usual setup")
-    text = text.replace("*", "\\*").rstrip(".")
-    return f"{text}." if text else ""
-
-
-#: The verbs whose flags a skill already explains in their own words, so the
-#: list names them only: the two documents never say a sentence twice.
-_SKILL_VERBS = frozenset({"mcgyvr direct"})
-
-
-def _commands_section() -> list[str]:
-    """SETUP.md's *Commands*: every verb and flag the CLI's parser defines.
-
-    Rendered from the parser itself, so a verb or flag added there is listed
-    here on the next `make docs`, and `--check` fails until it is; the help is
-    the parser's own words. `direct`'s flags are the skills' to explain, so
-    they are named and not restated.
-    """
-    from mcgyvr.cli.common import CONFIG_DEFAULT_HELP
-
-    lines = [
-        "## Commands",
-        "",
-        *_wrap(
-            "Every verb and flag the `mcgyvr` parser defines, listed from the "
-            "parser itself; `mcgyvr VERB -h` prints the same help. The bare verb, "
-            "`mcgyvr PROMPT [flags]`, plans a prompt and runs it with `direct`'s "
-            "flags. Where a flag's help says *the usual setup*, that is "
-            f"{CONFIG_DEFAULT_HELP}.",
-            rest="",
-        ),
-        "",
-    ]
-    for full, shown, parser, help_text, aliases in _parser_verbs():
-        head = f"`{shown}`"
-        if aliases:
-            head += " (also " + ", ".join(f"`{alias}`" for alias in aliases) + ")"
-        said = " ".join(help_text.split()).rstrip(".")
-        lines += _wrap(f"{head} — {said}." if said else head, first="- ", rest="  ")
-        flags = _parser_flags(parser)
-        if not flags:
-            continue
-        if full in _SKILL_VERBS:
-            named = ", ".join(f"`{name}`" for f in flags for name in f.option_strings)
-            lines += _wrap(
-                f"flags: {named}; /mcgyvr-direct and `{full} -h` say what each does.",
-                first="  - ",
-                rest="    ",
-            )
-            continue
-        for flag in flags:
-            metavar = flag.metavar
-            if (
-                metavar is None
-                and flag.nargs != 0
-                and not isinstance(
-                    flag, argparse._StoreConstAction | argparse.BooleanOptionalAction
-                )
-            ):
-                metavar = flag.dest.upper()
-            names = ", ".join(
-                f"`{name} {metavar}`" if metavar else f"`{name}`"
-                for name in flag.option_strings
-            )
-            said = _flag_help(parser, flag)
-            lines += _wrap(
-                f"{names} — {said}" if said else names, first="  - ", rest="    "
-            )
-    lines.append("")
-    return lines
 
 
 def _port_forward_section() -> list[str]:
@@ -935,10 +792,16 @@ def render_setup() -> str:
             rest="",
         ),
         "",
+        *_wrap(
+            f"`{COMMANDS_DOC}`, at the root of mcgyvr's repository, lists every verb "
+            "and flag the `mcgyvr` parser defines, rendered from the parser itself; "
+            "`mcgyvr VERB -h` prints the same help.",
+            rest="",
+        ),
+        "",
         *_macos_windows_section(),
         *_port_forward_section(),
         *_use_cases_section(),
-        *_commands_section(),
         "## Value types",
         "",
         "| Type | Accepted |",

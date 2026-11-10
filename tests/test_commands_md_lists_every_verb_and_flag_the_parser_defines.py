@@ -1,11 +1,12 @@
-"""SETUP.md lists every verb and flag the `mcgyvr` parser defines.
+"""COMMANDS.md lists every verb and flag the `mcgyvr` parser defines.
 
-The parser is the one truth of what the CLI takes, and SETUP.md's *Commands*
-is rendered from it: every verb (aliases too) and every flag `-h` shows is
-named there, a verb with its help line and a flag with its own, so a verb or
-flag added to the parser is in the document on the next `make docs` and the
-drift check fails until it is. `direct`'s flags are the skills' to explain:
-they are named and pointed at, never restated. Hidden flags stay hidden.
+The parser is the one truth of what the CLI takes, and COMMANDS.md is rendered
+from it by `mcgyvr.cli.verbdoc`: every verb (aliases too) and every flag `-h`
+shows is named there, a verb with its help line and a flag with its own, so a
+verb or flag added to the parser is in the document on the next `make docs`
+and the drift check fails until it is. Hidden verbs and flags stay hidden. The
+renderer sits on the command line's side, since the core (docgen included) may
+not reach the command line; SETUP.md points at the document by its name.
 """
 
 from __future__ import annotations
@@ -16,15 +17,11 @@ from collections.abc import Iterator
 import pytest
 
 from mcgyvr import docgen
+from mcgyvr.cli import verbdoc
 from mcgyvr.cli.dispatcher import build_parser
 from tests._paths import REPO
 
-SETUP_MD = REPO / "skills" / "mcgyvr" / "SETUP.md"
-
-
-def _commands(text: str) -> str:
-    start = text.index("## Commands\n")
-    return text[start : text.index("\n## ", start + 1)]
+COMMANDS_MD = REPO / verbdoc.COMMANDS_PATH
 
 
 def _tree(
@@ -51,7 +48,12 @@ def _flags(parser: argparse.ArgumentParser) -> list[str]:
 
 @pytest.fixture(scope="module")
 def commands() -> str:
-    return _commands(SETUP_MD.read_text(encoding="utf-8"))
+    return COMMANDS_MD.read_text(encoding="utf-8")
+
+
+def test_the_committed_document_is_what_the_parser_renders(commands: str) -> None:
+    assert commands == verbdoc.render()
+    assert verbdoc.main(["--check"]) == 0
 
 
 def test_every_verb_and_alias_the_parser_defines_is_named(commands: str) -> None:
@@ -91,38 +93,28 @@ def test_the_verbs_the_other_documents_never_named_are_listed(commands: str) -> 
 
 
 def test_read_says_what_hint_and_holds_do(commands: str) -> None:
+    flat = " ".join(commands.split())
     assert "`--hint PATH` — a path you believe is relevant; re-ranks the shortlist" in (
-        " ".join(commands.split())
+        flat
     )
-    assert "`--holds PATH` — a path whose current content you already hold" in (
-        " ".join(commands.split())
-    )
+    assert "`--holds PATH` — a path whose current content you already hold" in flat
 
 
-def test_direct_s_flags_are_named_and_left_to_the_skills(commands: str) -> None:
-    start = commands.index("- `mcgyvr direct")
-    block = commands[start : commands.find("\n- `", start + 1)]
-    assert "/mcgyvr-direct and `mcgyvr direct -h` say what each does" in block
-    assert " — " not in block.split("\n", 1)[1], "no flag of direct is restated"
+def test_setup_names_the_document() -> None:
+    assert str(verbdoc.COMMANDS_PATH) == docgen.COMMANDS_DOC
+    assert f"`{docgen.COMMANDS_DOC}`" in docgen.render_setup()
 
 
-def test_a_verb_added_to_the_parser_is_listed_on_the_next_render(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    from mcgyvr.cli import dispatcher
+def test_a_verb_added_to_the_parser_is_listed_on_the_next_render() -> None:
+    parser = build_parser()
+    sub = next(a for a in parser._actions if isinstance(a, argparse._SubParsersAction))
+    added = sub.add_parser("example-verb", help="an invented verb")
+    added.add_argument("--example-flag", metavar="N", help="an invented flag")
+    hidden = sub.add_parser("hidden-verb", help=argparse.SUPPRESS)
+    hidden.add_argument("--hidden-flag")
 
-    real = dispatcher.build_parser
-
-    def grown() -> argparse.ArgumentParser:
-        parser = real()
-        sub = next(
-            a for a in parser._actions if isinstance(a, argparse._SubParsersAction)
-        )
-        added = sub.add_parser("example-verb", help="an invented verb")
-        added.add_argument("--example-flag", metavar="N", help="an invented flag")
-        return parser
-
-    monkeypatch.setattr(dispatcher, "build_parser", grown)
-    rendered = _commands(docgen.render_setup())
+    rendered = verbdoc.render(parser)
     assert "- `mcgyvr example-verb` — an invented verb." in rendered
     assert "  - `--example-flag N` — an invented flag." in rendered
+    assert "hidden" not in rendered
+    assert rendered != COMMANDS_MD.read_text(encoding="utf-8"), "the check would fail"

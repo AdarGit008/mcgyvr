@@ -12,10 +12,12 @@ archived outside this repository, under the same paths.
 ### Changed
 
 - **The docs say what already ships, tests pin it, and helpers no command
-  calls say so; one prompt changes.** SETUP.md gains *Commands*, every verb
-  and flag rendered from the CLI's own parser (`attach`, `index`, `resolve`,
-  `read --hint/--holds`, `fleet alerts`, `rig leave`, `rig peers`, the `caps`
-  and `rig lend` aliases were in no document), and says that `emit` refuses a
+  calls say so; one prompt changes.** A new generated `COMMANDS.md` lists
+  every verb and flag, rendered from the CLI's own parser by
+  `mcgyvr.cli.verbdoc` (`attach`, `index`, `resolve`, `read --hint/--holds`,
+  `fleet alerts`, `rig leave`, `rig peers`, the `caps` and `rig lend` aliases
+  were in no document); `make docs` writes it and `make docs-check` fails when
+  it drifts. SETUP.md points at it, and says that `emit` refuses a
   unit larger than the free disk, that setup's sample writes a reply ceiling
   into `fleet.yaml` for a unit that names none, what `$MCGYVR_ENDPOINTS`,
   `$HF_TOKEN` and `$HF_ENDPOINT` do (the `MCGYVR_TEST_*` hooks are test-only),
