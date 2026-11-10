@@ -2,8 +2,9 @@
 
 A frame is one JSON object, one websocket text frame: ``v``, ``type``, ``id``,
 an optional ``re`` naming the message this one answers, and a ``body``. The
-limits, name shapes and close and error codes below are the ones the hub's
-published schema holds, and the builders here write the frames an agent sends
+limits, name shapes and close and error codes named below are the wire's,
+defined once in :mod:`mcgyvr.hubwire` (the hub's published schema holds the
+same), and the builders here write the frames an agent sends
 (``hello``, ``heartbeat``, ``error``) while ``decode`` and the readers take the
 frames it receives.
 
@@ -15,26 +16,42 @@ fault rather than write a frame the hub would refuse, and a reader raises
 from __future__ import annotations
 
 import dataclasses
-import enum
 import json
-import re
 import uuid
 from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass
 from typing import Any
 
 from mcgyvr import hubwire
+from mcgyvr.hubwire import AGENT_VERSION as AGENT_VERSION
+from mcgyvr.hubwire import HEARTBEAT_INTERVAL_S as HEARTBEAT_INTERVAL_S
+from mcgyvr.hubwire import MACHINE_ID as MACHINE_ID
+from mcgyvr.hubwire import MAX_COUNT as MAX_COUNT
+from mcgyvr.hubwire import MAX_ERROR_TEXT as MAX_ERROR_TEXT
+from mcgyvr.hubwire import MAX_FRAMES_PER_SECOND as MAX_FRAMES_PER_SECOND
+from mcgyvr.hubwire import MAX_KV_BYTES_PER_TOKEN as MAX_KV_BYTES_PER_TOKEN
+from mcgyvr.hubwire import MAX_LAYERS as MAX_LAYERS
+from mcgyvr.hubwire import MAX_MESSAGE_BYTES as MAX_MESSAGE_BYTES
+from mcgyvr.hubwire import MAX_MODEL_BYTES as MAX_MODEL_BYTES
+from mcgyvr.hubwire import MAX_MODELS as MAX_MODELS
+from mcgyvr.hubwire import MAX_SESSIONS_REPORTED as MAX_SESSIONS_REPORTED
+from mcgyvr.hubwire import MESSAGE_ID as MESSAGE_ID
+from mcgyvr.hubwire import PROTOCOL_VERSION as PROTOCOL_VERSION
+from mcgyvr.hubwire import TAG as TAG
+from mcgyvr.hubwire import CloseCode as CloseCode
+from mcgyvr.hubwire import ErrorCode as ErrorCode
 
-#: The version this agent writes in ``v`` and the only one it reads: another
-#: number is refused as ``unsupported_version``.
-PROTOCOL_VERSION = 1
-#: Largest frame, in bytes of UTF-8, that this agent reads or writes.
-MAX_MESSAGE_BYTES = 64 * 1024
-#: Frames per second one agent may send over its channel.
-#: The agent paces itself at half this, so it stays well inside the limit.
-MAX_FRAMES_PER_SECOND = 100
-#: Most cards one hello or one heartbeat may report (the wire's,
-#: :mod:`mcgyvr.hubwire`).
+# The limits, shapes and codes of the channel are the wire's, defined once in
+# :mod:`mcgyvr.hubwire` and imported above: the version this agent writes in
+# ``v`` and the only one it reads (another is refused as
+# ``unsupported_version``), the largest frame, the frames per second (the agent
+# paces itself at half, well inside the limit), the error text (a longer one is
+# cut before it is sent, and a received one refused), the models and sessions a
+# hello names, a model's bounds, the envelope's shapes, and the close and error
+# codes (the agent stops on the refusals it cannot retry and keeps retrying
+# after the rest). A card is a resource of the wire's too:
+
+#: Most cards one hello or one heartbeat may report.
 MAX_CARDS = hubwire.MAX_CARDS
 #: Highest card index a report may name; indexes start at 0 and no card may be
 #: reported twice in one frame.
@@ -43,68 +60,11 @@ MAX_CARD_INDEX = hubwire.MAX_RESOURCE_INDEX
 CARD_NAME_MAX = hubwire.RESOURCE_NAME_MAX
 #: Upper bound on any RAM or VRAM figure in a frame, counted in MiB.
 MAX_MB = hubwire.RESOURCE_MAX_MB
-#: Longest error text, in characters: a longer one is cut to this before it is
-#: sent, and a received one longer than this is refused.
-MAX_ERROR_TEXT = 500
-#: The seconds a hub may set as the heartbeat interval in an ack.
-HEARTBEAT_INTERVAL_S = (1, 3600)
-#: Most models a hello may name.
-MAX_MODELS = 64
-#: Most live session ids a hello may list.
-MAX_SESSIONS_REPORTED = 4
-#: Upper bound on a model file's size, and on the bytes one of its tensors takes.
-MAX_MODEL_BYTES = 1 << 50
-#: Upper bound on a model's layer count.
-#: Upper bound on a model's context length and on its embedding and head counts.
-MAX_LAYERS = 4096
-MAX_COUNT = 1 << 20
-#: Upper bound on the key and value cache a model spends per token.
-MAX_KV_BYTES_PER_TOKEN = 1 << 30
-
-#: The shapes the envelope's own fields take: message ids, type tags (which also
-#: serve as error codes, endpoint kinds and feature names), machine ids and
-#: agent versions.
-MESSAGE_ID = re.compile(r"[A-Za-z0-9_-]{1,64}")
-TAG = re.compile(r"[a-z][a-z0-9_]{0,63}")
-MACHINE_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}")
-AGENT_VERSION = re.compile(r"[A-Za-z0-9][A-Za-z0-9.+_-]{0,63}")
 #: A card name is text a hub may show, so it excludes control characters,
 #: C1 controls, the bidi embedding and override marks and the bidi isolates: a
 #: name from a driver cannot reorder or hide what a hub draws around it. It is
 #: a resource's name rule (:data:`mcgyvr.hubwire.RESOURCE_NAME`).
 CARD_NAME = hubwire.RESOURCE_NAME
-
-
-class CloseCode(enum.IntEnum):
-    """The codes a hub closes the channel with, as the wire spells them.
-
-    The values are the hub's: 1008 is the websocket's own policy violation, and
-    4001 onwards are the hub's own reasons.
-    """
-
-    POLICY = 1008  # the channel broke the websocket's rules, e.g. too many frames
-    REVOKED = 4001  # the hub revoked this rig's token
-    TIMEOUT = 4008  # this agent's heartbeats stopped reaching the hub
-    SUPERSEDED = 4009  # another agent took this rig over with the same token
-
-
-class ErrorCode(enum.StrEnum):
-    """The error codes this agent and the hub send in an ``error`` frame.
-
-    A reader accepts any type tag as a code, so this is what the two sides name
-    rather than the whole set a hub may send; the agent stops on the refusals
-    it cannot retry and keeps retrying after the rest.
-    """
-
-    BAD_MESSAGE = "bad_message"
-    UNSUPPORTED_VERSION = "unsupported_version"
-    UNSUPPORTED_TYPE = "unsupported_type"
-    EXPECTED_HELLO = "expected_hello"
-    MACHINE_MISMATCH = "machine_mismatch"
-    REVOKED = "revoked"
-    TIMEOUT = "timeout"
-    SUPERSEDED = "superseded"
-    RATE_LIMITED = "rate_limited"
 
 
 class ProtocolError(Exception):
@@ -438,20 +398,17 @@ def _bounded(value: int | None, low: int, high: int, field: str) -> None:
     )
 
 
-#: The shapes of what an offer names: model names (the wire's,
-#: :mod:`mcgyvr.hubwire`), digests, architectures, runtimes and endpoint hosts,
-#: at the patterns the hub's schema holds.
+#: The shapes of what an offer names (model names, digests, architectures,
+#: runtimes and endpoint hosts), the roles an agent may offer, and the most
+#: endpoints and features one offer may name: the wire's (:mod:`mcgyvr.hubwire`).
 MODEL_NAME = hubwire.MODEL_NAME
-DIGEST = re.compile(r"sha256:[0-9a-f]{64}")
-SHORT_TAG = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,31}")
-RUNTIME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:/@+-]{0,199}")
-ENDPOINT_HOST = re.compile(r"[A-Za-z0-9][A-Za-z0-9.:-]{0,252}")
-#: The roles an agent may offer, and the most it may offer at once.
-ROLES = ("head", "worker")
-#: Most endpoints one offer may name.
-MAX_ENDPOINTS = 8
-#: Most features one offer may name.
-MAX_FEATURES = 16
+DIGEST = hubwire.DIGEST
+SHORT_TAG = hubwire.SHORT_TAG
+RUNTIME = hubwire.RUNTIME
+ENDPOINT_HOST = hubwire.ENDPOINT_HOST
+ROLES = hubwire.RIG_ROLES
+MAX_ENDPOINTS = hubwire.MAX_ENDPOINTS
+MAX_FEATURES = hubwire.MAX_FEATURES
 
 
 def _model_body(model: ModelInfo) -> dict[str, Any]:
@@ -507,7 +464,10 @@ def _offer_body(offer: Offer) -> dict[str, Any]:
     _need(len(offer.endpoints) <= MAX_ENDPOINTS, "endpoints: too many")
     for host, port, kind in offer.endpoints:
         _need(bool(ENDPOINT_HOST.fullmatch(host)), "endpoints: a host not of its shape")
-        _need(_is_int(port) and 1 <= port <= 65535, "endpoints: a port that is not one")
+        _need(
+            _is_int(port) and 1 <= port <= hubwire.MAX_PORT,
+            "endpoints: a port that is not one",
+        )
         _need(bool(TAG.fullmatch(kind)), "endpoints: a kind that is not a tag")
     _need(len(offer.models) <= MAX_MODELS, f"models: more than {MAX_MODELS}")
     names = [model.name for model in offer.models]
