@@ -1,17 +1,20 @@
 """COMMANDS.md lists every verb and flag the `mcgyvr` parser defines.
 
 The parser is the one truth of what the CLI takes, and COMMANDS.md is rendered
-from it by `mcgyvr.cli.verbdoc`: every verb (aliases too) and every flag `-h`
-shows is named there, a verb with its help line and a flag with its own, so a
-verb or flag added to the parser is in the document on the next `make docs`
-and the drift check fails until it is. Hidden verbs and flags stay hidden. The
-renderer sits on the command line's side, since the core (docgen included) may
-not reach the command line; SETUP.md points at the document by its name.
+from it by `mcgyvr.cli.verbdoc`: `mcgyvr` itself with its own flags
+(`--version`), then every verb and every flag `-h` shows, a verb on its own
+line with its help and its aliases in that line's `(also ...)`, a flag under
+its verb with its own help, so a verb or flag added to the parser is in the
+document on the next `make docs` and the drift check fails until it is.
+Hidden verbs and flags stay hidden. The renderer sits on the command line's
+side, since the core (docgen included) may not reach the command line;
+SETUP.md points at the document by its name.
 """
 
 from __future__ import annotations
 
 import argparse
+import re
 from collections.abc import Iterator
 
 import pytest
@@ -26,13 +29,31 @@ COMMANDS_MD = REPO / verbdoc.COMMANDS_PATH
 
 def _tree(
     parser: argparse.ArgumentParser, path: str = "mcgyvr"
-) -> Iterator[tuple[str, argparse.ArgumentParser]]:
-    """Every (verb name, parser) the tree holds, aliases included."""
+) -> Iterator[tuple[str, tuple[str, ...], argparse.ArgumentParser]]:
+    """Every verb the tree holds: its full name, its aliases and its parser."""
     for action in parser._actions:
         if isinstance(action, argparse._SubParsersAction):
+            names: dict[int, list[str]] = {}
             for name, child in action.choices.items():
-                yield f"{path} {name}", child
+                names.setdefault(id(child), []).append(name)
+            for name, child in action.choices.items():
+                first, *aliases = names[id(child)]
+                if name != first:
+                    continue
+                yield f"{path} {name}", tuple(aliases), child
                 yield from _tree(child, f"{path} {name}")
+
+
+def _entry(commands: str, verb: str) -> str | None:
+    """The list entry of `verb`, its own line and the flags under it: the line
+    names the verb exactly, followed only by its positionals (which are upper
+    case or bracketed, where a verb's own name is lower case)."""
+    found = re.search(
+        rf"^- `{re.escape(verb)}(?: [A-Z\[][^`]*)?`.*?(?=^- `|\Z)",
+        commands,
+        flags=re.MULTILINE | re.DOTALL,
+    )
+    return found.group(0) if found else None
 
 
 def _flags(parser: argparse.ArgumentParser) -> list[str]:
@@ -58,24 +79,34 @@ def test_the_committed_document_is_what_the_parser_renders(commands: str) -> Non
 
 def test_every_verb_and_alias_the_parser_defines_is_named(commands: str) -> None:
     missing = []
-    for verb, _parser in _tree(build_parser()):
-        name = verb.rsplit(" ", 1)[-1]
-        # A verb is named with its full path, an alias beside its verb's.
-        if f"`{verb}" not in commands and f"`{name}`" not in commands:
+    for verb, aliases, _parser in _tree(build_parser()):
+        entry = _entry(commands, verb)
+        if entry is None:
             missing.append(verb)
+            continue
+        # An alias is named in its own verb's line, inside its `(also ...)`.
+        line = " ".join(entry.split("\n  - ", 1)[0].split())
+        also = re.search(r"\(also ([^)]*)\)", line)
+        missing += [
+            f"{verb} alias {alias}"
+            for alias in aliases
+            if also is None or f"`{alias}`" not in also.group(1)
+        ]
     assert missing == []
 
 
 def test_every_flag_of_every_verb_is_named_under_it(commands: str) -> None:
+    root = build_parser()
     missing = []
-    for verb, parser in _tree(build_parser()):
-        start = commands.find(f"- `{verb}")
-        if start < 0:
-            continue  # an alias: its flags are its verb's
-        end = commands.find("\n- `", start + 1)
-        block = commands[start : end if end > 0 else None]
-        missing += [f"{verb} {f}" for f in _flags(parser) if f"`{f}" not in block]
+    for verb, _aliases, parser in [("mcgyvr", (), root), *_tree(root)]:
+        entry = _entry(commands, verb) or ""
+        missing += [f"{verb} {f}" for f in _flags(parser) if f"`{f}" not in entry]
     assert missing == []
+
+
+def test_the_root_parser_s_own_flags_are_listed(commands: str) -> None:
+    entry = _entry(commands, "mcgyvr")
+    assert entry is not None and "  - `--version` — " in entry
 
 
 def test_the_verbs_the_other_documents_never_named_are_listed(commands: str) -> None:

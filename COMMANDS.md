@@ -8,6 +8,8 @@ Where a flag's help says *the usual setup*, that is $MCGYVR_CONFIG, else the liv
 $MCGYVR_HOME/fleets (default ~/.mcgyvr/fleets) that $MCGYVR_HOME/live.json (default ~/.mcgyvr/live.json)
 names — a directory holding fleet.yaml and policy.yaml.
 
+- `mcgyvr` — Offload scoped coding work to a configurable worker ladder.
+  - `--version` — the product version, and the path of the config a run here would use.
 - `mcgyvr capabilities` (also `caps`) — show the shipped model estimates.
   - `--vram GB` — show only models that fit this much VRAM with working headroom; for a unified-memory
     GPU, the memory it may use, as `mcgyvr detect` states it (an estimate).

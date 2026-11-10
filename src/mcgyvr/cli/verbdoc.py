@@ -119,9 +119,10 @@ def _flag_names(action: argparse.Action) -> str:
 
 
 def render(parser: argparse.ArgumentParser | None = None) -> str:
-    """COMMANDS.md: each verb with its help line and aliases, each flag under it
-    with its own help."""
+    """COMMANDS.md: `mcgyvr` itself with its own flags, then each verb with its
+    help line and aliases, each flag under it with its own help."""
     wrap = docgen._wrap
+    root = parser if parser is not None else build_parser()
     lines = [
         COMMANDS_MARKER,
         "",
@@ -137,17 +138,22 @@ def render(parser: argparse.ArgumentParser | None = None) -> str:
         ),
         "",
     ]
-    for _full, shown, child, help_text, aliases in verbs(parser):
+    said = " ".join((root.description or "").split()).rstrip(".")
+    entries = [("`mcgyvr`", said, root)]
+    for _full, shown, child, help_text, aliases in verbs(root):
         head = f"`{shown}`"
         if aliases:
             head += " (also " + ", ".join(f"`{alias}`" for alias in aliases) + ")"
-        said = " ".join(help_text.split()).rstrip(".")
+        entries.append((head, " ".join(help_text.split()).rstrip("."), child))
+    for head, said, child in entries:
         lines += wrap(f"{head} — {said}." if said else head, first="- ", rest="  ")
         for flag in flags(child):
             names = _flag_names(flag)
-            said = _flag_help(child, flag)
+            help_said = _flag_help(child, flag)
             lines += wrap(
-                f"{names} — {said}" if said else names, first="  - ", rest="    "
+                f"{names} — {help_said}" if help_said else names,
+                first="  - ",
+                rest="    ",
             )
     return "\n".join(lines) + "\n"
 
