@@ -394,9 +394,10 @@ def test_a_retired_refusal_word_reads_as_refuse_with_a_debug_note(
     """A model tuned on the old four-word prompt still refuses, for one release.
 
     Both retired words always mapped to a plain refusal, so reading them as REFUSE
-    changes nothing for such a model; the debug note is how an operator finds out the
-    reviewer is still answering to the old prompt. The detail names REFUSE, the word the
-    refusal is now recorded under, and keeps the reviewer's notes.
+    changes nothing for such a model. The debug note is there for anyone who turns on the
+    ``mcgyvr.verify`` logger; nothing in mcgyvr configures logging, so no switch shows it
+    yet. The detail names REFUSE, the word the refusal is now recorded under, and keeps
+    the reviewer's notes.
     """
     verify = _verify()
     reply = f"{retired}: the loop sleeps after the last attempt."
