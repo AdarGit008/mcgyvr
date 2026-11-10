@@ -238,4 +238,3 @@ def test_a_role_the_engine_has_no_process_for_is_refused() -> None:
     wrong = replace(head, role=ROLE_RPC)
     with pytest.raises(EmitError, match=f"{wrong.key.slug}: role 'rpc' is not"):
         compose_of(wrong)
-
