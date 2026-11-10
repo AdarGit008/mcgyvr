@@ -17,10 +17,11 @@ from typing import Any
 import pytest
 import yaml
 
-from mcgyvr.emit import EmitError, emit_all, render_compose
+from mcgyvr.emit import EmitError, emit_all
 from mcgyvr.scan import Scan
 from mcgyvr.serving import ModelSpec, Unit, unit_for
 from tests._paths import TESTS
+from tests.emitted import compose_of
 
 # An MoE is sized off its own GGUF geometry and nothing else: the row for
 # Qwen3.6-35B-A3B at IQ3_XXS, as `ggufscan` read it (40 placeable blocks of
@@ -101,7 +102,7 @@ def test_one_compose_file_per_host(units: dict[str, Unit], tmp_path: Path) -> No
 
 
 def test_compose_reserves_the_gpu_the_scan_found(units: dict[str, Unit]) -> None:
-    service = service_of(render_compose(units["box1"]))
+    service = service_of(compose_of(units["box1"]))
     devices = service["deploy"]["resources"]["reservations"]["devices"]
     assert devices[0]["device_ids"] == ["0"]
 
@@ -109,31 +110,26 @@ def test_compose_reserves_the_gpu_the_scan_found(units: dict[str, Unit]) -> None
 def test_compose_mounts_weights_rather_than_baking_them(
     units: dict[str, Unit],
 ) -> None:
-    service = service_of(render_compose(units["box1"]))
+    service = service_of(compose_of(units["box1"]))
     assert any(str(volume).endswith(":/models:ro") for volume in service["volumes"])
 
 
 def test_the_written_width_appears_in_the_launch_arguments(
     units: dict[str, Unit],
 ) -> None:
-    command = service_of(render_compose(units["box1"]))["command"]
+    command = service_of(compose_of(units["box1"]))["command"]
     assert command[command.index("--parallel") + 1] == "8"
 
 
 def test_the_offload_split_appears_in_the_launch_arguments(
     units: dict[str, Unit],
 ) -> None:
-    command = service_of(render_compose(units["box1"]))["command"]
+    command = service_of(compose_of(units["box1"]))["command"]
     assert "--n-cpu-moe" in command
 
 
-def test_a_unit_from_an_unscanned_host_is_refused() -> None:
-    with pytest.raises(EmitError, match="unscanned"):
-        render_compose(None)
-
-
 def test_emit_is_deterministic(units: dict[str, Unit]) -> None:
-    assert render_compose(units["box1"]) == render_compose(units["box1"])
+    assert compose_of(units["box1"]) == compose_of(units["box1"])
 
 
 def test_nothing_is_written_outside_the_given_root(
@@ -144,7 +140,7 @@ def test_nothing_is_written_outside_the_given_root(
 
 
 def test_the_port_appears_in_the_launch_arguments(units: dict[str, Unit]) -> None:
-    command = service_of(render_compose(units["box1"]))["command"]
+    command = service_of(compose_of(units["box1"]))["command"]
     assert command[command.index("--port") + 1] == str(units["box1"].port)
 
 
@@ -170,7 +166,7 @@ def test_a_metacharacter_in_a_path_stays_one_argument(units: dict[str, Unit]) ->
     argument there whatever is in it.
     """
     path = "/srv/w;id/qwen-3b.gguf"
-    command = service_of(render_compose(elsewhere(units["box2"], path)))["command"]
+    command = service_of(compose_of(elsewhere(units["box2"], path)))["command"]
     assert command[command.index("--model") + 1] == path
 
 

@@ -24,10 +24,11 @@ from pathlib import Path
 import pytest
 import yaml
 
-from mcgyvr.emit import argv, render_compose
+from mcgyvr.emit import argv
 from mcgyvr.runner import Completion
 from mcgyvr.scan import Scan
 from mcgyvr.serving import ROLE_RPC, ModelSpec, Unit, unit_for
+from tests.emitted import compose_of
 from tests.rungs import SERVED, completion, ride, set_hub_key
 
 MODEL = "qwen2.5-coder-3b"
@@ -71,7 +72,7 @@ def test_the_emitted_server_answers_by_the_units_model_name() -> None:
 
 def test_the_compose_file_carries_the_alias() -> None:
     emitted = unit()
-    service = next(iter(yaml.safe_load(render_compose(emitted))["services"].values()))
+    service = next(iter(yaml.safe_load(compose_of(emitted))["services"].values()))
 
     assert alias_of(service["command"]) == [MODEL]
 

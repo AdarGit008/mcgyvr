@@ -57,7 +57,6 @@ from mcgyvr.emit import (
     listens_beyond_loopback,
     locked_keyed,
     locked_open,
-    render_compose,
 )
 from mcgyvr.exits import Exit
 from mcgyvr.fleet import harness, read
@@ -81,6 +80,7 @@ from mcgyvr.serving.gatelib import LOCAL_RIGS
 from mcgyvr.serving.run import GATE_SCRIPTS
 from tests import onedoor, reads, records
 from tests.doors import DENSE, SEVEN_B_SPEC, rig, service_of
+from tests.emitted import compose_of
 from tests.relays import Host, _host, _ride_body
 from tests.sizings import WINDOW
 from tests.test_a_locked_unit_split_across_rigs_is_emitted_as_its_head_and_rpc_workers import (  # noqa: E501
@@ -132,7 +132,7 @@ def test_a_unit_listens_where_its_expose_says_and_lan_alone_is_keyed(
     build: Any, expose: str, listens: str
 ) -> None:
     unit = build(expose)
-    service = service_of(render_compose(unit))
+    service = service_of(compose_of(unit))
 
     if unit.engine == "vllm":
         assert host_flag(service["command"]) == listens
@@ -151,7 +151,7 @@ def test_the_compose_file_names_the_key_file_and_never_holds_the_key() -> None:
     path, made = unitkey.ensure(unit.host, unit.port)
     key = unitkey.load(unit.host, unit.port)
 
-    document = render_compose(unit)
+    document = compose_of(unit)
 
     assert made and key is not None
     assert str(path) in document
@@ -166,7 +166,7 @@ def test_a_worker_and_a_headless_rank_are_rendered_as_before_whatever_expose_say
     rank = replace(vllm("lan"), role=ROLE_HEADLESS)
 
     for unit in (worker, rank):
-        service = service_of(render_compose(replace(unit, image="example.invalid/x:1")))
+        service = service_of(compose_of(replace(unit, image="example.invalid/x:1")))
         assert "env_file" not in service
         assert "LLAMA_ARG_HOST" not in service.get("environment", {})
         assert "--host" not in service["command"]
@@ -196,7 +196,7 @@ def test_a_unit_that_states_no_expose_follows_its_address(
     )
 
     (unit,) = units_for(config, {host: rig(host)}, specs=[DENSE], ctx_per_slot=WINDOW)
-    service = service_of(render_compose(unit))
+    service = service_of(compose_of(unit))
 
     assert config.units["coder"].expose == stated
     assert service["environment"]["LLAMA_ARG_HOST"] == listens
@@ -246,7 +246,7 @@ def test_a_unit_whose_address_is_only_loosely_this_machine_is_lan_and_keyed(
     named = host_of(address)
 
     (unit,) = units_for(config, {named: rig(named)}, specs=[DENSE], ctx_per_slot=WINDOW)
-    service = service_of(render_compose(unit))
+    service = service_of(compose_of(unit))
 
     assert exposure(None, address=address) == "lan"
     assert service["environment"]["LLAMA_ARG_HOST"] == "0.0.0.0"
@@ -268,7 +268,7 @@ def test_a_unit_addressed_at_localhost_in_any_case_is_local_and_unkeyed() -> Non
     named = host_of(address)
 
     (unit,) = units_for(config, {named: rig(named)}, specs=[DENSE], ctx_per_slot=WINDOW)
-    service = service_of(render_compose(unit))
+    service = service_of(compose_of(unit))
 
     assert named == "localhost"
     assert "LOCALHOST" not in LOCAL_RIGS
@@ -318,14 +318,14 @@ def test_a_llama_unit_stating_its_host_flag_renders_as_it_did_before() -> None:
     unit = llama()
     stated = replace(unit, args={**unit.args, "--host": "0.0.0.0"})
 
-    assert render_compose(stated) == LLAMA_STATING_ITS_HOST
+    assert compose_of(stated) == LLAMA_STATING_ITS_HOST
 
 
 @pytest.mark.usefixtures("someone")
 def test_a_llama_unit_stating_its_host_env_renders_as_it_did_before() -> None:
     stated = replace(llama(), env={"LLAMA_ARG_HOST": "0.0.0.0"})
 
-    assert render_compose(stated) == LLAMA_STATING_ITS_HOST_ENV
+    assert compose_of(stated) == LLAMA_STATING_ITS_HOST_ENV
 
 
 @pytest.mark.usefixtures("someone")
@@ -333,14 +333,14 @@ def test_a_vllm_unit_stating_its_host_renders_as_it_did_before() -> None:
     unit = vllm()
     stated = replace(unit, args={**unit.args, "--host": "0.0.0.0"})
 
-    assert render_compose(stated) == VLLM_STATING_ITS_HOST
+    assert compose_of(stated) == VLLM_STATING_ITS_HOST
 
 
 def test_an_exposed_unit_whose_env_sets_its_own_key_is_refused() -> None:
     unit = replace(llama("lan"), env={"LLAMA_API_KEY": "mine"})
 
     with pytest.raises(EmitError, match="its env sets LLAMA_API_KEY"):
-        render_compose(unit)
+        compose_of(unit)
 
 
 def one_unit_config(*, rider_slots: int = 0) -> Any:
@@ -423,7 +423,7 @@ def test_a_shared_keyed_unit_on_another_host_says_the_agent_needs_the_key_file(
 
 
 def test_a_unit_stating_its_host_env_in_another_case_is_given_the_host_too() -> None:
-    service = service_of(render_compose(replace(llama(), env={"llama_arg_host": "x"})))
+    service = service_of(compose_of(replace(llama(), env={"llama_arg_host": "x"})))
 
     assert service["environment"] == {
         "LLAMA_ARG_HOST": "127.0.0.1",
@@ -487,7 +487,7 @@ def test_a_locked_unit_follows_its_address_and_its_lock_states_where_it_listens(
 def test_a_stated_host_on_an_exposed_unit_is_kept_and_given_the_key() -> None:
     unit = llama("lan")
     stated = replace(unit, extra=("--host", "192.168.7.20"))
-    service = service_of(render_compose(stated))
+    service = service_of(compose_of(stated))
 
     assert service["command"][-2:] == ["--host", "192.168.7.20"]
     assert service["env_file"] == [str(unitkey.path(unit.host, unit.port))]
@@ -796,7 +796,7 @@ def test_the_door_reads_a_services_key_from_the_file_its_env_file_names(
     unit = llama("lan")
     path, _ = unitkey.ensure(unit.host, unit.port)
     compose = tmp_path / "compose.yaml"
-    compose.write_text(render_compose(unit), encoding="utf-8")
+    compose.write_text(compose_of(unit), encoding="utf-8")
 
     (service,) = servelib.services(compose)
 

@@ -207,20 +207,6 @@ def argv(unit: Unit, *, sleep_mode: bool = False) -> tuple[str, ...]:
     return parts
 
 
-def render_compose(unit: Unit | None, *, sleep_mode: bool = False) -> str:
-    """The compose document for this one unit.
-
-    `unit` is None when the host was never scanned: there is no unit to
-    render, and a launch spec for a machine nobody measured is a guess.
-    """
-    if unit is None:
-        raise EmitError(
-            "no serving unit to render: the host is unscanned, and a launch spec "
-            "for a machine nobody measured would be a guess wearing a file name"
-        )
-    return _document((unit,), sleep_mode=sleep_mode)
-
-
 def emit_all(
     units: Iterable[Unit], root: Path, *, sleep_mode: bool = False
 ) -> tuple[Path, ...]:

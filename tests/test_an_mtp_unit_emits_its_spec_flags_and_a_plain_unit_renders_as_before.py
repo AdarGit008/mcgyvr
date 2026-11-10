@@ -14,10 +14,11 @@ from typing import Any
 
 import yaml
 
-from mcgyvr.emit import argv, render_compose
+from mcgyvr.emit import argv
 from mcgyvr.scan import Scan
 from mcgyvr.serving import ModelSpec, Unit, unit_for
 from tests._paths import TESTS
+from tests.emitted import compose_of
 
 WINDOW = 4096
 GEOMETRY: dict[str, dict[str, Any]] = json.loads(
@@ -71,13 +72,13 @@ def test_both_renderings_carry_the_spec_flags_in_flag_order() -> None:
         "--spec-type",
         "draft-mtp",
     )
-    assert command_of(render_compose(mtp)) == list(parts)
+    assert command_of(compose_of(mtp)) == list(parts)
 
 
 def test_a_plain_unit_renders_byte_identically_to_one_built_before() -> None:
     before = unit()
     plain = unit(speculative="none", spec_draft_n_max=2)
-    assert render_compose(plain) == render_compose(before)
+    assert compose_of(plain) == compose_of(before)
     assert "--spec-type" not in argv(plain)
     assert "--spec-draft-n-max" not in argv(plain)
 
@@ -86,5 +87,5 @@ def test_a_declared_draft_width_is_the_flag_in_both_renderings() -> None:
     mtp = unit(speculative="mtp", spec_draft_n_max=4)
     parts = argv(mtp)
     assert parts[parts.index("--spec-draft-n-max") + 1] == "4"
-    command = command_of(render_compose(mtp))
+    command = command_of(compose_of(mtp))
     assert command[command.index("--spec-draft-n-max") + 1] == "4"

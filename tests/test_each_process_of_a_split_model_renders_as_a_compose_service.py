@@ -19,7 +19,7 @@ from typing import Any
 import pytest
 import yaml
 
-from mcgyvr.emit import EmitError, render_compose
+from mcgyvr.emit import EmitError
 from mcgyvr.serving import (
     ROLE_HEADLESS,
     ROLE_RPC,
@@ -31,6 +31,7 @@ from mcgyvr.serving import (
 )
 from mcgyvr.serving.sharding import Grid
 from mcgyvr.serving.shardlaunch import Process
+from tests.emitted import compose_of
 from tests.invented_split_plans import (
     HF_CACHE,
     HOST_A,
@@ -73,7 +74,7 @@ def unit_of(
 
 
 def service_of(unit: Unit) -> dict[str, Any]:
-    document = yaml.safe_load(render_compose(unit))
+    document = yaml.safe_load(compose_of(unit))
     (service,) = document["services"].values()
     assert isinstance(service, dict)
     return service
@@ -208,7 +209,7 @@ def test_a_node_of_a_multi_node_launch_carries_its_rank() -> None:
 def test_a_server_that_reaches_workers_needs_an_image_and_is_refused_without() -> None:
     head = llama_units(image=None)[0]
     with pytest.raises(EmitError, match=head.key.slug) as raised:
-        render_compose(head)
+        compose_of(head)
     assert "RPC" in str(raised.value)
     assert "image" in str(raised.value)
 
@@ -217,7 +218,7 @@ def test_a_worker_needs_an_image_and_is_refused_without() -> None:
     worker = llama_units(image=None)[1]
     assert worker.role == ROLE_RPC
     with pytest.raises(EmitError, match=worker.key.slug):
-        render_compose(worker)
+        compose_of(worker)
 
 
 def test_a_server_that_reaches_no_workers_needs_no_image_of_its_own() -> None:
@@ -241,11 +242,11 @@ def test_a_variable_the_file_already_sets_differently_is_refused_by_name() -> No
     first = vllm_units()[0]
     clashing = replace(first, env={**first.env, "HF_HUB_OFFLINE": "0"})
     with pytest.raises(EmitError, match="HF_HUB_OFFLINE"):
-        render_compose(clashing)
+        compose_of(clashing)
 
 
 def test_a_role_the_engine_has_no_process_for_is_refused() -> None:
     head = llama_units()[0]
     wrong = replace(head, role=ROLE_HEADLESS)
     with pytest.raises(EmitError, match=wrong.key.slug):
-        render_compose(wrong)
+        compose_of(wrong)

@@ -28,7 +28,7 @@ from __future__ import annotations
 import pytest
 
 from mcgyvr.config import parse
-from mcgyvr.emit import EmitError, argv, render_compose
+from mcgyvr.emit import EmitError, argv
 from mcgyvr.serving import (
     ModelSpec,
     UnitError,
@@ -46,6 +46,7 @@ from tests.doors import (
     rig,
     service_of,
 )
+from tests.emitted import compose_of
 from tests.sizings import WINDOW
 
 THREE_B = "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ"
@@ -109,7 +110,7 @@ def test_a_vllm_service_mounts_the_hf_cache_offline_with_host_ipc() -> None:
         port=8002,
         ctx_per_slot=WINDOW,
     )
-    service = service_of(render_compose(unit))
+    service = service_of(compose_of(unit))
     assert service["image"] == "vllm/vllm-openai:v0.26.0"
     assert service["volumes"] == [f"{HF_CACHE}:/root/.cache/huggingface:ro"]
     assert service["environment"]["HF_HUB_OFFLINE"] == "1"
@@ -126,7 +127,7 @@ def test_serve_args_reach_both_renderings_verbatim() -> None:
     )
     parts = argv(unit)
     assert parts[-2:] == THINKING_OFF
-    assert service_of(render_compose(unit))["command"] == list(parts)
+    assert service_of(compose_of(unit))["command"] == list(parts)
 
 
 def test_a_serve_arg_with_whitespace_is_refused() -> None:
@@ -195,7 +196,7 @@ def test_a_source_image_is_the_service_image() -> None:
     for unit in units:
         assert unit.image == config.units[unit.rungs[0]].image
         assert unit.image is not None and "@sha256:" in unit.image
-        assert service_of(render_compose(unit))["image"] == unit.image
+        assert service_of(compose_of(unit))["image"] == unit.image
 
 
 def test_two_units_on_one_host_fit_it_together_at_the_spikes_numbers() -> None:
