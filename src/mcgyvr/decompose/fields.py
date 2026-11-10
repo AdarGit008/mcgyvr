@@ -148,7 +148,7 @@ def instructions(
     """The instruction block for one field's question.
 
     The CONSTRAINTS section is empty unless the caller names a directive (the
-    W6 retry loop fills it with a refusal's ``what_to_change``); a non-empty
+    re-ask fills it with a refusal's ``what_to_change``); a non-empty
     directive replaces the blank line that follows the heading.
     """
     lines = [

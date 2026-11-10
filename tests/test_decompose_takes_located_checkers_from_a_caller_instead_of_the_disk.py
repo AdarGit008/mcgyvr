@@ -16,10 +16,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from mcgyvr.decompose.decompose import RecordedProposer, decompose
+from mcgyvr.decompose.decompose import decompose
 from mcgyvr.repo.index import Index, build_index
 from tests.decomposes import an_annotation, declaring_mypy
 from tests.livejournal import git
+from tests.recorded_proposer import RecordedProposer
 
 
 def _repo(tmp_path: Path) -> Index:

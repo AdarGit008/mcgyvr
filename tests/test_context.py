@@ -43,11 +43,11 @@ import pytest
 from mcgyvr.decompose.decompose import (
     DepRef,
     Proposal,
-    RecordedProposer,
     decompose,
 )
 from mcgyvr.repo.index import Index, build_index
 from mcgyvr.worker.prompt import build_prompt
+from tests.recorded_proposer import RecordedProposer
 
 BODY_MARKER = "MARKER_ONLY_IN_THE_DEPENDENCY_BODY"
 
