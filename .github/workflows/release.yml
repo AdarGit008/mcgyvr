@@ -12,13 +12,28 @@
 # refused by `gh`: a moved tag is not a second product under the first name.
 #
 # The product has two destinations and still one build. `build` makes the
-# distribution, checks it, attaches it to the GitHub release, and uploads it as
-# a workflow artifact; `pypi` downloads that same artifact and publishes it.
-# Two places to install from, one set of files — the arrow is still
-# source -> product -> install with a second head on it, not a second product.
-# Avoiding a rebuild in the publish job is the whole reason for the artifact
-# hand-off: a second `uv build` would be the two-products-one-name case above,
-# arrived at from the other end.
+# distribution, checks it and uploads it as a workflow artifact;
+# `github-release` downloads that artifact and attaches it to the GitHub
+# release; `pypi` downloads the same artifact and publishes it. Two places to
+# install from, one set of files — the arrow is still source -> product ->
+# install with a second head on it, not a second product. Avoiding a rebuild in
+# the publishing jobs is the whole reason for the artifact hand-off: a second
+# `uv build` would be the two-products-one-name case above, arrived at from the
+# other end.
+#
+# The repository is the run's own (`github.repository`), never a name written
+# here: a fork that pushes a tag releases under its own name, to the PyPI
+# project its own trusted publisher names.
+#
+# A rehearsal publishes nothing. Dispatched by hand (`gh workflow run
+# release.yml --ref <branch>`), `dry_run` defaults to true: `build` runs every
+# check a tag run runs and keeps the files on the run, and `github-release` and
+# `pypi` are skipped, so no release and no upload exist afterwards. From a
+# branch there is no tag to read, so the version is stamped from the newest
+# CHANGELOG section (`changelog_notes.py --latest`, through
+# SETUPTOOLS_SCM_PRETEND_VERSION) and the job summary says so; dispatched from
+# a tag ref the version is read from the tag as on a push. `dry_run: false` is
+# a real release and is refused unless the ref is a tag.
 #
 # PyPI is reached by trusted publishing. `pypi` asks GitHub for an OIDC token
 # (`id-token: write`, which is why that job declares its own permissions rather
@@ -34,10 +49,10 @@
 # The environment `pypi` is that fourth value, and the seam a required reviewer
 # can later be attached to in repository settings without editing this file.
 #
-# Both jobs are GitHub's: the release is a GitHub release and the OIDC identity
-# is GitHub's. A forge that also reads `.github/workflows` and runs this file
-# skips `build` (its `if:`), and `pypi`, which needs `build`, is skipped with
-# it — no release half-made, nothing uploaded.
+# All three jobs are GitHub's: the release is a GitHub release and the OIDC
+# identity is GitHub's. A forge that also reads `.github/workflows` and runs
+# this file skips `build` (its `if:`), and `github-release` and `pypi`, which
+# ride on it, are skipped with it — no release half-made, nothing uploaded.
 #
 # The version is the tag's, read by hatch-vcs from git: `fetch-depth: 0`
 # because a checkout without its tags reads as a distance from nothing
@@ -51,12 +66,21 @@ name: release
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Rehearse: build and check, keep the files on the run, publish nothing"
+        type: boolean
+        default: true
 permissions:
-  contents: write
+  contents: read
 jobs:
   build:
     if: github.server_url == 'https://github.com'
     runs-on: ubuntu-latest
+    outputs:
+      publish: ${{ steps.mode.outputs.publish }}
+      tag: ${{ steps.mode.outputs.tag }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -65,6 +89,32 @@ jobs:
         with:
           version: "0.11.28"
           python-version: "3.12"
+      # What this run is: a release (a pushed tag, or a dispatch from a tag
+      # with `dry_run` off) or a rehearsal. A rehearsal from a branch has no
+      # tag, so it names the newest CHANGELOG version and stamps the build with
+      # it. A real release from a branch is refused here, before anything is
+      # built: the release is of a tag, and `--verify-tag` would refuse it
+      # anyway after the work was done.
+      - name: release or rehearsal
+        id: mode
+        env:
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
+        run: |
+          publish=true
+          if [ "$DRY_RUN" = true ]; then publish=false; fi
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            tag="$GITHUB_REF_NAME"
+          elif [ "$publish" = true ]; then
+            echo "REFUSED — a release is of a tag; dispatch with --ref v<version>, or keep dry_run" >&2
+            exit 1
+          else
+            latest=$(uv run --no-project --with packaging python scripts/release/changelog_notes.py --latest CHANGELOG.md)
+            tag="v$latest"
+            echo "SETUPTOOLS_SCM_PRETEND_VERSION=$latest" >> "$GITHUB_ENV"
+          fi
+          echo "TAG=$tag" >> "$GITHUB_ENV"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "publish=$publish" >> "$GITHUB_OUTPUT"
       # `uv build` writes the wheel and the sdist under dist/; the wheel is the
       # product, the sdist is the source it was built from, both stamped with
       # the tag's version by hatch-vcs.
@@ -78,40 +128,104 @@ jobs:
       - name: the wheel is the tag's version
         run: |
           ls dist/
-          uv run --no-project --with packaging python scripts/release/wheel_is_tag.py "$GITHUB_REF_NAME" dist/*.whl
+          uv run --no-project --with packaging python scripts/release/wheel_is_tag.py "$TAG" dist/*.whl
       # Written notes or no release. Redirected and not piped: the default
       # shell here is `bash -e`, without pipefail, so `… | tee` would hide the
       # refusal this step exists to surface.
       - name: the tag's notes are the changelog's
         run: |
-          uv run --no-project --with packaging python scripts/release/changelog_notes.py "$GITHUB_REF_NAME" CHANGELOG.md > release-notes.md
+          uv run --no-project --with packaging python scripts/release/changelog_notes.py "$TAG" CHANGELOG.md > release-notes.md
           cat release-notes.md
-      # `gh` is on every ubuntu runner and needs no action to pin. The release
-      # carries the wheel and the sdist as assets.
-      - name: publish the GitHub release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" dist/* --verify-tag --notes-file release-notes.md --title "$GITHUB_REF_NAME"
-      # The same files the release carries, handed to `pypi` rather than built
-      # again there. `if-no-files-found: error` because an empty artifact would
-      # reach the publish job as "nothing to upload" and succeed at publishing
-      # nothing.
-      - name: keep the distribution for the publish job
+      # The metadata check PyPI's upload runs, run here, before a release
+      # exists: a distribution PyPI would refuse is refused while nothing is
+      # published yet. Not `--strict`: the project ships no long description,
+      # which is a warning PyPI accepts.
+      - name: the distribution's metadata passes twine check
+        run: uv run --no-project --with twine twine check dist/*
+      # The files both publishing jobs take, handed on rather than built again
+      # there. `if-no-files-found: error` because an empty artifact would reach
+      # them as "nothing to upload" and succeed at publishing nothing.
+      - name: keep the distribution for the publishing jobs
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: dist
           path: dist/
           if-no-files-found: error
+      - name: keep the notes for the GitHub release
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-notes
+          path: release-notes.md
+          if-no-files-found: error
+      # What a reader of the run needs without opening the logs: which mode,
+      # which version and where it came from, the files and their digests, and
+      # what a rehearsal did not do. `always()` so a refused run says so too.
+      - name: summary
+        if: always()
+        env:
+          PUBLISH: ${{ steps.mode.outputs.publish }}
+        run: |
+          {
+            if [ "$PUBLISH" = true ]; then echo "## release $TAG"; else echo "## dry run $TAG — nothing published"; fi
+            echo
+            if [ -n "${SETUPTOOLS_SCM_PRETEND_VERSION:-}" ]; then
+              echo "Version stamped from the newest CHANGELOG section (no tag on \`$GITHUB_REF_NAME\`)."
+            else
+              echo "Version read from the tag by hatch-vcs."
+            fi
+            echo
+            echo '```'
+            (cd dist 2>/dev/null && sha256sum -- *) || echo "no distribution built"
+            echo '```'
+            if [ "$PUBLISH" != true ]; then
+              echo
+              echo "Skipped by the dry run: \`github-release\` (gh release create) and \`pypi\`"
+              echo "(trusted publishing; needs the \`pypi\` environment and the PyPI publisher, no stored secret)."
+            fi
+            if [ -s release-notes.md ]; then
+              echo
+              echo "### notes"
+              echo
+              cat release-notes.md
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+  # The first destination. It builds nothing and checks out nothing: it takes
+  # the files and the notes `build` kept and makes the GitHub release of the
+  # run's own repository. A rehearsal skips it, and `pypi` with it.
+  github-release:
+    needs: build
+    if: needs.build.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: dist
+          path: dist/
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-notes
+      # `gh` is on every ubuntu runner and needs no action to pin. With no
+      # checkout it is told the repository: the run's own. The release carries
+      # the wheel and the sdist as assets.
+      - name: publish the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.build.outputs.tag }}
+        run: gh release create "$TAG" dist/* --repo "$GITHUB_REPOSITORY" --verify-tag --notes-file release-notes.md --title "$TAG"
   # The second destination. It builds nothing, checks out nothing and holds no
   # token: it takes the artifact `build` made and hands it to PyPI under an
   # OIDC identity, which is the whole of the header's trusted-publishing note.
+  # It rides on `github-release`, so a rehearsal or a forge skips it with no
+  # `if:` of its own, and PyPI never has a version the GitHub release lacks.
   pypi:
-    needs: build
+    needs: github-release
     runs-on: ubuntu-latest
     environment: pypi
-    # Job-level permissions replace the workflow's `contents: write` outright,
-    # so this job can mint an OIDC token and do nothing else with the
-    # repository. A same-run artifact download needs no `actions:` scope.
+    # Job-level permissions replace the workflow's outright, so this job can
+    # mint an OIDC token and do nothing else with the repository. A same-run
+    # artifact download needs no `actions:` scope.
     permissions:
       id-token: write
     steps:
