@@ -11,6 +11,18 @@ archived outside this repository, under the same paths.
 
 ### Changed
 
+- **The two shipped data files that spelled their format version `schema` now
+  spell it `schema_version`, the spelling the other four already use.**
+  `data/numbers.json` and `data/hardware-classes.json` recorded their version
+  under `schema`; they now say `schema_version`, matching
+  `data/model-geometry.json`, `data/model-catalog.json`,
+  `data/capability-table.json` and `data/task-catalog.json`. Their readers
+  (`mcgyvr.derived`, `mcgyvr.estimate`) read the new key, and the test fixtures
+  that write these documents follow. A file and its reader ship in one wheel, so
+  nothing reads the old key and no file carries both. The wire's `v`, the
+  user-written link-readings file (`data/links.json`, still `schema`), and every
+  other document's version key are unchanged.
+
 - **A docker llama.cpp or vLLM unit listens on 127.0.0.1 or, behind a key
   mcgyvr makes, on every interface (`expose: local | lan`).** `mcgyvr emit`
   rendered every container's server on every interface with no key
