@@ -19,7 +19,7 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from mcgyvr import derived
+from mcgyvr import derived, hubwire
 from mcgyvr.fleet.links import NETWORK, PCIE
 from mcgyvr.serving import vramfit
 from mcgyvr.serving.interconnect import Link
@@ -145,8 +145,11 @@ class Target:
     free_bytes: int
     bind: str | None = None
     #: The card's backend as its scan read it: a scratch reading taken under
-    #: one backend is never given to a card of another (`vramfit.allowance_mib`).
+    #: one backend is never given to a card of another (`vramfit.allowance`).
     backend: str = vramfit.MEASURED_SCRATCH_BACKEND
+    #: Whether the card's memory is the host's (`hubwire.shares_ram`): its
+    #: engine context is the unified figure (`hubwire.UNIFIED_CONTEXT_MIB`).
+    unified: bool = False
 
 
 @dataclass(frozen=True)
@@ -179,8 +182,12 @@ class Shard:
 
     @property
     def required_bytes(self) -> int:
-        held = self.weights_bytes + self.kv_bytes + self.state_bytes
-        return held + self.allowance_bytes
+        return hubwire.card_bytes(
+            weights=self.weights_bytes,
+            cache=self.kv_bytes,
+            state=self.state_bytes,
+            allowance=self.allowance_bytes,
+        )
 
     @property
     def fits(self) -> bool:
@@ -308,11 +315,13 @@ def plan(
         if allowance_bytes is not None
         else _allowance_bytes(
             table,
+            targets,
             engine=engine,
+            slots=slots,
+            ctx_per_slot=ctx_per_slot,
             n_ubatch=n_ubatch,
             name=name,
             split=grid.split,
-            backend=_one_backend(targets),
         )
     )
     sizing = _Sizing(
@@ -540,31 +549,32 @@ def _no_card_twice(targets: Sequence[Target], *, name: str) -> None:
         seen.add(card)
 
 
-def _one_backend(targets: Sequence[Target]) -> str:
-    """The backend a split's scratch is priced under: the measured one when every
-    card runs it, else the first card's that does not."""
-    other = [
-        t.backend for t in targets if t.backend != vramfit.MEASURED_SCRATCH_BACKEND
-    ]
-    return other[0] if other else vramfit.MEASURED_SCRATCH_BACKEND
-
-
 def _allowance_bytes(
     table: Mapping[str, Any],
+    targets: Sequence[Target],
     *,
     engine: str,
+    slots: int,
+    ctx_per_slot: int,
     n_ubatch: int,
     name: str,
     split: str | None = None,
-    backend: str = vramfit.MEASURED_SCRATCH_BACKEND,
 ) -> int:
-    """Headroom to reserve on every card: vramfit's u-batch allowance for a
-    llama.cpp layer split (a reading only for cards of the backend it was taken
-    under), else the derived per-shard allowance."""
+    """Headroom to reserve on every card: for a llama.cpp layer split, the per-card
+    fit law's allowance at this context and slot count (`vramfit.allowance`: a
+    reading only for cards of the backend it was taken under), the largest any of
+    the cards is charged; else the derived per-shard allowance."""
     if engine == LLAMACPP_ENGINE and split != SPLIT_TENSOR:
-        return int(
-            vramfit.allowance_mib(dict(table), n_ubatch=n_ubatch, backend=backend)
-            * _MIB
+        return max(
+            vramfit.allowance(
+                table,
+                n_ctx=ctx_per_slot * slots,
+                n_seq_max=slots,
+                n_ubatch=n_ubatch,
+                backend=target.backend,
+                unified=target.unified,
+            ).total
+            for target in targets
         )
     try:
         return int(derived.shard_allowance_gib(engine, sizing=name) * _GIB)

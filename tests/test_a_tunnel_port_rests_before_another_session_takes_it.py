@@ -67,6 +67,11 @@ def _stop(pool: Pool, session_id: str, stopped: int) -> None:
     pool.settle()
 
 
+def _said(pool: Pool) -> list[str]:
+    """What the agent logged, apart from the line it says for each stop."""
+    return [line for line in pool.logged if "the hub stops it" not in line]
+
+
 def _busy(answer: Any) -> None:
     assert answer is not None and answer["type"] == "error", answer
     assert answer["body"]["code"] == "busy", answer
@@ -84,7 +89,7 @@ def test_a_port_just_left_is_not_the_next_sessions(pool: Pool) -> None:
     assert _prepare(pool, "s1") == 51820
     _stop(pool, "s1", 1)
     assert _prepare(pool, "s2") == 51821
-    assert pool.logged == []
+    assert _said(pool) == []
 
 
 def test_a_unit_started_again_and_again_walks_the_range(pool: Pool) -> None:
@@ -118,11 +123,11 @@ def test_with_every_free_port_resting_the_one_that_rested_longest_is_taken(
         ports.append(_prepare(pool, f"s{n}"))
         _stop(pool, f"s{n}", n + 1)
     assert ports == [51820, 51821, 51822, 51823]
-    assert pool.logged == []
+    assert _said(pool) == []
     # nothing has rested: the start is not refused, and takes the port left
     # first, then the one left after it
     assert _prepare(pool, "again") == 51820
-    (line,) = pool.logged
+    (line,) = _said(pool)
     assert "tunnel port 51820" in line and "120 s" in line
     assert _prepare(pool, "more") == 51821
 

@@ -226,7 +226,6 @@ def _made(direction: str) -> Any:
         compose_file=Path("compose.box2.b-small.yml"),
         direction=direction,
         seconds=0.1,
-        predicted_s=None,
         code=0,
     )
 

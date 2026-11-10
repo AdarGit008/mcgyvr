@@ -56,7 +56,7 @@ FLEET: dict[str, Any] = {
             "output_tokens": 2048,
             "request_timeout_s": 180,
             "room_mib": 5458,
-            "launch": {"n_cpu_moe": 19, "flags": ["-c", "8192", "-ngl", "99"]},
+            "launch": {"argv": ["-c", "8192", "-ngl", "99", "--n-cpu-moe", "19"]},
         },
     },
     "rigs": {"box1": {"rig_id": RIG1}, "box2": {"rig_id": RIG2}},

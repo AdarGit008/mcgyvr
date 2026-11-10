@@ -59,20 +59,11 @@ def table_document(
 def table_document_with_every_block() -> dict[str, Any]:
     """A document carrying at least one entry at every level the table declares.
 
-    A row with a reason to keep it out of fit listings, and a backend. A test
-    that changes one level of it knows every other level is well formed.
+    A row with a reason to keep it out of fit listings. A test that changes one
+    level of it knows every other level is well formed.
     """
     model = row("invented-model-a", not_for_fit="an invented reason")
-    document = table_document(rows=[model])
-    document["backends"] = {
-        "_doc": "invented backends",
-        "some-server": {
-            "wire_protocol": "openai",
-            "strengths": ["invented"],
-            "limits": ["invented"],
-        },
-    }
-    return document
+    return table_document(rows=[model])
 
 
 def write_table(directory: Path, document: dict[str, Any]) -> Path:

@@ -1,4 +1,4 @@
-"""Each process of a split model renders as a compose service and as a command.
+"""Each process of a split model renders as a compose service.
 
 Promise: a process that holds several cards reserves every one of them; a
 worker that lends a card runs ``rpc-server`` with no model and no weights
@@ -6,22 +6,20 @@ mount; a vLLM process holding a pipeline over one machine's cards renders like
 any vLLM unit, told its layer partition; what an engine reads beside its argv
 is the service's environment, and a clash with what the file already sets is
 refused by name. A launch that needs an image built with RPC support is
-refused, naming the unit, until the unit states one. The compose service and
-the bare command say the same thing, as they do for any other unit.
+refused, naming the unit, until the unit states one.
 
 The machines are invented, and so are their addresses.
 """
 
 from __future__ import annotations
 
-import shlex
 from dataclasses import replace
 from typing import Any
 
 import pytest
 import yaml
 
-from mcgyvr.emit import EmitError, render_command, render_compose
+from mcgyvr.emit import EmitError
 from mcgyvr.serving import (
     ROLE_RPC,
     ROLE_SERVE,
@@ -32,6 +30,7 @@ from mcgyvr.serving import (
 )
 from mcgyvr.serving.sharding import Grid
 from mcgyvr.serving.shardlaunch import Process
+from tests.emitted import compose_of
 from tests.invented_split_plans import (
     HF_CACHE,
     HOST_A,
@@ -73,7 +72,7 @@ def unit_of(
 
 
 def service_of(unit: Unit) -> dict[str, Any]:
-    document = yaml.safe_load(render_compose(unit))
+    document = yaml.safe_load(compose_of(unit))
     (service,) = document["services"].values()
     assert isinstance(service, dict)
     return service
@@ -198,7 +197,7 @@ def test_a_vllm_pipeline_renders_like_a_vllm_unit_told_its_partition() -> None:
 def test_a_server_that_reaches_workers_needs_an_image_and_is_refused_without() -> None:
     head = llama_units(image=None)[0]
     with pytest.raises(EmitError, match=head.key.slug) as raised:
-        render_compose(head)
+        compose_of(head)
     assert "RPC" in str(raised.value)
     assert "image" in str(raised.value)
 
@@ -207,7 +206,7 @@ def test_a_worker_needs_an_image_and_is_refused_without() -> None:
     worker = llama_units(image=None)[1]
     assert worker.role == ROLE_RPC
     with pytest.raises(EmitError, match=worker.key.slug):
-        render_compose(worker)
+        compose_of(worker)
 
 
 def test_a_server_that_reaches_no_workers_needs_no_image_of_its_own() -> None:
@@ -231,34 +230,11 @@ def test_a_variable_the_file_already_sets_differently_is_refused_by_name() -> No
     first = vllm_units()[0]
     clashing = replace(first, env={**first.env, "HF_HUB_OFFLINE": "0"})
     with pytest.raises(EmitError, match="HF_HUB_OFFLINE"):
-        render_compose(clashing)
+        compose_of(clashing)
 
 
 def test_a_role_the_engine_has_no_process_for_is_refused() -> None:
     head = vllm_units()[0]
     wrong = replace(head, role=ROLE_RPC)
     with pytest.raises(EmitError, match=f"{wrong.key.slug}: role 'rpc' is not"):
-        render_compose(wrong)
-
-
-# Two renderings, one argv.
-
-
-def test_the_bare_command_of_each_process_is_its_binary_and_the_compose_argv() -> None:
-    for unit in llama_units():
-        service = service_of(unit)
-        binary = service.get("entrypoint", ["llama-server"])
-        assert render_command(unit) == shlex.join([*binary, *service["command"]])
-    for unit in vllm_units():
-        service = service_of(unit)
-        assert render_command(unit) == shlex.join(
-            ["vllm", "serve", *service["command"]]
-        )
-
-
-def test_the_bare_command_of_a_worker_is_rpc_server_without_needing_an_image() -> None:
-    worker = llama_units(image=None)[1]
-    command = shlex.split(render_command(worker))
-    assert command[0] == "rpc-server"
-    assert "--model" not in command
-    assert command[command.index("--port") + 1] == str(worker.port)
+        compose_of(wrong)

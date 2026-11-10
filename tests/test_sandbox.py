@@ -39,7 +39,7 @@ from pathlib import Path
 import pytest
 
 from mcgyvr.sandbox import open_sandbox
-from mcgyvr.sandbox.base import credential_env_names
+from mcgyvr.sandbox.base import credential_env_names, holds_a_secret, safe_env
 
 TARGET = "src/pkg/fetch.py"
 
@@ -163,3 +163,27 @@ def test_docker_with_no_daemon_still_yields_a_working_sandbox_that_says_it_is_we
         "the fallback dropped the credential stripping along with the container"
     )
     assert os.environ.get("PATH"), "sanity: the host environment was not itself emptied"
+
+
+def test_safe_env_drops_a_value_that_holds_a_token_whatever_the_name() -> None:
+    """The widening (I-62) reaches `safe_env`: a token in the *value* is dropped.
+
+    `redact.scrub` now blanks `Bearer` and the provider token shapes, and
+    `safe_env` keeps only entries `scrub` leaves unchanged, so a benignly-named
+    variable whose value is a credential no longer reaches a command. A value
+    with no credential survives, so the environment is scrubbed, not emptied.
+    """
+    kept = safe_env({"A": "Bearer abc.def", "B": "sk-" + 20 * "a", "C": "plain-value"})
+    assert kept == {"C": "plain-value"}
+
+
+def test_holds_a_secret_flags_an_rc_file_carrying_a_bare_token(tmp_path: Path) -> None:
+    """The widening (I-62) reaches `holds_a_secret`: a bare token in an rc file.
+
+    An `.npmrc` with no `word=` login line but a bare `ghp_` token is now kept
+    out of a workspace, because `scrub` alters its text. Before the widening the
+    rc-login pattern alone missed it.
+    """
+    rc = tmp_path / ".npmrc"
+    rc.write_text("ghp_" + "b" * 36 + "\n", encoding="utf-8")
+    assert holds_a_secret(rc) is True
