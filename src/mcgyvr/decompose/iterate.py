@@ -7,16 +7,14 @@ drops the rejected candidate value, carries the already-decided upstream fields
 forward, and asks again — each retry gated by an injected ``approve`` callable.
 The loop is inert unless an approver is wired in: ``approve`` has no default.
 
-The re-ask itself is ``reask``, one step: the loop takes it once per retry,
-and ``reproposals`` takes it once per refused proposal a decomposition hands
-back to the classifier (F16, ``Evidence.refused``), so there is one re-ask,
-not two.
+The re-ask itself is ``reask``, one step, which the loop takes once per
+retry. A decomposition does not re-ask: what vetting refuses there, the top
+rung corrects (``decompose``'s ``fix``).
 """
 
 from __future__ import annotations
 
 from collections.abc import Callable, Collection, Mapping, Sequence
-from dataclasses import replace
 from typing import TYPE_CHECKING, Any, Protocol
 
 from mcgyvr.decompose.decompose import (
@@ -116,32 +114,6 @@ def reask(
     return classify.propose(
         evidence, decided=decided, constraints=constraints, rejected=rejected
     )
-
-
-def reproposals(classify: Classifier, evidence: Evidence) -> tuple[Proposal, ...]:
-    """What the classifier proposes in place of each of `evidence.refused`.
-
-    Each refused proposal whose refusal names a field the classifier decides is
-    re-asked once (`reask`), against the same evidence with that proposal's own
-    task as the request and nothing marked refused; one the classifier refuses
-    again, or whose field it does not decide, has no replacement here.
-    """
-    replacements: list[Proposal] = []
-    for item in evidence.refused:
-        if not reaskable(item.refusal):
-            continue
-        asked = reask(
-            classify,
-            replace(evidence, prompt=item.proposal.task, refused=()),
-            item.proposal,
-            item.refusal,
-            decided={},
-            constraints={},
-            rejected={},
-        )
-        if isinstance(asked, Proposal):
-            replacements.append(asked)
-    return tuple(replacements)
 
 
 def iterate(

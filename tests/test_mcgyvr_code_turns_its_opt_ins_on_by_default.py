@@ -2,12 +2,12 @@
 
 Every stage switch is on unless the policy turns it off (the mode matrix lives
 in `test_a_use_case_decides_which_stages_run`). Beyond the switches: proposals
-are authored by the classifier when a Jev unit is bound and on, and by prose
-otherwise or when the policy says so; `delegate --run` dispatches `--jobs auto`
-(the fleet's slots) unless `--jobs N` says otherwise, while a run with no
-setup keeps one at a time; and only `mcgyvr-code` provisions a local proposer
-unit under `deployment: local-only`, since the raw use cases have no proposer
-in their path.
+are authored on the classifier path — Jev's fill when a Jev unit is bound and
+on, the scaffold alone otherwise — and by prose only when the policy says
+so; `delegate --run` dispatches `--jobs auto` (the fleet's slots) unless
+`--jobs N` says otherwise, while a run with no setup keeps one at a time; and
+only `mcgyvr-code` provisions a local proposer unit under `deployment:
+local-only`, since the raw use cases have no proposer in their path.
 """
 
 from __future__ import annotations
@@ -32,8 +32,11 @@ def test_the_classifier_authors_when_a_jev_unit_is_bound_and_on() -> None:
     assert parse(FLEET + "jev:\n  unit: fast\n").authoring == "classifier"
 
 
-def test_prose_authors_with_no_jev_unit() -> None:
-    assert parse(FLEET).authoring == "prose"
+def test_the_scaffold_authors_with_no_jev_unit() -> None:
+    """No Jev, no `authoring:`: the classifier path, which scaffolds alone."""
+    assert parse(FLEET).authoring == "classifier"
+    off = FLEET + "jev:\n  unit: fast\n  enabled: false\n"
+    assert parse(off).authoring == "classifier"
 
 
 def test_a_stated_authoring_wins() -> None:

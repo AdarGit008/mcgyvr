@@ -41,15 +41,6 @@ efficiency = decode_efficiency
 #: The version of the table's format this code reads.
 CLASSES_SCHEMA = 1
 
-#: The share of a Mac's memory its GPU may wire when the kernel's own limit is in
-#: force (``iogpu.wired_limit_mb`` is 0): llama.cpp treats Metal's
-#: ``recommendedMaxWorkingSetSize`` as the device's total, and a 192 GB machine
-#: logs 75.1% of its memory there
-#: (https://github.com/ggml-org/llama.cpp/discussions/9784); the exact kernel
-#: rule has no Apple source, so this share is an estimate. The machine reader
-#: (``serving/rigscan.py`` ``UNIFIED_SHARE``, standalone) spells the same value.
-UNIFIED_SHARE = 0.75
-
 
 class HardwareClassesError(Exception):
     """The shipped table cannot be read, or is not the shape declared here."""
@@ -91,36 +82,6 @@ class HardwareClass:
     gpu_cores: tuple[int, ...] = ()
     vram_gb: int | None = None
     match_memory_gb: tuple[int, ...] = ()
-
-
-def usable_unified_mb(
-    memsize_mb: int,
-    wired_limit_mb: int | None = None,
-    *,
-    working_set_mb: int | None = None,
-) -> Figure:
-    """The memory a Mac's GPU may use, in MB.
-
-    A ``working_set_mb`` that llama.cpp logged (Metal's
-    ``recommendedMaxWorkingSetSize``) is a reading. Otherwise it is an estimate:
-    the kernel's wired limit when one is set (``iogpu.wired_limit_mb`` > 0, held
-    to the memory), else :data:`UNIFIED_SHARE` of the memory.
-    """
-    if working_set_mb:
-        return Figure(
-            float(working_set_mb),
-            READING,
-            "recommendedMaxWorkingSetSize llama.cpp logged",
-        )
-    if wired_limit_mb:
-        return Figure(
-            float(min(wired_limit_mb, memsize_mb)), ESTIMATE, "iogpu.wired_limit_mb"
-        )
-    return Figure(
-        float(int(memsize_mb * UNIFIED_SHARE)),
-        ESTIMATE,
-        f"{UNIFIED_SHARE:g} of memory, no wired limit set",
-    )
 
 
 def decode_tps(
@@ -179,7 +140,7 @@ def classes_path() -> Path:
     return found
 
 
-_TOP_KEYS = frozenset({"_doc", "schema", "classes", "_sources"})
+_TOP_KEYS = frozenset({"_doc", "schema_version", "classes", "_sources"})
 _ROW_KEYS = frozenset(
     {
         "id",
@@ -253,7 +214,7 @@ def load_classes(path: Path | None = None) -> tuple[HardwareClass, ...]:
         raw = json.loads(where.read_text(encoding="utf-8"))
     except (OSError, ValueError) as exc:
         raise HardwareClassesError(f"cannot read {where}: {exc}") from exc
-    if not isinstance(raw, dict) or raw.get("schema") != CLASSES_SCHEMA:
+    if not isinstance(raw, dict) or raw.get("schema_version") != CLASSES_SCHEMA:
         raise HardwareClassesError(f"{where}: not schema {CLASSES_SCHEMA}")
     unknown = sorted(set(raw) - _TOP_KEYS)
     if unknown:

@@ -7,7 +7,8 @@ the PowerShell question; a Windows rig answers it and is sent the reader the
 Windows way. ``mcgyvr scan --rig`` files the reading, so from then on the rig
 file says the system and no question is asked: a recorded Windows rig is sent
 the Windows reader first, a recorded Linux rig the POSIX line only. A shell that
-answers neither is a rig nobody could read.
+answers neither is a rig nobody could read. First contact is the scan's alone:
+the door's readers ship by the rig file, which a door run requires first.
 """
 
 from __future__ import annotations
@@ -96,6 +97,34 @@ def test_a_windows_rig_answers_powershell_and_is_sent_the_windows_reader(
     # Filed as `mcgyvr scan --rig` files it, the rig file says the system.
     rigfile.save("box1", document)
     assert gatelib.recorded_os("box1") == "windows"
+
+
+def test_the_doors_readers_ship_by_the_rig_file_alone_and_ask_the_rig_nothing(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    # The design: first contact is the scan's, and the door's readers ship by
+    # the rig file, which a door run requires before it reads the rig.
+    shell = _reads_as("windows-one-card", FakeShell("windows", tmp_path / "rig"))
+    monkeypatch.setattr(gatelib, "ssh_read_only", _read_only(shell))
+    document = scan_module.read_over(scan_module.Reach.ssh("box1"))
+    asked = list(shell.sent)
+
+    # Found Windows by this process, not yet filed: the scan ships the Windows
+    # way, the door's readers the POSIX line, and neither asks the rig again.
+    assert scan_module.shipping_os("box1") == gatelib.WINDOWS
+    assert gatelib.shipping_os("box1") == gatelib.LINUX
+    assert gatelib.scan_read(gatelib.shipping_os("box1")) == gatelib.Shipped(
+        gatelib.scan_read_command()
+    )
+    assert shell.sent == asked
+
+    # Filed as `mcgyvr scan --rig` files it, the door ships the Windows way too.
+    rigfile.save("box1", document)
+    assert gatelib.shipping_os("box1") == gatelib.WINDOWS
+    assert gatelib.scan_read(gatelib.shipping_os("box1")) == gatelib.scan_read(
+        gatelib.WINDOWS
+    )
+    assert shell.sent == asked
 
 
 def test_a_recorded_windows_rig_is_sent_the_windows_reader_first(

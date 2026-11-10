@@ -6,7 +6,9 @@ names what the Mac/Windows layer ships: the data folder of each system as
 llama.cpp build, its backends and the two environment variables), the
 loopback bind with the rig agent's relay, the quarantine and firewall notes,
 long paths, the PowerShell PATH line setup writes, the Windows skills
-installer, and the background-service notes as commands a person runs. It
+installer, that a rig over ssh is told Windows on first contact by ``mcgyvr
+scan --rig`` while the door needs its rig file first, and the
+background-service notes as commands a person runs. It
 renders the same bytes whichever system docgen runs on.
 """
 
@@ -94,6 +96,18 @@ def test_firewall_quarantine_and_long_paths_are_said() -> None:
     assert "firewall" in section.lower()
     assert "com.apple.quarantine" in section
     assert "LongPathsEnabled" in section
+
+
+def test_first_contact_is_the_scans_and_the_door_needs_a_rig_file_first() -> None:
+    # The design, said where a user reads it: `scan --rig`, setup and recommend
+    # tell a Windows rig on first contact; the door ships by the rig file alone.
+    from mcgyvr.serving import rigfile
+
+    section = " ".join(_section().split())
+    assert f"`{rigfile.MAKE.format(rig='RIG')}`" in section
+    assert "answers PowerShell is a Windows rig" in section
+    assert "The door asks no such question" in section
+    assert "refuses a rig with no rig file before it reads the rig" in section
 
 
 def test_background_service_notes_are_commands_not_an_install() -> None:

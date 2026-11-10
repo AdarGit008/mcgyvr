@@ -727,7 +727,13 @@ _WINDOWS_FOUND: set[str] = set()
 def shipping_os(host: str) -> str:
     """How a read is shipped to ``host``: ``windows`` for a rig its rig file
     records as Windows or this process found to be one, the POSIX line
-    (``linux``) for every other."""
+    (``linux``) for every other.
+
+    The first-contact answer is this module's alone: the door's readers ship
+    by the rig file (:func:`mcgyvr.serving.gatelib.shipping_os`), which a
+    serve or a read through the door requires first, so ``mcgyvr scan --rig``
+    is what makes a Windows rig one the door can read. The door's ``link``
+    timer requires no rig file and ships the POSIX line to any rig."""
     from mcgyvr.serving import gatelib
 
     if host in _WINDOWS_FOUND or gatelib.shipping_os(host) == gatelib.WINDOWS:

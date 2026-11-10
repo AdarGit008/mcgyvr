@@ -91,7 +91,7 @@ def bench(monkeypatch: pytest.MonkeyPatch, root: Path) -> Bench:
         monkeypatch.setattr(
             rigscan,
             "measure_bandwidth",
-            lambda root="": (
+            lambda spare_mib=None: (
                 None
                 if bandwidth is None
                 else {"measured_gbps": bandwidth, "how": "copy loop"}

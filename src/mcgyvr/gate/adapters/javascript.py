@@ -218,7 +218,14 @@ class JavaScriptAdapter(LanguageAdapter):
         return findings
 
     def locate_type_check_command(self, repo: Path) -> list[str] | None:
-        """`tsc --noEmit` when the repo has a tsconfig.json, else no check."""
+        """`tsc --noEmit` when the repo has a tsconfig.json, else no check.
+
+        The command only backs a `type_check: true` contract, as an acceptance
+        command that passes or fails on its exit code. The gate's own typecheck
+        rung reads Python checkers alone — no parser here reads tsc's
+        `file(line,col): error TSxxxx` lines — so a TypeScript error is never
+        attributed to the lines the change added or compared with the base.
+        """
         return ["tsc", "--noEmit"] if (repo / "tsconfig.json").is_file() else None
 
     def locate_test_command(self, repo: Path) -> list[str] | None:

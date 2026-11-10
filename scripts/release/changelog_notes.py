@@ -5,8 +5,8 @@
 
 The release workflow runs this between the wheel check and publishing the
 release, and its output becomes the release body (written to
-`release-notes.md` and handed to the Forgejo release step). So the notes a
-reader gets from the release are the notes a reader gets from the repository:
+`release-notes.md` and handed to the step that publishes the release). So the
+notes a reader gets from the release are the notes a reader gets from the repository:
 one text, written once, in CHANGELOG.md, rather than a second description of
 the same changes that drifts from the first.
 

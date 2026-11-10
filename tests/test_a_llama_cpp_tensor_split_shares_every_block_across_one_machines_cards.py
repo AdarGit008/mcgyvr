@@ -239,7 +239,6 @@ def test_it_is_launched_as_one_server_told_split_mode_tensor() -> None:
         threads=8,
         n_ubatch=512,
         rpc_port=50052,
-        master_port=29501,
     )
     assert head.gpus == (0, 1)
     assert head.args["--split-mode"] == "tensor"

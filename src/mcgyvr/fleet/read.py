@@ -37,6 +37,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
+from mcgyvr.config import DEFAULT_ENGINE
 from mcgyvr.fleet import alerts, ids
 from mcgyvr.fleet.admit import layout_ids
 from mcgyvr.serving.servelib import PROJECT
@@ -295,7 +296,7 @@ def port_of(unit: Mapping[str, Any]) -> int:
 
 def engine_of(unit: Mapping[str, Any]) -> str:
     engine = unit.get("engine")
-    return engine if isinstance(engine, str) and engine else "llama.cpp"
+    return engine if isinstance(engine, str) and engine else DEFAULT_ENGINE
 
 
 def named(fleet_name: str, setup: Path | None) -> Live:
