@@ -14,6 +14,13 @@ entries name development tooling, flags and records outside this repository.
 
 ### Changed
 
+- **The LAN rule is defined once, in hubwire, for the rig and the hub (I-74).**
+  New: `hubwire.is_lan_address`, an address that is private and one a peer can
+  be at. The rig's `tunnel.is_lan` is that function, and the hub vouches for a
+  LAN endpoint by it. `hubwire.is_peer_address` now takes an IPv6 address as
+  well, which the hub's candidate check passes it; its answers for IPv4 are
+  unchanged.
+
 - **Both sides hold a ride's admission to one set of cases (I-132).** New:
   `hubwire.RIDE_ROOM_CASES` (`RideRoomCase`), unit states with what a host
   advertises free and whether one more ride is admitted. The rig's admission

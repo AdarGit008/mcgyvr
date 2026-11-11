@@ -30,8 +30,9 @@ is here:
   :data:`CONTENT_TYPE`, :data:`BASE64`, :data:`TOKEN`, :data:`TICKET`), and
   its codes: :class:`CloseCode`, the channel's :class:`ErrorCode`, a
   refusal's :class:`SessionCode`, all of them :data:`AGENT_ERROR_CODES`; and
-  the rule for an IPv4 address a peer of another rig can be at
-  (:func:`is_peer_address`), which a LAN address keeps as well;
+  the rule for an address a peer of another rig can be at
+  (:func:`is_peer_address`), and for a LAN one (:func:`is_lan_address`:
+  private, and a peer's);
 * the optional behaviours an agent lists (:data:`FEATURES`, each named
   ``FEATURE_*``);
 * the UDP packets beside the channel: their version (:data:`UDP_VERSION`),
@@ -428,12 +429,14 @@ TOKEN = re.compile(r"[0-9a-f]{32}")
 TICKET = re.compile(r"[A-Za-z0-9_-]{22,256}")
 
 
-def is_peer_address(address: ipaddress.IPv4Address) -> bool:
-    """Whether a peer of another rig can be at this IPv4 address: it is not
+def is_peer_address(address: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
+    """Whether a peer of another rig can be at this address: it is not
     loopback, link-local, multicast, reserved or unspecified.
 
     The one rule a rig's endpoints, its tunnel's aim and its probes' pings are
-    held to; a LAN address is one of these that is also private.
+    held to, and a hub's vouching for a candidate (an agent's IPv6 endpoint
+    too); a LAN address is one of these that is also private
+    (:func:`is_lan_address`).
     """
     return not (
         address.is_loopback
@@ -442,6 +445,13 @@ def is_peer_address(address: ipaddress.IPv4Address) -> bool:
         or address.is_reserved
         or address.is_unspecified
     )
+
+
+def is_lan_address(address: ipaddress.IPv4Address) -> bool:
+    """Whether a peer on this LAN could be reached at this IPv4 address: it is
+    private, and one a peer can be at (:func:`is_peer_address`). A rig names
+    its LAN endpoints by it and a hub vouches for one by it."""
+    return address.is_private and is_peer_address(address)
 
 
 class CloseCode(enum.IntEnum):
