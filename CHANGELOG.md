@@ -14,6 +14,54 @@ entries name development tooling, flags and records outside this repository.
 
 ### Changed
 
+- **The policy block `orchestrator` is `proposer`; a decomposition is survey,
+  scaffold, fill or draft, and vet.** policy.yaml's `orchestrator` block is
+  refused, naming `proposer`: rename the block and drop its `type` line (it
+  had one value, `proposer`, which nothing read). `proposer.authoring` is
+  `fill` (the scaffold, filled by Jev when Jev is on; the default under
+  `mcgyvr-code`) or `draft` (a model writes the proposals); `max_replans` is
+  `max_redecompositions`; fleet.yaml's `units.<u>.role` is `sleep`, its values
+  unchanged (`always-on`, `sleeps-until-needed`), and the old key is refused
+  naming `sleep`. Migration: rename the `orchestrator` block and a unit's
+  `role:` before upgrading; `authoring: classifier`/`prose` and `max_replans`
+  are still read, with a warning, for this release only, as is a contract
+  file's `replan:` block, now `lineage:`. The result file's `replanned` is
+  `redecomposed`, the decision log (`--log`) is `mcgyvr.delegate_log/2`, whose
+  `orchestrator_*` kinds are `proposer_*` (and `config_no_orchestrator`
+  `config_no_proposer`); a `/1` log is still read, its old kinds read as the
+  new ones with a warning, for this release only. `mcgyvr use` lists its
+  stages `classifier`, `reviewer` and `replan` as `fill`, `verifier` and
+  `redecompose`. The help says `mcgyvr PROMPT` decomposes the prompt into
+  contracts, and that the session agent chooses direct or delegate while
+  mcgyvr dispatches. For Python callers: `mcgyvr.replan` is
+  `mcgyvr.redecompose` (`Replanner` is `Redecomposer`, `stamped` is
+  `with_lineage`), and `ORCHESTRATOR_ROLE`, `Orchestrator*Error`,
+  `LocalOrchestrator`, `deterministic_proposer` and `ClassifierProposer` are
+  `PROPOSER_ROLE`, `Proposer*Error`, `LocalProposer`, `scaffold_proposer` and
+  `FillProposer`.
+
+- **`relief.yaml` is `hitchhike.yaml`, and nothing says relief rung any
+  more.** A rung a hub lends you is a hitchhike rung (slot sharing; the owner:
+  relief rung is not a concept). `mcgyvr rig rungs sync` writes
+  `hitchhike.yaml` with its one key `hitchhike` and removes an old
+  `relief.yaml` beside it. Migration: none needed; a setup holding only
+  `relief.yaml` is read from it, under its key `relief`, for one release, and
+  the rig agent's next refresh (or `mcgyvr rig rungs sync`) rewrites it. A
+  `relief` block in fleet.yaml, policy.yaml or a setup written as one document
+  is refused, naming `hitchhike`. The config reference's `relief.*` fields are
+  `hitchhike.*`; a result file's per-attempt `relief` is `hitchhike`; `mcgyvr
+  ladder show` lists *Hitchhike rungs*. On the wire, the rider no longer
+  requires the hub's constant `relief: true` on each rung, and the published
+  rider schema marks it deprecated: rigs up to 0.5.1 require it, rigs from
+  0.5.2 ignore it, and a hub sends it from one compat shim until it stops in
+  0.5.3. Deprecated: from 0.5.3 the hub no longer sends it, and a rig up to
+  0.5.1 then refuses every rung listing until it is upgraded. For Python
+  callers: `Config.relief`, `Unit.relief`, `RELIEF_FILENAME`, `load_relief`,
+  `ReliefUnavailableError` and the rest are their `hitchhike` names. Also:
+  hubwire's `ONE_PER_RIG`, `SESSION_KEY_CONTEXT`, `HEAD_DEVICE_RPC` and
+  `QUANT_CLASSES`, read nowhere else, are private (`_ONE_PER_RIG` and so on),
+  and `scan.BYTES_PER_GB` is `BYTES_PER_GIB` (1024**3 bytes).
+
 - **Journal rows are layout version 2: the writer is `session` and the catalog
   family `family`.** An attempt row wrote the chat that drove it as
   `orchestrator` and its family as `tier`; version 2 writes `session` and
@@ -144,6 +192,38 @@ entries name development tooling, flags and records outside this repository.
   and the jev choice alphabet is `decision.CHOICE_LABELS`, which the decision
   log now reads instead of a copy. `rig.pooled.PoolError` is a different error
   and keeps its name.
+
+- **A rig's hello answers what each model's cache takes, and the hub plans from
+  the answers (I-17).** The hub sized a model's cache from one flat figure (every
+  caching layer at the full context), so it over-charged a model whose layers
+  slide and under-charged one whose blocks keep a recurrent state. Each model in
+  the hello now carries `cache_fit` (`hubwire.CacheFit`): the MiB its KV caches
+  and recurrent state take at each context per slot of `hubwire.FIT_CTX` (2048
+  to 1048576, doubling, up to the model's trained context, and that context
+  padded) over each slot count of `hubwire.FIT_SLOTS` (1, 2, 4, 8, 16), sized by
+  `vramfit.kv_bytes` and `vramfit.rs_bytes` at the head's cache type and
+  micro-batch (`rig.inventory.cache_fit`), and beside each the most a run of
+  consecutive blocks holds above its even share (`excess_mib`, from each
+  block's own cache row and recurrent state). A card of a layer split holds
+  one run, so the hub charges it its blocks' share plus that excess, never more
+  than the whole answer. The field is optional: a model that cannot be sized is
+  sent without it, and so is every model of a hello the answers would make
+  larger than one message, which the agent then says in one line (64 models of
+  long names and a full weight cache, answered to a 262144-token context, fit).
+  The published schema gains the `CacheFit` shape.
+
+- **The head is started with a named micro-batch, `-ub 512`, and the hub prices
+  it at the same flags (I-17c).** The head's cache type and micro-batch are
+  `hubwire.HEAD_KV_CACHE_TYPE` (`q8_0`) and `hubwire.HEAD_UBATCH` (512), with
+  `hubwire.HEAD_KV_BYTES_PER_ELEMENT` (34/32) the cache type's width, held by
+  test to the scanner's. `pooled.head_server_args` now passes `-ub 512` to every
+  head, container and native; llama.cpp's own default is 512, so the engine
+  runs the batch it ran before. `pooled.KV_CACHE_TYPE` is the hubwire constant.
+
+- **The scratch readings are read from `hubwire` alone (I-17b).**
+  `vramfit.MEASURED_SCRATCH_MIB` and `vramfit.MEASURED_SCRATCH_BACKEND`, which
+  re-named `hubwire`'s, are gone; `serving` and `sharding` read
+  `hubwire.MEASURED_SCRATCH_MIB` and `hubwire.MEASURED_SCRATCH_BACKEND`.
 
 - **`mcgyvr recommend` asks placement whether a model fits (I-47).** Its own
   arithmetic left out the scratch allowance and the RAM rule placement applies,

@@ -1,7 +1,7 @@
 """A whole ``serve up`` leaves a sleeping swap partner down, and a whole down takes it.
 
 Swap partners share one launch spec, and the unit that starts asleep
-(``role: sleeps-until-needed``) is written under a compose profile, so
+(``sleep: sleeps-until-needed``) is written under a compose profile, so
 ``docker compose up`` does not start it and the card's awake set still fits.
 The door reads that from the file like everything else it expects:
 

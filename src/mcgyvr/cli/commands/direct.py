@@ -6,7 +6,7 @@ process with one flag set (`delegate.add_flags`): the contracts are vetted as
 a proposal is (`mcgyvr.vet`), a refusal is printed with what to change and
 logged, and what passed goes on one dependency tree and is run through
 `_run_delegated`, the bare verb's own dispatch. No proposer is asked, so a
-contract whose ladder is spent is not re-planned: its result says so, and the
+contract whose ladder is spent is not re-decomposed: its result says so, and the
 author writes the next contract. `--output DIR` writes what passed vetting
 and runs none of it.
 """
@@ -165,7 +165,7 @@ def _direct_logged(args: argparse.Namespace, book: _Logbook) -> int:
     runs. With `--output` what passed is written there and nothing runs, exit
     0. Otherwise each `--notes-from` is matched to the contract its result
     names, and what passed runs where it was written, through
-    `_run_delegated`, with no re-planner; the exit is the batch's.
+    `_run_delegated`, with no re-decomposer; the exit is the batch's.
     """
     from mcgyvr.repo import AttachError, IndexBuildError, attach, build_index
     from mcgyvr.vet import vet
@@ -285,7 +285,7 @@ def add_parser(
             "Vet each contract as a proposal is vetted, print every refusal with "
             "what to change, and run the rest in the order their dependency tree "
             "allows. The flags are `mcgyvr PROMPT`'s; no proposer is asked, so a "
-            "spent contract is not re-planned."
+            "spent contract is not re-decomposed."
         ),
         epilog=EPILOG,
         formatter_class=argparse.RawDescriptionHelpFormatter,

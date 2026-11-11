@@ -14,7 +14,7 @@ What puts a blank there is not a person typing two quotes. It is
 wrapper script has, and the failure it produces is silent in all three cases:
 exit 0, a run that looks finished, and its record somewhere nobody asked for.
 
-So a blank is refused where the blank orchestrator is, through the subparser's
+So a blank is refused where the blank proposer is, through the subparser's
 own ``error`` — exit 2, the usage code the skill documents — and for every flag
 that takes a path, on every command that takes one, because "the same hole one
 flag over" is exactly what this is.
@@ -102,7 +102,7 @@ def test_a_blank_record_does_not_journal_into_the_current_directory(
     assert not (repo / "blobs").exists(), "the blobs landed in the repository"
 
 
-def test_a_blank_orchestrator_is_still_refused_by_its_own_message(
+def test_a_blank_proposer_is_still_refused_by_its_own_message(
     tmp_path: Path,
     home: Path,
     monkeypatch: pytest.MonkeyPatch,

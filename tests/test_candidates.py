@@ -45,13 +45,13 @@ from mcgyvr.decompose.candidates import (
     without,
 )
 from mcgyvr.decompose.decompose import DepRef, Evidence, Proposal
-from mcgyvr.delegate import ClassifierProposer
+from mcgyvr.delegate import FillProposer
 from mcgyvr.repo.index import Index, build_index
 from mcgyvr.repo.read import Exploration, TargetedRead, explore
 from mcgyvr.repo.resolve import Candidate, Resolution, Verdict, resolve
 from tests import ungated
 
-#: The ungated example kind (tests/ungated.py), as in test_classifier_proposer.py:
+#: The ungated example kind (tests/ungated.py), as in test_fill_proposer.py:
 #: not ``code``, whose proposal also carries a derived reply cap.
 AGENT = ungated.ungated()
 pytestmark = pytest.mark.usefixtures("ungated_catalog")
@@ -429,10 +429,10 @@ def test_without_keeps_the_set_unchanged_for_unknown_values() -> None:
 # --- the regression that pins the classifier path --------------------------
 
 
-def test_classifier_proposer_output_is_bit_identical(repo: Index) -> None:
+def test_fill_proposer_output_is_bit_identical(repo: Index) -> None:
     """The refactored proposer emits exactly the proposal it hand-built before."""
     evidence = evidence_for(repo, "document listing", (AGENT,))
-    propose = ClassifierProposer(
+    propose = FillProposer(
         classify=_choosing(
             evidence,
             task_type="agent",
@@ -479,7 +479,7 @@ def test_classifier_proposer_output_is_bit_identical(repo: Index) -> None:
     assert collapse(plan) == expected
 
 
-def test_classifier_proposer_reflects_the_models_override_picks(
+def test_fill_proposer_reflects_the_models_override_picks(
     repo: Index,
 ) -> None:
     """An override away from rank-0 emits the model's target and symbol."""
@@ -488,7 +488,7 @@ def test_classifier_proposer_reflects_the_models_override_picks(
         candidates=(("listing.py",), ("pagination.py",)),
         reads=(),
     )
-    propose = ClassifierProposer(
+    propose = FillProposer(
         classify=_choosing(
             evidence,
             task_type="agent",
@@ -509,10 +509,10 @@ def test_classifier_proposer_reflects_the_models_override_picks(
     )
 
 
-def test_classifier_proposer_no_symbol_pins_the_whole_file(repo: Index) -> None:
+def test_fill_proposer_no_symbol_pins_the_whole_file(repo: Index) -> None:
     """A whole-file pick names only the target in task and stop conditions."""
     evidence = evidence_for(repo, "document listing", (AGENT,))
-    propose = ClassifierProposer(
+    propose = FillProposer(
         classify=_choosing(
             evidence,
             task_type="agent",

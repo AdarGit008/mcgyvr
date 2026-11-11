@@ -21,14 +21,15 @@ from typing import Any
 
 from mcgyvr import atomic, derived
 from mcgyvr.fleet import links, roots
+from mcgyvr.hubwire import BYTES_PER_GIB
 
 #: The name of the file, under the data home, that holds the user's own readings.
 READINGS_FILENAME = "links.json"
 #: The schema number a readings file must state; a file stating another is refused.
 READINGS_SCHEMA = 1
-#: Bytes in a GiB, and microseconds in a second, for turning a fitted slope and
-#: intercept (seconds per byte, seconds) into GiB/s and microseconds.
-_BYTES_PER_GIB = 2**30
+#: Microseconds in a second, for turning a fitted intercept (seconds) into
+#: microseconds; a slope (seconds per byte) becomes GiB/s through
+#: `hubwire.BYTES_PER_GIB`.
 _MICROSECONDS_PER_SECOND = 1_000_000.0
 
 #: The layers a number can come from: the user's own setting, the user's own
@@ -302,7 +303,7 @@ def fit_transfers(samples: Sequence[Transfer]) -> tuple[float, float]:
             "link has; include a small payload, or time with a finer clock, and "
             "read the link again"
         )
-    gib_s = 1.0 / slope / _BYTES_PER_GIB
+    gib_s = 1.0 / slope / BYTES_PER_GIB
     latency_us = intercept * _MICROSECONDS_PER_SECOND
     if not (math.isfinite(gib_s) and math.isfinite(latency_us)):
         raise InterconnectError(

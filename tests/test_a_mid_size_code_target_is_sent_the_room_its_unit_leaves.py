@@ -21,7 +21,7 @@ from typing import Any
 from mcgyvr.catalog import catalog
 from mcgyvr.decision import Choice, ChoiceAnswer, Decision, Question
 from mcgyvr.decompose.decompose import decompose
-from mcgyvr.delegate import ClassifierProposer
+from mcgyvr.delegate import FillProposer
 from mcgyvr.gate.preflight import (
     ESTIMATE_RESERVE,
     check_contract_against_rung,
@@ -83,9 +83,7 @@ def _code(state: Any, questions: Mapping[str, Question]) -> Decision:
 
 
 def _contract(index: Index):  # type: ignore[no-untyped-def]
-    result = decompose(
-        index, "document listing", propose=ClassifierProposer(classify=_code)
-    )
+    result = decompose(index, "document listing", propose=FillProposer(classify=_code))
     (contract,) = result.contracts
     return contract
 

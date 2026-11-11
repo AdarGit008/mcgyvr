@@ -1,6 +1,6 @@
 """A failure record reads back as the record it was, from JSON and from a result file.
 
-The record is what the calling agent replans from, so the copy in the result
+The record is what the calling agent redecompositions from, so the copy in the result
 file has to be the record and not a rendering of it: :meth:`FailureNotes.as_json`
 writes it, :meth:`FailureNotes.from_json` reads it back equal, and a real
 ``mcgyvr direct`` writes it under ``attempts[].notes`` beside the `findings` lines

@@ -119,8 +119,8 @@ def test_the_chooser_takes_exactly_one_fallback() -> None:
 
 
 def test_an_unbound_fallback_role_is_a_named_error_not_none() -> None:
-    with pytest.raises(UnboundRoleError, match="orchestrator"):
-        classify_for(_pool(UNITS), STATE, ASK, role="orchestrator")
+    with pytest.raises(UnboundRoleError, match="proposer"):
+        classify_for(_pool(UNITS), STATE, ASK, role="proposer")
 
 
 # --- the gate's Jev rung -----------------------------------------------------

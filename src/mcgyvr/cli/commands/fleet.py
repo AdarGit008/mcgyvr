@@ -182,7 +182,7 @@ def _fleet_key(args: argparse.Namespace) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return Exit.ERROR
     unit = config.units.get(args.unit)
-    if unit is None or unit.relief or unit.crew:
+    if unit is None or unit.hitchhike or unit.crew:
         print(f"error: no unit of your fleet is named {args.unit!r}", file=sys.stderr)
         return Exit.ERROR
     exposed = exposure(unit.expose, address=unit.address, launcher=unit.launcher)

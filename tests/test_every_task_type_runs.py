@@ -103,6 +103,6 @@ def test_the_shipped_skill_offers_no_example_that_cannot_run(repo: Path) -> None
         if not _runnable(name, repo) and f"operation: {name}" in text
     ]
     assert not offered, (
-        f"the skill's examples hand an orchestrator a {', '.join(offered)} "
+        f"the skill's examples hand a proposer a {', '.join(offered)} "
         "example to copy, and no executor exists for it"
     )

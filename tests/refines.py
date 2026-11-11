@@ -1,6 +1,6 @@
 """A scripted jev for the refining proposer, and the repository it is asked about.
 
-`ScriptedJev` stands in for the jev unit behind `ClassifierProposer.classify`:
+`ScriptedJev` stands in for the jev unit behind `FillProposer.classify`:
 each typed question is answered by rule and kept, so a test can say what was
 asked, in what order, about what. A field's Choice is answered with the first
 option whose text holds the word the script names for that field, else with
@@ -23,7 +23,7 @@ from typing import Any
 
 from mcgyvr.decision import BoolAnswer, Choice, ChoiceAnswer, Decision, Noul, Question
 from mcgyvr.decision_log import ShadowSink
-from mcgyvr.delegate import ClassifierProposer
+from mcgyvr.delegate import FillProposer
 from mcgyvr.refine import RefiningProposer
 from mcgyvr.repo.index import Index, build_index
 
@@ -102,7 +102,7 @@ def refining(
 ) -> RefiningProposer:
     """The refining proposer over a classifier that asks `jev`."""
     return RefiningProposer(
-        ClassifierProposer(classify=jev, sink=sink, model=MODEL),
+        FillProposer(classify=jev, sink=sink, model=MODEL),
         max_splits=max_splits,
         max_fanout=max_fanout,
     )

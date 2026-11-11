@@ -7,7 +7,7 @@ from a fact. Here the decomposer names a symbol, the index states
 what it looks like, and if the index cannot state it the unit of work does not
 get emitted.
 
-``tests/test_orchestrator_decompose.py`` holds the two halves separately:
+``tests/test_proposer_decompose.py`` holds the two halves separately:
 that a dep's ``signature`` equals the index's text, and that an unknown symbol
 becomes a refusal. Both would survive the regression this file exists to stop.
 A change that kept the ``signature`` field, filled it correctly, and *also* pasted

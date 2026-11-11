@@ -4,7 +4,7 @@ The stronger rung on a full rig is a SWAP, made by the card switches'
 existing sleep/wake and nothing new. For llama.cpp a "sleep" is a stop of the
 unit's container (``serve down --unit``) and a "wake" is a start
 (``serve up --unit``). A unit says it is a swap partner with
-``units.<u>.role: sleeps-until-needed``; absent, it is ``always-on`` and
+``units.<u>.sleep: sleeps-until-needed``; absent, it is ``always-on`` and
 nothing changes.
 
 So, on a one-card rig holding two fast llama.cpp rungs and a strong RAM rung
@@ -85,7 +85,7 @@ def _unit(
         "    width: 2\n"
         "    window: 8192\n"
         f"    room_mib: {int(vram_gb * 1024) + 300}\n"
-        + ("" if role is None else f"    role: {role}\n")
+        + ("" if role is None else f"    sleep: {role}\n")
         + "    launch:\n"
         f"      vram_gb: {vram_gb}\n"
         f"      disk_gb: {vram_gb * 0.8:.2f}\n"

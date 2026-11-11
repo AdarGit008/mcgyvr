@@ -1,5 +1,8 @@
 """What `mcgyvr PROMPT --log PATH` came to, as one record a script can read.
 
+(Named for the `delegate` verb, which is gone;
+the name stays: `delegate` is the bare `mcgyvr PROMPT` mode.)
+
 `mcgyvr PROMPT` and `mcgyvr direct` say how they ended in English on stderr, and the
 exit code folds a dozen different failures into 1. A caller that has to act on *which*
 one happened — a harness, a script, a shell loop — passes `--log PATH` and
@@ -15,10 +18,13 @@ reader imports this module (`read`, `DelegateKind`) rather than copying either.
 The product only writes the record: `read`, `DelegateLog.from_json` and
 `DelegateLog.known` are the reader side, used by the tests and by outside tools.
 
-The schema id is `mcgyvr.delegate_log/1`. Every way the command can end is one
-`kind`; the prefix is the group. Within `/1` new kinds may be added, so a
+The schema id is `mcgyvr.delegate_log/2`. Every way the command can end is one
+`kind`; the prefix is the group. Within `/2` new kinds may be added, so a
 reader must tolerate a kind it does not know (`read` returns it as a plain
-string); renaming or removing a kind, or changing a field, is `/2`.
+string); renaming or removing a kind, or changing a field, is `/3`. `/2`
+renamed the `orchestrator_*` kinds `proposer_*` (and `config_no_orchestrator`
+`config_no_proposer`); a `/1` record is still read for one release, its old
+kinds read under their new names with a `RenamedWarning`.
 
 ======================== ==== =================================================
 kind                     exit when
@@ -26,13 +32,13 @@ kind                     exit when
 config_invalid           1    the config named or found does not load
 config_missing           1    the setup named (`--config`, the environment) is
                               not there
-config_no_orchestrator   3    no orchestrator role: a bare install, or a config
+config_no_proposer   3    no proposer role: a bare install, or a config
                               that binds none
 use_case_raw             3    the config's use case serves its model raw
                               (`code`, `chat`, `agent`): nothing is proposed
-orchestrator_unrunnable  1    the role is declared but its unit cannot run
-orchestrator_unavailable 1    the role resolves to no unit to dispatch to
-orchestrator_dispatch_   1    the role's unit was asked and the dispatch failed
+proposer_unrunnable  1    the role is declared but its unit cannot run
+proposer_unavailable 1    the role resolves to no unit to dispatch to
+proposer_dispatch_   1    the role's unit was asked and the dispatch failed
 failed
 source_unavailable       1    a model source the dispatch needs is unusable
 repo_attach_failed       1    `--repo` could not be attached (checkout or clone)
@@ -66,9 +72,9 @@ does not copy them.
 
 `detail` holds kind-specific facts the product already has as data, every key
 optional: `path` for `config_*`, and `bare_install` for
-`config_no_orchestrator`; `use_case` for `use_case_raw`; `error_class` for
-`orchestrator_unrunnable`,
-`orchestrator_dispatch_failed`, `source_unavailable` and `internal_error`;
+`config_no_proposer`; `use_case` for `use_case_raw`; `error_class` for
+`proposer_unrunnable`,
+`proposer_dispatch_failed`, `source_unavailable` and `internal_error`;
 `repo` for `repo_*`; `unit`, `output_tokens`, `reasoning_tokens`,
 `max_output_tokens` and `cap_basis` for `reply_cut_off`; `decoder`, `line`,
 `column`, `pos` and `body_chars` for `reply_not_json`; `found` (a JSON type
@@ -77,13 +83,13 @@ name) for `reply_not_array`; `index`, `field` and `found` for `proposal_*`;
 and `tree_state` (the Board's state file, `<journal>/trees/<tree>.json`) for
 `batch_held`. With re-proposing on (`max_reproposals` above 0), `emitted`,
 `emitted_with_refusals`, `none_emitted` and `batch_held` also carry what the
-first planning's re-proposing came to: `refused` (proposals vetting refused
+first decomposition's re-proposing came to: `refused` (proposals vetting refused
 first), `reproposed` (refusals handed to the top rung, every round),
 `recovered` (contracts that came of its answers), `still_refused` (vetting
 refusals reported in the end), `reproposal_failed` (the error class the top
 rung raised instead of answering, when it did), and `fixer` and
 `fixer_model` (the top rung asked and its model, once it was asked). Under
-`--log PATH`, `decisions` is `PATH.decisions.jsonl`, the classifier's typed
+`--log PATH`, `decisions` is `PATH.decisions.jsonl`, the fill proposer's typed
 decisions of this run, when it asked any.
 """
 
@@ -98,9 +104,19 @@ from typing import Any
 
 from mcgyvr import atomic
 from mcgyvr.exits import Exit
+from mcgyvr.renamed import warn_renamed
 
 #: The record's schema name and version, written as its `schema` key.
-SCHEMA_ID = "mcgyvr.delegate_log/1"
+SCHEMA_ID = "mcgyvr.delegate_log/2"
+#: The id before the kinds were renamed, read for one release, and each old
+#: kind's new name (string literals: the old names are read, never written).
+OLD_SCHEMA_ID = "mcgyvr.delegate_log/1"
+_V1_KINDS = {
+    "config_no_orchestrator": "config_no_proposer",
+    "orchestrator_unrunnable": "proposer_unrunnable",
+    "orchestrator_unavailable": "proposer_unavailable",
+    "orchestrator_dispatch_failed": "proposer_dispatch_failed",
+}
 
 
 class DelegateKind(StrEnum):
@@ -108,11 +124,11 @@ class DelegateKind(StrEnum):
 
     CONFIG_INVALID = "config_invalid"
     CONFIG_MISSING = "config_missing"
-    CONFIG_NO_ORCHESTRATOR = "config_no_orchestrator"
+    CONFIG_NO_PROPOSER = "config_no_proposer"
     USE_CASE_RAW = "use_case_raw"
-    ORCHESTRATOR_UNRUNNABLE = "orchestrator_unrunnable"
-    ORCHESTRATOR_UNAVAILABLE = "orchestrator_unavailable"
-    ORCHESTRATOR_DISPATCH_FAILED = "orchestrator_dispatch_failed"
+    PROPOSER_UNRUNNABLE = "proposer_unrunnable"
+    PROPOSER_UNAVAILABLE = "proposer_unavailable"
+    PROPOSER_DISPATCH_FAILED = "proposer_dispatch_failed"
     SOURCE_UNAVAILABLE = "source_unavailable"
     REPO_ATTACH_FAILED = "repo_attach_failed"
     REPO_INDEX_FAILED = "repo_index_failed"
@@ -136,11 +152,11 @@ class DelegateKind(StrEnum):
 KIND_EXIT: Mapping[DelegateKind, Exit] = {
     DelegateKind.CONFIG_INVALID: Exit.ERROR,
     DelegateKind.CONFIG_MISSING: Exit.ERROR,
-    DelegateKind.CONFIG_NO_ORCHESTRATOR: Exit.REFUSED,
+    DelegateKind.CONFIG_NO_PROPOSER: Exit.REFUSED,
     DelegateKind.USE_CASE_RAW: Exit.REFUSED,
-    DelegateKind.ORCHESTRATOR_UNRUNNABLE: Exit.ERROR,
-    DelegateKind.ORCHESTRATOR_UNAVAILABLE: Exit.ERROR,
-    DelegateKind.ORCHESTRATOR_DISPATCH_FAILED: Exit.ERROR,
+    DelegateKind.PROPOSER_UNRUNNABLE: Exit.ERROR,
+    DelegateKind.PROPOSER_UNAVAILABLE: Exit.ERROR,
+    DelegateKind.PROPOSER_DISPATCH_FAILED: Exit.ERROR,
     DelegateKind.SOURCE_UNAVAILABLE: Exit.ERROR,
     DelegateKind.REPO_ATTACH_FAILED: Exit.ERROR,
     DelegateKind.REPO_INDEX_FAILED: Exit.ERROR,
@@ -159,7 +175,7 @@ KIND_EXIT: Mapping[DelegateKind, Exit] = {
     DelegateKind.INTERNAL_ERROR: Exit.ERROR,
 }
 
-#: The kinds that mean the request was decomposed: the orchestrator answered
+#: The kinds that mean the request was decomposed: the proposer answered
 #: and its reply was read. Every other kind, a kind this build does not know
 #: included, ended the command before that.
 DECOMPOSED: frozenset[DelegateKind] = frozenset(
@@ -173,7 +189,7 @@ DECOMPOSED: frozenset[DelegateKind] = frozenset(
 
 
 class DelegateLogError(ValueError):
-    """A file that is not a `mcgyvr.delegate_log/1` record."""
+    """A file that is not a `mcgyvr.delegate_log/2` (or `/1`) record."""
 
 
 @dataclass(frozen=True)
@@ -210,7 +226,7 @@ class DelegateLog:
     message: str
     #: What the process returned, an `mcgyvr.exits.Exit` value.
     exit_code: int
-    #: True when the orchestrator's raw reply was printed on stderr.
+    #: True when the proposer's raw reply was printed on stderr.
     raw_reply_present: bool = False
     contracts: tuple[LoggedContract, ...] = ()
     refusals: tuple[LoggedRefusal, ...] = ()
@@ -263,13 +279,17 @@ class DelegateLog:
             raise DelegateLogError(
                 f"a delegate log is an object, not {json_type(data)}"
             )
-        if data.get("schema") != SCHEMA_ID:
+        schema = data.get("schema")
+        if schema not in (SCHEMA_ID, OLD_SCHEMA_ID):
             raise DelegateLogError(
-                f"this reads {SCHEMA_ID} records, and the file says "
-                f"{data.get('schema')!r}"
+                f"this reads {SCHEMA_ID} records (and {OLD_SCHEMA_ID}, for one "
+                f"release), and the file says {schema!r}"
             )
         try:
             kind_text = _of(data, "kind", str)
+            if schema == OLD_SCHEMA_ID and kind_text in _V1_KINDS:
+                warn_renamed(f"{OLD_SCHEMA_ID} kind", kind_text, _V1_KINDS[kind_text])
+                kind_text = _V1_KINDS[kind_text]
             kind: DelegateKind | str = (
                 DelegateKind(kind_text)
                 if kind_text in DelegateKind._value2member_map_
@@ -333,7 +353,7 @@ def json_schema() -> dict[str, Any]:
     known = [kind.value for kind in DelegateKind]
     return {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
-        "$id": "https://mcgyvr/delegate-log/v1.schema.json",
+        "$id": "https://mcgyvr/delegate-log/v2.schema.json",
         "title": "mcgyvr batch log",
         "description": (
             f"{SCHEMA_ID}: what one `mcgyvr PROMPT --log PATH` came to. Defined "
@@ -389,8 +409,7 @@ def json_schema() -> dict[str, Any]:
                     },
                     "raw_reply_present": {
                         "description": (
-                            "True when the orchestrator's raw reply was printed "
-                            "on stderr."
+                            "True when the proposer's raw reply was printed on stderr."
                         ),
                         "type": "boolean",
                     },

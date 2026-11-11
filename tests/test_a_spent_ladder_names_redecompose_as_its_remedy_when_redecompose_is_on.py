@@ -1,11 +1,11 @@
-"""A spent ladder names re-planning as its remedy when re-planning is on.
+"""A spent ladder names re-decomposing as its remedy when re-decomposing is on.
 
 `ladder_spent` used to end the work: no dearer family is left, and the only
 remedies it named were to bind a dearer rung or narrow the contract by hand.
-With `max_replans` above zero the contract goes back to the orchestrator with
+With `max_redecompositions` above zero the contract goes back to the proposer with
 its failure notes instead, so its disposition says so, and a single `mcgyvr
 direct` that comes to `ladder_spent` notes on its result how the work goes on.
-With `max_replans: 0` both say what they said before.
+With `max_redecompositions: 0` both say what they said before.
 """
 
 from __future__ import annotations
@@ -17,7 +17,7 @@ from typing import Any, cast
 import pytest
 
 from mcgyvr.cli.commands.run import _report_climb
-from mcgyvr.config import MAX_REPLANS_DEFAULT, SCHEMA
+from mcgyvr.config import MAX_REDECOMPOSITIONS_DEFAULT, SCHEMA
 from mcgyvr.contract import Contract
 from mcgyvr.escalate import Halted, Outcome, disposition
 from mcgyvr.result import RunResult
@@ -32,29 +32,29 @@ CONTRACT = Contract(
 )
 
 
-def test_max_replans_is_a_documented_key_that_defaults_to_one() -> None:
-    (field,) = [f for f in SCHEMA if f.name == "max_replans"]
+def test_max_redecompositions_is_a_documented_key_that_defaults_to_one() -> None:
+    (field,) = [f for f in SCHEMA if f.name == "max_redecompositions"]
 
-    assert MAX_REPLANS_DEFAULT == 1
-    assert field.default == MAX_REPLANS_DEFAULT
+    assert MAX_REDECOMPOSITIONS_DEFAULT == 1
+    assert field.default == MAX_REDECOMPOSITIONS_DEFAULT
     assert field.min_value == 0
-    assert "re-plan" in field.doc
+    assert "re-decompos" in field.doc
 
 
-def test_with_replan_on_the_spent_ladder_goes_back_to_the_orchestrator() -> None:
-    on = disposition(Outcome.LADDER_SPENT, replans=1)
+def test_with_redecompose_on_the_spent_ladder_goes_back_to_the_proposer() -> None:
+    on = disposition(Outcome.LADDER_SPENT, redecompositions=1)
 
     assert "ladder_spent" in on.detail
-    assert "max_replans" in on.detail
-    assert "orchestrator" in on.detail
+    assert "max_redecompositions" in on.detail
+    assert "proposer" in on.detail
     assert "failure notes" in on.detail
 
 
-def test_with_replan_off_the_spent_ladder_says_what_it_said() -> None:
-    assert disposition(Outcome.LADDER_SPENT, replans=0) == disposition(
+def test_with_redecompose_off_the_spent_ladder_says_what_it_said() -> None:
+    assert disposition(Outcome.LADDER_SPENT, redecompositions=0) == disposition(
         Outcome.LADDER_SPENT
     )
-    assert "max_replans" not in disposition(Outcome.LADDER_SPENT).detail
+    assert "max_redecompositions" not in disposition(Outcome.LADDER_SPENT).detail
 
 
 def halted(outcome: Outcome) -> Halted:
@@ -63,7 +63,7 @@ def halted(outcome: Outcome) -> Halted:
     )
 
 
-def report_of(outcome: Outcome, replans: int) -> RunResult:
+def report_of(outcome: Outcome, redecompositions: int) -> RunResult:
     report = RunResult(
         contract=CONTRACT.id, task_type="code", target=CONTRACT.target, session="o"
     )
@@ -75,24 +75,28 @@ def report_of(outcome: Outcome, replans: int) -> RunResult:
         halted(outcome),
         None,
         report,
-        replans=replans,
+        redecompositions=redecompositions,
     )
     assert code == 1
     return report
 
 
-def test_a_single_run_that_spent_its_ladder_notes_the_replan(
+def test_a_single_run_that_spent_its_ladder_notes_the_redecompose(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    report = report_of(Outcome.LADDER_SPENT, replans=1)
+    report = report_of(Outcome.LADDER_SPENT, redecompositions=1)
 
     assert report.outcome == "ladder_spent"
-    (note,) = [n for n in report.notes if "replan" in n]
+    (note,) = [n for n in report.notes if "re-decompose" in n]
     assert "`mcgyvr PROMPT`" in note
     assert "`mcgyvr direct` stops here" in note
     assert note in capsys.readouterr().err
 
 
-def test_no_replan_note_when_replan_is_off_or_the_climb_stopped_otherwise() -> None:
-    assert not [n for n in report_of(Outcome.LADDER_SPENT, 0).notes if "replan" in n]
-    assert not [n for n in report_of(Outcome.ATTEMPT_CEILING, 1).notes if "replan" in n]
+def test_no_redecompose_note_when_off_or_the_climb_stopped_otherwise() -> None:
+    assert not [
+        n for n in report_of(Outcome.LADDER_SPENT, 0).notes if "re-decompose" in n
+    ]
+    assert not [
+        n for n in report_of(Outcome.ATTEMPT_CEILING, 1).notes if "re-decompose" in n
+    ]

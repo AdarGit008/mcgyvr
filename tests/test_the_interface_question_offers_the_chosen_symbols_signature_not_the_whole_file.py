@@ -20,7 +20,7 @@ import pytest
 from mcgyvr.catalog import catalog
 from mcgyvr.decision import Choice, ChoiceAnswer, Decision, Question, labels_for
 from mcgyvr.decompose.decompose import decompose
-from mcgyvr.delegate import ClassifierProposer
+from mcgyvr.delegate import FillProposer
 from mcgyvr.repo.index import Index, build_index
 
 #: One past the 62 options a typed question can carry.
@@ -81,7 +81,7 @@ def _choosing(asked: dict[str, Choice], *, whole_file: bool = False) -> Any:
 def test_a_chosen_symbol_offers_only_its_own_signature(repo: Index) -> None:
     asked: dict[str, Choice] = {}
     result = decompose(
-        repo, "change f0 in chunk.py", propose=ClassifierProposer(_choosing(asked))
+        repo, "change f0 in chunk.py", propose=FillProposer(_choosing(asked))
     )
 
     assert result.refusals == ()
@@ -95,7 +95,7 @@ def test_a_whole_file_pick_offers_at_most_eight_signatures(repo: Index) -> None:
     result = decompose(
         repo,
         "change chunk.py",
-        propose=ClassifierProposer(_choosing(asked, whole_file=True)),
+        propose=FillProposer(_choosing(asked, whole_file=True)),
     )
 
     assert result.refusals == ()

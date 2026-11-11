@@ -113,7 +113,7 @@ def shared_units(config: Config) -> tuple[tuple[Shared, ...], tuple[str, ...]]:
     """The units of the ladder that may take riders, and why others may not.
 
     A unit is passed over without a word where it never takes riders: no
-    ``rider_slots``, a relief rung, one that needs a credential, or a width
+    ``rider_slots``, a hitchhike rung, one that needs a credential, or a width
     under two, which leaves no slot to lend. A width over ``MAX_SLOTS``, a
     ``window`` missing or outside ``MIN_CTX`` to ``MAX_CTX``, a model name
     the hub cannot carry, a model an accepted unit already shares, and a
@@ -127,7 +127,7 @@ def shared_units(config: Config) -> tuple[tuple[Shared, ...], tuple[str, ...]]:
     models: dict[str, str] = {}
     for name in config.ladder.names:
         unit = config.units[name]
-        if unit.rider_slots < 1 or unit.relief or unit.requires_credential:
+        if unit.rider_slots < 1 or unit.hitchhike or unit.requires_credential:
             continue
         width = unit.width or 1
         if width < 2:

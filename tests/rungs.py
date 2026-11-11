@@ -243,7 +243,7 @@ units:
     window: 32768
 ladder: [local_fast]
 fanout: idle
-relief:
+hitchhike:
   {RIDE}:
     address: {address}
     model: hitchhike@{RUNG_ID}

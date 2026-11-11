@@ -1,10 +1,10 @@
-"""The rig agent keeps the relief rungs fresh on its own tick, when it may.
+"""The rig agent keeps the hitchhike rungs fresh on its own tick, when it may.
 
 The agent's one periodic tick is its heartbeat. After each heartbeat it is
 sent, it tells ``on_beat``; nothing is told for the hello. When the variable
-holding the rider's personal hub key is set (the one ``relief.yaml`` names,
+holding the rider's personal hub key is set (the one ``hitchhike.yaml`` names,
 ``MCGYVR_HUB_API_KEY`` where it names none), the agent
-hands that tick a :class:`~mcgyvr.rig.rungs.Refresher`, which syncs the relief
+hands that tick a :class:`~mcgyvr.rig.rungs.Refresher`, which syncs the hitchhike
 rungs as ``mcgyvr rig rungs sync`` does:
 
 * at the first beat, and then no sooner than the hub's ``refresh_s`` says it

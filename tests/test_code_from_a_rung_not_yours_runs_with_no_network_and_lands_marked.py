@@ -1,7 +1,7 @@
 """Code from a rung that is not yours runs with no network, and lands marked.
 
 A rung's `scope` bounds whose machines may serve it (`own`, `crew`,
-`anyone`), and a relief rung is lent by another member's host. The code such a
+`anyone`), and a hitchhike rung is lent by another member's host. The code such a
 rung returns is somebody else's, so:
 
 * **the gate** runs it in a second task container with ``--network none``,
@@ -51,7 +51,7 @@ from tests import livejournal as lj
 
 
 @pytest.mark.parametrize(
-    ("scope", "relief", "expected"),
+    ("scope", "hitchhike", "expected"),
     [
         (None, False, "own"),
         ("own", False, "own"),
@@ -63,10 +63,10 @@ from tests import livejournal as lj
         ("anyone", True, "anyone"),
     ],
 )
-def test_whose_code_a_rung_returns_is_its_scope_and_a_relief_rung_is_never_yours(
-    scope: str | None, relief: bool, expected: str
+def test_whose_code_a_rung_returns_is_its_scope_and_a_hitchhike_rung_is_never_yours(
+    scope: str | None, hitchhike: bool, expected: str
 ) -> None:
-    assert whose(scope, relief=relief) == expected
+    assert whose(scope, hitchhike=hitchhike) == expected
 
 
 def test_a_unit_says_whose_code_it_returns() -> None:

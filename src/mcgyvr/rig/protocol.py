@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import dataclasses
 import json
+import sys
 import uuid
 from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass
@@ -149,8 +150,10 @@ class ModelInfo:
     value cache one token costs, and the bytes the token embedding and output
     tensors take. ``quant`` is the quantisation the file's name spells
     (``Q4_K_M``, ``BF16``), the one a hub reads the wire's decode rule at
-    (:func:`mcgyvr.hubwire.decode_ms_per_gib`). A field the agent does not know
-    is None and goes unspoken on the wire.
+    (:func:`mcgyvr.hubwire.decode_ms_per_gib`). ``cache_fit`` is what the
+    model's caches take on the grid a hub plans on (:class:`hubwire.CacheFit`),
+    sized by the product's own law. A field the agent does not know is None and
+    goes unspoken on the wire.
     """
 
     name: str
@@ -169,6 +172,7 @@ class ModelInfo:
     embd_bytes: int | None = None
     output_bytes: int | None = None
     quant: str | None = None
+    cache_fit: hubwire.CacheFit | None = None
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -469,6 +473,12 @@ def _model_body(model: ModelInfo) -> dict[str, Any]:
         value = getattr(model, field)
         if value is not None:
             body[field] = value
+    if model.cache_fit is not None:
+        try:
+            model.cache_fit.validate()
+        except ValueError as exc:
+            raise ValueError(f"models.{exc}") from exc
+        body[hubwire.CACHE_FIT_FIELD] = model.cache_fit.body()
     return body
 
 
@@ -567,6 +577,10 @@ def hello(
     refuses any other. ``host`` names the system the rig runs on, and
     ``identity_key`` is the rig's identity public key
     (:mod:`mcgyvr.rig.identity`), left out when None.
+
+    A hello its models' cache answers (``ModelInfo.cache_fit``) would make
+    larger than one message goes without them: a hub then sizes those models
+    from their flat figures, as it does an agent's from before the answers.
     """
     _need(bool(MACHINE_ID.fullmatch(machine_id)), "machine_id: not a machine id")
     _need(bool(AGENT_VERSION.fullmatch(agent_version)), "agent_version: not a version")
@@ -619,7 +633,24 @@ def hello(
         body[hubwire.IDENTITY_KEY_FIELD] = identity_key
     if offer is not None:
         body.update(_offer_body(offer))
+    try:
+        return _frame("hello", message_id, body, None)
+    except ValueError:
+        if not any(hubwire.CACHE_FIT_FIELD in m for m in body.get("models", ())):
+            raise
+    dropped = 0
+    for model in body["models"]:
+        dropped += model.pop(hubwire.CACHE_FIT_FIELD, None) is not None
+    _say(
+        f"hello: the cache answers of {dropped} model(s) would pass the "
+        f"{MAX_MESSAGE_BYTES}-byte message limit; sent without them, so the hub "
+        "sizes those models from their flat figures"
+    )
     return _frame("hello", message_id, body, None)
+
+
+def _say(line: str) -> None:
+    print(line, file=sys.stderr, flush=True)
 
 
 def heartbeat(

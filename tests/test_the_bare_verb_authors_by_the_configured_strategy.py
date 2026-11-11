@@ -1,4 +1,4 @@
-"""`mcgyvr PROMPT` authors by `orchestrator.authoring`.
+"""`mcgyvr PROMPT` authors by `proposer.authoring`.
 
 The field names how a request becomes contracts. `classifier`, the default
 under `mcgyvr-code`, has `mcgyvr PROMPT` scaffold the candidates and ask the
@@ -26,7 +26,7 @@ units:
     width: 3
 ladder:
 - cheap
-orchestrator:
+proposer:
   unit: cheap
 """
 
@@ -56,7 +56,7 @@ def test_classifier_asks_the_typed_proposer_first_and_falls_back_to_prose() -> N
         asked.append("prose")
         return (_proposal("from prose"),)
 
-    propose = proposer_by_authoring("classifier", typed=typed, prose=prose)
+    propose = proposer_by_authoring("fill", typed=typed, prose=prose)
     assert propose is not None
     assert list(propose(_evidence())) == [_proposal("from prose")]
     assert asked == ["typed", "prose"]
@@ -73,7 +73,7 @@ def test_a_typed_answer_is_taken_without_asking_prose() -> None:
         asked.append("prose")
         return ()
 
-    propose = proposer_by_authoring("classifier", typed=typed, prose=prose)
+    propose = proposer_by_authoring("fill", typed=typed, prose=prose)
     assert propose is not None
     assert list(propose(_evidence())) == [_proposal("from typed")]
     assert asked == ["typed"]
@@ -86,7 +86,7 @@ def test_any_other_strategy_is_the_prose_proposer_as_before() -> None:
     def prose(evidence: Evidence) -> Sequence[Proposal]:
         return (_proposal("prose"),)
 
-    for strategy in ("prose", None):
+    for strategy in ("draft", None):
         propose = proposer_by_authoring(strategy, typed=typed, prose=prose)
         assert propose is prose
 
@@ -97,12 +97,12 @@ def test_with_no_prose_proposer_the_classifier_answers_alone() -> None:
     def typed(evidence: Evidence) -> Sequence[Proposal]:
         return ()
 
-    assert proposer_by_authoring("classifier", typed=typed, prose=None) is typed
-    assert proposer_by_authoring("prose", typed=typed, prose=None) is None
+    assert proposer_by_authoring("fill", typed=typed, prose=None) is typed
+    assert proposer_by_authoring("draft", typed=typed, prose=None) is None
 
 
 def test_the_command_reads_the_field_from_the_config(monkeypatch: Any) -> None:
-    """The wiring: the bare verb passes the config's `orchestrator.authoring`."""
+    """The wiring: the bare verb passes the config's `proposer.authoring`."""
     import pytest
 
     from mcgyvr import delegate
@@ -117,6 +117,6 @@ def test_the_command_reads_the_field_from_the_config(monkeypatch: Any) -> None:
         return real(strategy, **kwargs)
 
     monkeypatch.setattr(delegate, "proposer_by_authoring", spy)
-    config = parse(SETUP + "  authoring: classifier\n")
+    config = parse(SETUP + "  authoring: fill\n")
     _proposer_for_delegate(config, unit_map(config))
-    assert seen == ["classifier"]
+    assert seen == ["fill"]

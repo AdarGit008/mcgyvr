@@ -169,7 +169,7 @@ def idle_ladder(monkeypatch: pytest.MonkeyPatch) -> tuple[Config, UnitMap]:
 def next_free(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, servers: dict[str, int | None]
 ) -> str | None:
-    from tests.relieftakes import contract
+    from tests.hitchhiketakes import contract
 
     config, pool = idle_ladder(monkeypatch)
     cap = Capacity.of(config, root=tmp_path / "slots", busy=servers.get)

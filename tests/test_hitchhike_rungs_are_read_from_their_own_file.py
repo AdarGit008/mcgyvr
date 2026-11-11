@@ -1,6 +1,6 @@
-"""Relief rungs live in ``relief.yaml``, apart from the units and the ladder.
+"""Hitchhike rungs live in ``hitchhike.yaml``, apart from the units and the ladder.
 
-A relief rung is a unit somebody else hosts and lends through the hub
+A hitchhike rung is a unit somebody else hosts and lends through the hub
 ("hitchhike"): ``mcgyvr rig rungs sync`` writes them, and nothing else does.
 They are kept out of the two files a person writes:
 
@@ -9,10 +9,10 @@ They are kept out of the two files a person writes:
   no lock.
 * ``policy.yaml`` is written and commented by hand; a sync that rewrote it
   would take the comments with it, and the ladder in it is the order of *your*
-  capability, which a relief rung never joins.
+  capability, which a hitchhike rung never joins.
 
-So ``relief.yaml`` is a third file, read beside the other two when it is there.
-Its rungs are loaded as units marked ``relief``, not as members of ``units``
+So ``hitchhike.yaml`` is a third file, read beside the other two when it is there.
+Its rungs are loaded as units marked ``hitchhike``, not as members of ``units``
 or of the ladder: routing reads them only where a full rung spills
 (``fanout: idle``), and nothing that walks the ladder or the fleet sees them,
 unless a ladder step or a role names one, which makes it a unit of the dispatch.
@@ -27,7 +27,7 @@ from pathlib import Path
 import pytest
 
 from mcgyvr.config import ConfigSchemaError, load, parse
-from mcgyvr.fleet.files import FleetFileError, load_relief
+from mcgyvr.fleet.files import FleetFileError, load_hitchhike
 
 FLEET = """\
 units:
@@ -41,8 +41,8 @@ ladder: [local_fast]
 fanout: idle
 """
 RUNG_ID = "0f3c9a1e2b4d4c6f8a0b1c2d3e4f5a6b"
-RELIEF = f"""\
-relief:
+HITCHHIKE = f"""\
+hitchhike:
   hitchhike-{RUNG_ID}:
     address: https://hub.example.org/v1
     model: hitchhike@{RUNG_ID}
@@ -55,21 +55,21 @@ relief:
 NAME = f"hitchhike-{RUNG_ID}"
 
 
-def setup(tmp_path: Path, relief: str | None = RELIEF) -> Path:
+def setup(tmp_path: Path, hitchhike: str | None = HITCHHIKE) -> Path:
     (tmp_path / "fleet.yaml").write_text(FLEET, encoding="utf-8")
     (tmp_path / "policy.yaml").write_text(POLICY, encoding="utf-8")
-    if relief is not None:
-        (tmp_path / "relief.yaml").write_text(relief, encoding="utf-8")
+    if hitchhike is not None:
+        (tmp_path / "hitchhike.yaml").write_text(hitchhike, encoding="utf-8")
     return tmp_path
 
 
-def test_a_relief_rung_is_read_from_relief_yaml_as_a_unit_marked_relief(
+def test_a_hitchhike_rung_is_read_from_hitchhike_yaml_as_a_unit_marked_hitchhike(
     tmp_path: Path,
 ) -> None:
     config = load(setup(tmp_path))
 
-    rung = config.relief[NAME]
-    assert rung.relief is True
+    rung = config.hitchhike[NAME]
+    assert rung.hitchhike is True
     assert rung.address == "https://hub.example.org/v1"
     assert rung.model == f"hitchhike@{RUNG_ID}"
     assert rung.api_key_env == "MCGYVR_HUB_API_KEY"
@@ -79,112 +79,116 @@ def test_a_relief_rung_is_read_from_relief_yaml_as_a_unit_marked_relief(
     assert rung.served_model == "Qwen2.5-Coder-7B-Instruct-Q4_K_M.gguf"
 
 
-def test_a_relief_rung_is_neither_a_unit_of_the_fleet_nor_a_step_of_the_ladder(
+def test_a_hitchhike_rung_is_neither_a_unit_of_the_fleet_nor_a_step_of_the_ladder(
     tmp_path: Path,
 ) -> None:
     config = load(setup(tmp_path))
 
     assert NAME not in config.units
     assert NAME not in config.ladder.names
-    assert all(not unit.relief for unit in config.units.values())
+    assert all(not unit.hitchhike for unit in config.units.values())
 
 
-def test_a_setup_without_relief_yaml_has_no_relief_rungs(tmp_path: Path) -> None:
-    assert load(setup(tmp_path, relief=None)).relief == {}
+def test_a_setup_without_hitchhike_yaml_has_no_hitchhike_rungs(tmp_path: Path) -> None:
+    assert load(setup(tmp_path, hitchhike=None)).hitchhike == {}
 
 
-def test_an_empty_relief_block_is_no_relief_rungs(tmp_path: Path) -> None:
-    assert load(setup(tmp_path, relief="relief: {}\n")).relief == {}
+def test_an_empty_hitchhike_block_is_no_hitchhike_rungs(tmp_path: Path) -> None:
+    assert load(setup(tmp_path, hitchhike="hitchhike: {}\n")).hitchhike == {}
 
 
-def test_a_merged_document_carries_its_relief_block_too() -> None:
-    config = parse(FLEET + POLICY + RELIEF)
+def test_a_merged_document_carries_its_hitchhike_block_too() -> None:
+    config = parse(FLEET + POLICY + HITCHHIKE)
 
-    assert config.relief[NAME].relief is True
+    assert config.hitchhike[NAME].hitchhike is True
 
 
 @pytest.mark.parametrize("where", ["fleet.yaml", "policy.yaml"])
-def test_a_relief_block_in_a_hand_written_file_is_refused_naming_relief_yaml(
+def test_a_hitchhike_block_in_a_hand_written_file_is_refused_naming_hitchhike_yaml(
     tmp_path: Path, where: str
 ) -> None:
-    folder = setup(tmp_path, relief=None)
+    folder = setup(tmp_path, hitchhike=None)
     written = folder / where
-    written.write_text(written.read_text(encoding="utf-8") + RELIEF, encoding="utf-8")
+    written.write_text(
+        written.read_text(encoding="utf-8") + HITCHHIKE, encoding="utf-8"
+    )
 
-    with pytest.raises(ConfigSchemaError, match=r"relief\.yaml"):
+    with pytest.raises(ConfigSchemaError, match=r"hitchhike\.yaml"):
         load(folder)
 
 
-def test_relief_yaml_holds_the_relief_block_and_nothing_else() -> None:
+def test_hitchhike_yaml_holds_the_hitchhike_block_and_nothing_else() -> None:
     with pytest.raises(FleetFileError, match="ladder"):
-        load_relief(RELIEF + "ladder: [local_fast]\n")
+        load_hitchhike(HITCHHIKE + "ladder: [local_fast]\n")
 
 
 @pytest.mark.parametrize(
-    "key", ["rig", "launch", "engine", "container", "relief", "price"]
+    "key", ["rig", "launch", "engine", "container", "hitchhike", "price"]
 )
-def test_a_key_a_relief_rung_does_not_take_is_refused(tmp_path: Path, key: str) -> None:
+def test_a_key_a_hitchhike_rung_does_not_take_is_refused(
+    tmp_path: Path, key: str
+) -> None:
     with pytest.raises(ConfigSchemaError, match=key):
-        load(setup(tmp_path, relief=RELIEF + f"    {key}: x\n"))
+        load(setup(tmp_path, hitchhike=HITCHHIKE + f"    {key}: x\n"))
 
 
 @pytest.mark.parametrize(
     "key", ["address", "model", "api_key_env", "width", "position"]
 )
-def test_a_relief_rung_missing_a_required_key_is_refused_by_name(
+def test_a_hitchhike_rung_missing_a_required_key_is_refused_by_name(
     tmp_path: Path, key: str
 ) -> None:
     kept = "".join(
         line + "\n"
-        for line in RELIEF.splitlines()
+        for line in HITCHHIKE.splitlines()
         if not line.strip().startswith(f"{key}:")
     )
 
     with pytest.raises(ConfigSchemaError, match=key):
-        load(setup(tmp_path, relief=kept))
+        load(setup(tmp_path, hitchhike=kept))
 
 
-def test_a_relief_rung_names_its_credential_never_holds_it(tmp_path: Path) -> None:
-    holding = RELIEF.replace("MCGYVR_HUB_API_KEY", "sk-" + "a" * 24)
+def test_a_hitchhike_rung_names_its_credential_never_holds_it(tmp_path: Path) -> None:
+    holding = HITCHHIKE.replace("MCGYVR_HUB_API_KEY", "sk-" + "a" * 24)
 
     with pytest.raises(ConfigSchemaError, match="api_key_env"):
-        load(setup(tmp_path, relief=holding))
+        load(setup(tmp_path, hitchhike=holding))
 
 
-def test_a_relief_rung_of_no_width_is_refused(tmp_path: Path) -> None:
+def test_a_hitchhike_rung_of_no_width_is_refused(tmp_path: Path) -> None:
     with pytest.raises(ConfigSchemaError, match="width"):
-        load(setup(tmp_path, relief=RELIEF.replace("width: 2", "width: 0")))
+        load(setup(tmp_path, hitchhike=HITCHHIKE.replace("width: 2", "width: 0")))
 
 
 def test_a_position_the_hub_does_not_name_is_refused(tmp_path: Path) -> None:
-    wrong = RELIEF.replace("below_floor", "beside_the_ladder")
+    wrong = HITCHHIKE.replace("below_floor", "beside_the_ladder")
 
     with pytest.raises(ConfigSchemaError, match="position"):
-        load(setup(tmp_path, relief=wrong))
+        load(setup(tmp_path, hitchhike=wrong))
 
 
-def test_a_relief_rung_named_like_a_unit_of_the_fleet_is_refused(
+def test_a_hitchhike_rung_named_like_a_unit_of_the_fleet_is_refused(
     tmp_path: Path,
 ) -> None:
-    clash = RELIEF.replace(NAME, "local_fast")
+    clash = HITCHHIKE.replace(NAME, "local_fast")
 
     with pytest.raises(ConfigSchemaError, match="local_fast"):
-        load(setup(tmp_path, relief=clash))
+        load(setup(tmp_path, hitchhike=clash))
 
 
-def test_a_relief_address_carrying_credentials_is_refused(tmp_path: Path) -> None:
-    carrying = RELIEF.replace(
+def test_a_hitchhike_address_carrying_credentials_is_refused(tmp_path: Path) -> None:
+    carrying = HITCHHIKE.replace(
         "https://hub.example.org", "https://me:secret@hub.example.org"
     )
 
     with pytest.raises(ConfigSchemaError, match="credentials"):
-        load(setup(tmp_path, relief=carrying))
+        load(setup(tmp_path, hitchhike=carrying))
 
 
-def test_a_relief_rung_the_ladder_names_is_a_step_read_from_relief_yaml(
+def test_a_hitchhike_rung_the_ladder_names_is_a_step_read_from_hitchhike_yaml(
     tmp_path: Path,
 ) -> None:
-    """Named by the ladder, a relief rung is a step, still read from its own
+    """Named by the ladder, a hitchhike rung is a step, still read from its own
     file; what a bound rung does is
     ``tests/test_a_role_or_a_ladder_step_binds_a_hub_unit_its_pool_serves.py``."""
     folder = setup(tmp_path)
@@ -195,4 +199,4 @@ def test_a_relief_rung_the_ladder_names_is_a_step_read_from_relief_yaml(
     config = load(folder)
 
     assert config.ladder.names == ("local_fast", NAME)
-    assert config.units[NAME].relief is True
+    assert config.units[NAME].hitchhike is True

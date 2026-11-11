@@ -184,7 +184,7 @@ def test_a_fingerprint_is_sixteen_base32_characters_in_four_groups() -> None:
 
 def test_the_signed_bytes_name_the_context_the_session_and_the_key() -> None:
     message = hubwire.session_key_message("s1", fakes.KEY)
-    assert message == hubwire.SESSION_KEY_CONTEXT + f"s1\x00{fakes.KEY}\x00".encode()
+    assert message == hubwire._SESSION_KEY_CONTEXT + f"s1\x00{fakes.KEY}\x00".encode()
     with pytest.raises(ValueError, match="session_id"):
         hubwire.session_key_message("s\x001", fakes.KEY)
 

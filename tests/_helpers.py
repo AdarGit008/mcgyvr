@@ -95,15 +95,15 @@ def write_setup(directory: Path, text: str) -> Path:
 
     A setup is two files in one directory. A test that holds one merged
     document splits it by key and writes both halves, so it is read by the
-    same two readers the product uses. A ``relief`` block goes to
-    ``relief.yaml``, the third file, which is written only when there is one.
+    same two readers the product uses. A ``hitchhike`` block goes to
+    ``hitchhike.yaml``, the third file, which is written only when there is one.
     """
     from mcgyvr.config import _split_setup
 
     directory.mkdir(parents=True, exist_ok=True)
-    fleet, policy, relief = _split_setup(text)
+    fleet, policy, hitchhike = _split_setup(text)
     (directory / "fleet.yaml").write_text(fleet, encoding="utf-8")
     (directory / "policy.yaml").write_text(policy, encoding="utf-8")
-    if relief:
-        (directory / "relief.yaml").write_text(relief, encoding="utf-8")
+    if hitchhike:
+        (directory / "hitchhike.yaml").write_text(hitchhike, encoding="utf-8")
     return directory

@@ -102,11 +102,11 @@ def test_a_source_needing_a_key_is_not_local_only() -> None:
 
 
 def test_users_defaults_to_a_single_user() -> None:
-    """The orchestrator serves one session per user; one is the working default."""
+    """The proposer serves one session per user; one is the working default."""
     assert parse(LOCAL_ONLY).get("users") == 1
 
 
-def test_users_is_the_orchestrator_slot_count() -> None:
+def test_users_is_the_proposer_slot_count() -> None:
     config = parse(
         cfg(
             """\
@@ -236,18 +236,18 @@ def test_enabled_verifier_without_a_unit_loads_and_picks_one_at_run_time() -> No
 
 
 def test_unbound_optional_fails_at_the_point_of_use_not_at_load() -> None:
-    """A config with no orchestrator loads; asking for one is what fails."""
+    """A config with no proposer loads; asking for one is what fails."""
     config = parse(LOCAL_ONLY)
     with pytest.raises(UnboundValueError) as exc:
-        config.require("orchestrator.model")
+        config.require("proposer.model")
     message = str(exc.value)
-    assert "orchestrator.model" in message
+    assert "proposer.model" in message
     assert "To bind it:" in message
 
 
 def test_get_returns_a_default_where_require_raises() -> None:
     config = parse(LOCAL_ONLY)
-    assert config.get("orchestrator.model") is None
+    assert config.get("proposer.model") is None
     assert config.get("sandbox.mode") == "docker"
 
 
@@ -538,7 +538,7 @@ def test_loaded_config_remembers_where_it_came_from(tmp_path: Path) -> None:
     assert config.path == path
     # Errors raised later must be able to say which file to edit.
     with pytest.raises(UnboundValueError, match=str(path)):
-        config.require("orchestrator.source")
+        config.require("proposer.source")
 
 
 def test_the_config_path_override_wins(

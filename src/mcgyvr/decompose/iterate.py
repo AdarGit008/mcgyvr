@@ -48,7 +48,7 @@ def _plan_value(proposal: Proposal, field: str) -> Any:
 
 
 def reaskable(refusal: Refusal) -> bool:
-    """Whether the classifier decides `refusal.field`, so it can be asked again."""
+    """Whether the fill proposer decides `refusal.field`, so it can be asked again."""
     return refusal.field in FIELD_ORDER
 
 
@@ -62,12 +62,12 @@ def reask(
     constraints: dict[str, str],
     rejected: dict[str, frozenset[Any]],
 ) -> Proposal | Refusal:
-    """Ask the classifier again for the field `refusal` names, once.
+    """Ask the fill proposer again for the field `refusal` names, once.
 
     The refusal's ``what_to_change`` becomes that field's constraint. When
     `refused` is the proposal that was refused, its value for the field is
     dropped from the next question and the fields upstream of it are carried
-    as decided; a refusal from the classifier itself keeps what was decided.
+    as decided; a refusal from the fill proposer itself keeps what was decided.
     `decided`, `constraints` and `rejected` are updated in place, so a caller
     that re-asks again carries them on.
     """

@@ -20,8 +20,8 @@ from mcgyvr.config import (
     CREW_FILENAME,
     FLEET_FILENAME,
     POLICY_FILENAME,
-    RELIEF_FILENAME,
     Config,
+    hitchhike_file,
     parse,
 )
 
@@ -78,23 +78,23 @@ def rewrite(setup: Path, key: str, value: str) -> Rewrite:
     return Rewrite(setup=setup, target=target, before=before, text=rewritten)
 
 
-def loads_with(change: Rewrite, *, relief_kept: bool = True) -> Config:
-    """The setup as it loads with the rewritten text (without `relief.yaml`
-    when not `relief_kept`: a sync rewrites it). Raises `ConfigError` when it
+def loads_with(change: Rewrite, *, hitchhike_kept: bool = True) -> Config:
+    """The setup as it loads with the rewritten text (without `hitchhike.yaml`
+    when not `hitchhike_kept`: a sync rewrites it). Raises `ConfigError` when it
     would not, and OSError or UnicodeDecodeError on a file that cannot be
     read."""
     setup = change.setup
     if setup.is_file():
         return parse(change.text, path=setup.resolve().parent)
-    relief = setup / RELIEF_FILENAME if relief_kept else None
+    hitchhike = hitchhike_file(setup) if hitchhike_kept else None
     crew = setup / CREW_FILENAME
     return parse(
         (setup / FLEET_FILENAME).read_text(encoding="utf-8"),
         change.text,
         path=setup,
-        relief_text=(
-            relief.read_text(encoding="utf-8")
-            if relief is not None and relief.exists()
+        hitchhike_text=(
+            hitchhike.read_text(encoding="utf-8")
+            if hitchhike is not None and hitchhike.exists()
             else ""
         ),
         crew_text=crew.read_text(encoding="utf-8") if crew.exists() else "",

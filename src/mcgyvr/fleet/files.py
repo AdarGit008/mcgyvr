@@ -1,8 +1,8 @@
-"""The one reader of a setup's files: fleet, policy, relief and crew.
+"""The one reader of a setup's files: fleet, policy, hitchhike and crew.
 
 Four files, four vocabularies. `load_fleet` reads what runs where — the
 units, the rigs and the fleets; `load_policy` reads how work moves over those
-units — the ladder and the policy settings; `load_relief` reads the units a hub
+units — the ladder and the policy settings; `load_hitchhike` reads the units a hub
 lends, which `mcgyvr rig rungs sync` writes and nothing else does; `load_crew`
 reads the units your crews lend through a hub, which `mcgyvr rig crew sync`
 writes and nothing else does. Each file
@@ -20,6 +20,7 @@ from typing import Any, TypeGuard
 
 import yaml
 
+from mcgyvr.renamed import warn_renamed
 from mcgyvr.strict_yaml import strict_loader
 
 
@@ -53,7 +54,7 @@ _UNIT_KEYS = frozenset(
         "container",
         "hf_cache",
         "sampling",
-        "role",
+        "sleep",
         "launcher",
         "expose",
         "launch",
@@ -63,8 +64,9 @@ _UNIT_KEYS = frozenset(
 
 #: The keys `policy.yaml` may carry: `ladder` plus how work moves and how much
 #: it may do — fanout, triage, dependents, attempts, draws, escalations,
-#: re-plans, re-proposals, refine bounds, retry notes, timeouts, the window fraction,
-#: breadth, cleanup, users — the units a job goes to (orchestrator, verifier,
+#: re-decompositions, re-proposals, refine bounds, retry notes, timeouts, the
+#: window fraction,
+#: breadth, cleanup, users — the units a job goes to (proposer, verifier,
 #: jev), what the gate refuses, and how a run is sandboxed, delivered, served
 #: and journaled.
 _POLICY_KEYS = frozenset(
@@ -84,7 +86,7 @@ _POLICY_KEYS = frozenset(
         "rider_slots",
         "max_escalations",
         "max_attempts",
-        "max_replans",
+        "max_redecompositions",
         "max_reproposals",
         "max_splits_per_file",
         "max_refine_fanout",
@@ -95,7 +97,7 @@ _POLICY_KEYS = frozenset(
         "breadth",
         "cleanup",
         "gate",
-        "orchestrator",
+        "proposer",
         "verifier",
         "jev",
         "sandbox",
@@ -126,7 +128,57 @@ RETIRED_POLICY_KEYS: dict[str, str] = {
     ),
 }
 
-#: The top-level keys `fleet.yaml` may carry; a policy setting, a `relief` block
+#: Keys renamed outright: the old name is refused, naming the new one, rather
+#: than read (`proposer` has no `type`, the one value of which nothing read).
+#: Not retired keys: `mcgyvr setup` would offer to delete the user's binding.
+RENAMED_POLICY_KEYS: dict[str, str] = {"orchestrator": "proposer"}
+RENAMED_UNIT_KEYS: dict[str, str] = {"role": "sleep"}
+
+#: Names read under their old spelling for one release, with a warning
+#: (`mcgyvr.renamed`): a policy key, and the values of `proposer.authoring`.
+OLD_POLICY_KEYS: dict[str, str] = {"max_replans": "max_redecompositions"}
+OLD_AUTHORING: dict[str, str] = {"classifier": "fill", "prose": "draft"}
+
+
+def _refuse_renamed(key: str, new: str, where: str) -> None:
+    dropped = " and drop its `type` line" if key == "orchestrator" else ""
+    raise FleetFileError(
+        f"{where}: `{key}` is now `{new}`: rename it{dropped}. The old name is "
+        f"not read."
+    )
+
+
+def _read_renamed(given: dict[str, Any]) -> dict[str, Any]:
+    """`given` with each `OLD_POLICY_KEYS` key and `OLD_AUTHORING` value read
+    under its new name, each with a warning; both names at once is refused."""
+    out: dict[str, Any] = {}
+    for key, value in given.items():
+        new = OLD_POLICY_KEYS.get(key)
+        if new is not None:
+            if new in given:
+                raise FleetFileError(
+                    f"policy.yaml: carries both `{new}` and `{key}`, its old "
+                    f"name: keep `{new}`"
+                )
+            warn_renamed("policy.yaml", key, new)
+            key = new
+        out[key] = value
+    block = out.get("proposer")
+    authoring = block.get("authoring") if isinstance(block, Mapping) else None
+    # A value that is not text (a list, a mapping) is left to the schema to
+    # refuse: it cannot be an old name, and testing it as a key would raise.
+    if (
+        isinstance(block, Mapping)
+        and isinstance(authoring, str)
+        and (authoring in OLD_AUTHORING)
+    ):
+        old = authoring
+        warn_renamed("policy.yaml: proposer.authoring", old, OLD_AUTHORING[old])
+        out["proposer"] = {**block, "authoring": OLD_AUTHORING[old]}
+    return out
+
+
+#: The top-level keys `fleet.yaml` may carry; a policy setting, a `hitchhike` block
 #: or anything else at that level is refused rather than carried along unseen.
 _FLEET_KEYS = frozenset({"units", "rigs", "fleets"})
 
@@ -134,12 +186,18 @@ _FLEET_KEYS = frozenset({"units", "rigs", "fleets"})
 #: this one may switch to).
 _FLEET_BLOCK_KEYS = frozenset({"layout", "next"})
 
-#: The one key `relief.yaml` may carry. Its units are lent through a hub and
+#: The one key `hitchhike.yaml` may carry. Its units are lent through a hub and
 #: written whole by `mcgyvr rig rungs sync`, so they are read as units marked
-#: `relief` and never join `units` or the ladder.
-_RELIEF_FILE_KEYS = frozenset({"relief"})
+#: `hitchhike` and never join `units` or the ladder.
+_HITCHHIKE_FILE_KEYS = frozenset({"hitchhike"})
 
-#: The one other key `relief.yaml` carries: the NAME of the variable holding
+#: The key `hitchhike.yaml` carried when it was `relief.yaml`. Read there as
+#: `hitchhike` for one release, so a setup synced before the rename still
+#: loads until its next sync rewrites the file; refused anywhere else, naming
+#: the new key.
+OLD_HITCHHIKE_KEY = "relief"
+
+#: The one other key `hitchhike.yaml` carries: the NAME of the variable holding
 #: the rider's personal hub key, as `mcgyvr rig rungs sync` was told it
 #: (`--key-env`), so the rig agent's refresh and `mcgyvr rig status` read the
 #: key from the same variable. It is the name, never the key.
@@ -198,10 +256,15 @@ def _refuse_policy_setting(key: str, where: str) -> None:
     )
 
 
-def _refuse_relief(where: str) -> None:
+def _refuse_hitchhike(key: str, where: str) -> None:
+    renamed = (
+        f" (`{OLD_HITCHHIKE_KEY}` is now `hitchhike`)"
+        if key == OLD_HITCHHIKE_KEY
+        else ""
+    )
     raise FleetFileError(
-        f"{where}: `relief` is written by `mcgyvr rig rungs sync` — it belongs "
-        f"in relief.yaml, which nothing else writes."
+        f"{where}: `{key}` is written by `mcgyvr rig rungs sync`{renamed} — it "
+        f"belongs in hitchhike.yaml, which nothing else writes."
     )
 
 
@@ -363,7 +426,9 @@ def without_retired_lines(text: str) -> str:
 def _unit_block(raw: object, where: str) -> dict[str, Any]:
     given = _document(raw, where)
     for key in given:
-        if key in _POLICY_KEYS:
+        if key in RENAMED_UNIT_KEYS:
+            _refuse_renamed(key, RENAMED_UNIT_KEYS[key], where)
+        elif key in _POLICY_KEYS:
             _refuse_policy_setting(key, where)
         elif key not in _UNIT_KEYS:
             _unknown_key(key, where, _UNIT_KEYS)
@@ -431,7 +496,7 @@ def load_fleet(text: str) -> dict[str, Any]:
 
     Each unit block is held to `_UNIT_KEYS` and each fleet entry to
     `_FLEET_BLOCK_KEYS`; `rigs` is checked only as a block. A policy setting, a
-    `relief` block, an unknown key or a value that is not a block of text keys
+    `hitchhike` block, an unknown key or a value that is not a block of text keys
     raises `FleetFileError`.
     """
     given = _document(_yaml(text), "fleet.yaml")
@@ -439,8 +504,8 @@ def load_fleet(text: str) -> dict[str, Any]:
     for key, value in given.items():
         if key in _POLICY_KEYS:
             _refuse_policy_setting(key, "fleet.yaml")
-        elif key in _RELIEF_FILE_KEYS:
-            _refuse_relief("fleet.yaml")
+        elif key in _HITCHHIKE_FILE_KEYS or key == OLD_HITCHHIKE_KEY:
+            _refuse_hitchhike(key, "fleet.yaml")
         elif key == "units":
             data[key] = _units(value)
         elif key == "fleets":
@@ -458,17 +523,19 @@ def load_policy(text: str) -> dict[str, Any]:
     `ladder` is normalised to a list of stripped unit names, cheap first; a
     ladder written as an empty block is refused. Every other top-level key must
     be in `_POLICY_KEYS`. The retired keys it carries are refused first, all in
-    one error. A fact about a unit, a `relief` block or an unknown key raises
+    one error. A fact about a unit, a `hitchhike` block or an unknown key raises
     `FleetFileError` naming the file it belongs in.
     """
-    given = _document(_yaml(text), "policy.yaml")
+    given = _read_renamed(_document(_yaml(text), "policy.yaml"))
     _refuse_retired(given)
     data: dict[str, Any] = {}
     for key, value in given.items():
-        if key in _UNIT_KEYS:
+        if key in RENAMED_POLICY_KEYS:
+            _refuse_renamed(key, RENAMED_POLICY_KEYS[key], "policy.yaml")
+        elif key in _UNIT_KEYS:
             _refuse_unit_fact(key)
-        elif key in _RELIEF_FILE_KEYS:
-            _refuse_relief("policy.yaml")
+        elif key in _HITCHHIKE_FILE_KEYS or key == OLD_HITCHHIKE_KEY:
+            _refuse_hitchhike(key, "policy.yaml")
         elif key == "ladder":
             data[key] = _ladder(value, "policy.yaml: ladder")
         elif key in _POLICY_KEYS:
@@ -478,48 +545,57 @@ def load_policy(text: str) -> dict[str, Any]:
     return data
 
 
-def load_relief(text: str) -> dict[str, Any]:
-    """Parse `relief.yaml`: the units a hub lends, under the one key `relief`.
+def load_hitchhike(text: str) -> dict[str, Any]:
+    """Parse `hitchhike.yaml`: the units a hub lends, under the one key
+    `hitchhike` (`OLD_HITCHHIKE_KEY` in a file synced before the rename, read
+    the same for one release).
 
-    The `relief` entry and each unit's block are checked only as blocks of text
+    The `hitchhike` entry and each unit's block are checked only as blocks of text
     keys and kept as given, since their fields are the schema's. The
     `KEY_ENV_FIELD` beside it must be a variable's name and is left out: it is
     the sync's, read by `recorded_key_env`, not the setup's. Any other key raises
     `FleetFileError`; nothing here joins `units` or the ladder.
     """
-    return _rides_block(_document(_yaml(text), "relief.yaml"))
+    return _rides_block(_document(_yaml(text), "hitchhike.yaml"))
 
 
 def _rides_block(given: Mapping[str, Any]) -> dict[str, Any]:
     data: dict[str, Any] = {}
     for key, value in given.items():
         if key == KEY_ENV_FIELD:
-            _key_env(value, f"relief.yaml: {key}")
+            _key_env(value, f"hitchhike.yaml: {key}")
             continue
-        if key not in _RELIEF_FILE_KEYS:
-            _unknown_key(key, "relief.yaml", _RELIEF_FILE_KEYS | {KEY_ENV_FIELD})
-        entries = _document(value, "relief.yaml: relief")
+        if key == OLD_HITCHHIKE_KEY:
+            if "hitchhike" in given:
+                raise FleetFileError(
+                    f"hitchhike.yaml: carries both `hitchhike` and "
+                    f"`{OLD_HITCHHIKE_KEY}`, its old name: keep `hitchhike`"
+                )
+            key = "hitchhike"
+        elif key not in _HITCHHIKE_FILE_KEYS:
+            _unknown_key(key, "hitchhike.yaml", _HITCHHIKE_FILE_KEYS | {KEY_ENV_FIELD})
+        entries = _document(value, "hitchhike.yaml: hitchhike")
         data[key] = {
-            name: _document(block, f"relief.yaml: relief.{name}")
+            name: _document(block, f"hitchhike.yaml: hitchhike.{name}")
             for name, block in entries.items()
         }
     return data
 
 
 def recorded_key_env(text: str) -> str | None:
-    """The variable name `relief.yaml` text records the personal hub key in.
+    """The variable name `hitchhike.yaml` text records the personal hub key in.
 
     That is its top-level `KEY_ENV_FIELD`; in a file written before it was
-    recorded there, the `api_key_env` every relief rung names when they all
+    recorded there, the `api_key_env` every hitchhike rung names when they all
     name one. `None` where it records none: no rung, or rungs naming several.
     A name that is not a variable's raises `FleetFileError`, as a file that
     does not load does.
     """
-    given = _document(_yaml(text), "relief.yaml")
-    rungs = _rides_block(given).get("relief", {})
+    given = _document(_yaml(text), "hitchhike.yaml")
+    rungs = _rides_block(given).get("hitchhike", {})
     if KEY_ENV_FIELD in given:
         return str(given[KEY_ENV_FIELD])
-    return _carried_key_env(rungs, "relief.yaml: relief")
+    return _carried_key_env(rungs, "hitchhike.yaml: hitchhike")
 
 
 def crew_key_env(text: str) -> str | None:
@@ -544,7 +620,7 @@ def _carried_key_env(units: Mapping[str, Any], where: str) -> str | None:
 
 def is_variable_name(raw: object) -> TypeGuard[str]:
     """Whether `raw` is an environment variable's name: `[A-Za-z_][A-Za-z0-9_]*`,
-    the shape `--key-env` takes and `relief.yaml` records."""
+    the shape `--key-env` takes and `hitchhike.yaml` records."""
     return isinstance(raw, str) and raw.isascii() and raw.isidentifier()
 
 

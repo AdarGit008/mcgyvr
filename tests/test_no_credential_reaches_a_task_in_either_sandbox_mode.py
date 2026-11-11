@@ -1,6 +1,6 @@
 """No provider credential reaches a task, in either sandbox mode.
 
-``SECURITY.md`` makes this load-bearing: API keys are read by the orchestrator
+``SECURITY.md`` makes this load-bearing: API keys are read by the proposer
 process only, and a task receives the repository and the worker endpoint,
 never a key. A key can reach a task by two roads, and both are closed in both
 modes:

@@ -1,9 +1,9 @@
-"""A re-plan shows the orchestrator the spent contract's failure notes, as data.
+"""A re-decomposition shows the proposer the spent contract's failure notes, as data.
 
 When a contract's ladder is spent, what its climb observed goes back to the
-orchestrator with it: the `mcgyvr.failure_notes/1` records its result file
-carries under `attempts[].notes`, read back as records. The orchestrator is
-asked to re-plan the spent contract's own work, and is shown those records
+proposer with it: the `mcgyvr.failure_notes/1` records its result file
+carries under `attempts[].notes`, read back as records. The proposer is
+asked to re-decomposition the spent contract's own work, and is shown those records
 under a section that says they are what the checks observed, delimited, never
 under the banner a worker is told to fix them with. The section is held to the
 bounds the worker prompt holds a climb's notes to.
@@ -20,7 +20,7 @@ from mcgyvr.contract import Contract
 from mcgyvr.decompose.decompose import decompose
 from mcgyvr.delegate import build_prompt
 from mcgyvr.notes import FailureNote, FailureNotes, NoteKind
-from mcgyvr.replan import MAX_LINE_CHARS, Spent, failures_of, request_for
+from mcgyvr.redecompose import MAX_LINE_CHARS, Spent, failures_of, request_for
 from mcgyvr.repo.index import Index, build_index
 from mcgyvr.scope import Scope
 from mcgyvr.worker.prompt import MAX_NOTES_SHOWN, MAX_RECORDS_SHOWN
@@ -96,7 +96,7 @@ def test_the_records_are_read_back_from_the_spent_result() -> None:
     assert failures_of({}) == ()
 
 
-def test_the_orchestrator_is_shown_the_notes_under_a_data_section(
+def test_the_proposer_is_shown_the_notes_under_a_data_section(
     index: Index,
 ) -> None:
     record = a_record(1, "NameError: name 'pairs_of' is not defined")
@@ -112,12 +112,12 @@ def test_the_orchestrator_is_shown_the_notes_under_a_data_section(
     )
     assert SPENT.id in prompt
     # The notes are evidence for the plan, not orders: the banner a worker is
-    # told to fix them under is not the orchestrator's.
+    # told to fix them under is not the proposer's.
     assert record.headline not in prompt
     assert "Fix exactly these" not in prompt
 
 
-def test_without_a_spent_contract_there_is_no_replan_section(index: Index) -> None:
+def test_without_a_spent_contract_there_is_no_redecompose_section(index: Index) -> None:
     prompt = build_prompt(evidence_for(index, None))
 
     assert "FAILURE NOTES" not in prompt

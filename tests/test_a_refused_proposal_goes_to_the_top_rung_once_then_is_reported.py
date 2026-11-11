@@ -38,7 +38,7 @@ from mcgyvr.decompose.decompose import (
     Reproposal,
     decompose,
 )
-from mcgyvr.delegate import build_prompt, deterministic_proposer
+from mcgyvr.delegate import build_prompt, scaffold_proposer
 from mcgyvr.delegate_log import DelegateKind, read
 from mcgyvr.repo.index import Index, build_index
 from mcgyvr.repropose import max_reproposals
@@ -247,7 +247,7 @@ def test_the_top_rung_is_shown_the_whole_refusal_and_asked_for_the_fix_only(
     assert "- what_to_change: name a path the index holds" in section
     assert section.rstrip().endswith("END OF REFUSED PROPOSALS")
     first = build_prompt(prose.seen[0])
-    assert first.startswith("You are the orchestrator.")
+    assert first.startswith("You are the proposer.")
     assert "FIX:" not in first
 
 
@@ -402,7 +402,7 @@ def test_with_no_jev_the_scaffold_proposes_and_the_top_rung_fixes_its_refusal(
     result = decompose(
         wide,
         "Document listing and the report.",
-        propose=deterministic_proposer(),
+        propose=scaffold_proposer(),
         fix=fixer,
         max_input_tokens=2000,
         max_reproposals=1,
@@ -508,7 +508,7 @@ def test_no_jev_and_no_authoring_scaffolds_with_no_prose_model(
     """I-30a: the default needs no prose model; nothing is dispatched to plan."""
 
     def no_role(*args: Any, **kwargs: Any) -> Any:
-        raise AssertionError("no orchestrator model is asked")
+        raise AssertionError("no proposer model is asked")
 
     monkeypatch.setattr("mcgyvr.delegate.dispatch_role", no_role)
     asked = _top_rung_answers(monkeypatch)
@@ -598,10 +598,10 @@ units:
     width: 1
 ladder:
 - planner
-orchestrator:
+proposer:
   unit: planner
   model: planner-model
-  authoring: classifier
+  authoring: fill
 jev:
   unit: judge
 """
@@ -682,7 +682,7 @@ def test_direct_hands_a_refused_contract_back_to_its_author_and_asks_nobody(
     assert "fixer" not in record.detail
 
 
-# -- the re-plan of a spent contract ------------------------------------------------
+# -- the re-decomposition of a spent contract ------------------------------------
 
 
 def test_with_no_prose_model_the_top_rung_redoes_a_spent_contract(
@@ -690,20 +690,22 @@ def test_with_no_prose_model_the_top_rung_redoes_a_spent_contract(
 ) -> None:
     """The re-plan needs a prose proposer; with none bound it is the top rung."""
     from mcgyvr.ladder_map import unit_map
-    from mcgyvr.replan import Spent
+    from mcgyvr.redecompose import Spent
 
     config = parse(UNBOUND)
     asked: list[str] = []
 
     def first(evidence: Evidence) -> Sequence[Proposal]:
-        raise AssertionError("the first proposer does not re-plan")
+        raise AssertionError("the first proposer does not re-decomposition")
 
     def top(evidence: Evidence) -> Sequence[Proposal]:
-        asked.append("re-plan" if evidence.spent is not None else "fix")
+        asked.append("re-decomposition" if evidence.spent is not None else "fix")
         return (code("report.py", task="Document render."),)
 
     args = argparse.Namespace(budget=None, jobs=1)
-    replan = command._replanner(args, checkout, config, unit_map(config), first, top)
+    redecompose = command._redecomposer(
+        args, checkout, config, unit_map(config), first, top
+    )
     spent = Contract(
         id="code-spent",
         task_type="code",
@@ -713,9 +715,9 @@ def test_with_no_prose_model_the_top_rung_redoes_a_spent_contract(
         stop_conditions=STOP,
     )
 
-    dec = replan(Spent(spent))
+    dec = redecompose(Spent(spent))
 
-    assert asked == ["re-plan"]
+    assert asked == ["re-decomposition"]
     assert [c.target for c in dec.contracts] == ["report.py"]
 
 
@@ -724,7 +726,7 @@ def test_the_top_rung_is_sent_its_own_timeout_and_a_cut_off_reply_names_it(
 ) -> None:
     """The real send path: the unit's own timeout, and a cut-off says who."""
     from mcgyvr.delegate import (
-        OrchestratorReplyCutOffError,
+        ProposerReplyCutOffError,
         top_rung_proposer_for,
     )
     from mcgyvr.ladder_map import unit_map
@@ -746,7 +748,7 @@ def test_the_top_rung_is_sent_its_own_timeout_and_a_cut_off_reply_names_it(
 
     evidence = _evidence(index, "document listing")
 
-    with pytest.raises(OrchestratorReplyCutOffError, match="the top rung's reply"):
+    with pytest.raises(ProposerReplyCutOffError, match="the top rung's reply"):
         fixer(evidence)
 
     ((rung, request),) = sent

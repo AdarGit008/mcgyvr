@@ -22,7 +22,7 @@ from mcgyvr.config import (
     ROLE_SLEEPER,
     Config,
 )
-from mcgyvr.hubwire import shares_ram
+from mcgyvr.hubwire import BYTES_PER_GIB, shares_ram
 from mcgyvr.knowledge.record import MOE, architecture_of
 from mcgyvr.ladder_proposal import DEFAULT_HEADROOM_GB
 from mcgyvr.scan import Gpu, Scan, default_weights_dir
@@ -169,7 +169,6 @@ SPECULATIVE_CHOICES = (SPECULATIVE_NONE, SPECULATIVE_MTP)
 #: how many tokens the grafted MTP head drafts per step.
 DEFAULT_SPEC_DRAFT_N_MAX = 2
 
-_BYTES_PER_GIB = 1024**3
 
 #: The process roles a unit's parts can carry: the process that answers and
 #: llama.cpp's rpc-server workers. emit.py checks that an engine has the
@@ -249,7 +248,7 @@ class ModelSpec:
                 f"{self.name}: its geometry states no size_bytes, so it is not a "
                 f"ggufscan row; re-scan: python -m mcgyvr.serving.ggufscan <gguf>"
             )
-        measured = size_bytes / _BYTES_PER_GIB
+        measured = size_bytes / BYTES_PER_GIB
         if self.disk_gb and abs(self.disk_gb - measured) > SIZE_TOLERANCE_GB:
             raise UnitError(
                 f"{self.name}: disk_gb says {self.disk_gb!r} GiB and the geometry "
@@ -375,7 +374,7 @@ class Unit:
     #: support.
     image: str | None = None
     extra: tuple[str, ...] = ()
-    #: The VRAM the orchestrator unit claims on its host before anything
+    #: The VRAM the proposer unit claims on its host before anything
     #: else there is sized: units_for() places it first, hands its fit to
     #: _remaining_scan() so later units on that host see what is left, and
     #: records the figure here so the claim is visible on the unit itself.
@@ -477,7 +476,7 @@ def _sized(
     """Size a llama.cpp or vLLM unit: refuse the cases that cannot be sized at all,
     place it on the freest card, pick a loading mode, and return the Fit."""
     free_bytes = _free_vram_bytes(scan)
-    free_vram = free_bytes / _BYTES_PER_GIB
+    free_vram = free_bytes / BYTES_PER_GIB
     # Memory read as a total alone promises nothing free, as no memory does.
     available_ram = (scan.memory.available_gb if scan.memory else None) or 0.0
 
@@ -860,28 +859,28 @@ def units_for(
     roles: dict[UnitKey, dict[str, list[str]]] = {}
 
     users = config.get("users", 1)
-    # Whether this config provisions its own orchestrator: local-only, a
+    # Whether this config provisions its own proposer: local-only, a
     # use case that has one, and a user count. It decides whether the
-    # orchestrator's unit is served here and sized at the user count.
-    provision = config.provisions_local_orchestrator
+    # proposer's unit is served here and sized at the user count.
+    provision = config.provisions_local_proposer
 
     def _local(name: str | None) -> bool:
         unit = config.units.get(name) if name else None
         return unit is not None and not unit.requires_credential
 
     # The rungs the ladder serves, plus the unit of a locally provisioned
-    # orchestrator when the ladder does not already name it. Each name
+    # proposer when the ladder does not already name it. Each name
     # must resolve to a unit with a scanned host and a known model spec,
     # or nothing is emitted at all.
     served = list(config.ladder.names)
-    orchestrator_name = config.get("orchestrator.unit")
+    proposer_name = config.get("proposer.unit")
     if (
         provision
-        and orchestrator_name
-        and _local(orchestrator_name)
-        and orchestrator_name not in served
+        and proposer_name
+        and _local(proposer_name)
+        and proposer_name not in served
     ):
-        served.append(orchestrator_name)
+        served.append(proposer_name)
     role_extra: list[str] = []
     verifier_name = (
         config.get("verifier.unit") if config.get("verifier.enabled") else None
@@ -897,7 +896,7 @@ def units_for(
     ):
         role_extra.append(jev_name)
 
-    orchestrator_key: UnitKey | None = None
+    proposer_key: UnitKey | None = None
     for name in (*served, *role_extra):
         unit = config.units.get(name)
         if unit is None:
@@ -927,8 +926,8 @@ def units_for(
             engine=unit.engine or DEFAULT_ENGINE,
             port=port_of(unit.address),
         )
-        if provision and name == orchestrator_name:
-            orchestrator_key = key
+        if provision and name == proposer_name:
+            proposer_key = key
         grouped.setdefault(key, []).append(name)
         roles.setdefault(key, {}).setdefault(unit.role, []).append(name)
         if unit.window is not None:
@@ -953,8 +952,8 @@ def units_for(
             # Units naming one process may each state a width: the widest
             # wins, so the process is sized for the slots they all ask for.
             widths[key] = max(widths.get(key, 0), unit.width)
-        elif provision and name == orchestrator_name and _local(orchestrator_name):
-            # The orchestrator's own width is the user count this
+        elif provision and name == proposer_name and _local(proposer_name):
+            # The proposer's own width is the user count this
             # deployment provisions for, when its unit states none.
             widths[key] = max(widths.get(key, 0), users)
         shards = unit.launch.get(SHARDS_KEY)
@@ -1027,11 +1026,11 @@ def units_for(
         key: _starts_asleep(key, stated, key in splits) for key, stated in roles.items()
     }
 
-    # The orchestrator is sized first so its claim on its host's card is
+    # The proposer is sized first so its claim on its host's card is
     # subtracted before anything else there is sized; the rest keep the
     # order the config listed them in.
     ordered = list(grouped.items())
-    ordered.sort(key=lambda pair: pair[0] != orchestrator_key)
+    ordered.sort(key=lambda pair: pair[0] != proposer_key)
     built: list[Unit] = []
     claimed: dict[str, float] = {}
     reduced = dict(scans)
@@ -1043,7 +1042,7 @@ def units_for(
         sized = _sized(key, rungs, scan, reduced)
         if asleep[key]:
             sized[0] = replace(sized[0], asleep=True)
-        if key == orchestrator_key:
+        if key == proposer_key:
             claimed[key.host] = sized[0].fit.vram_gb
             sized[0] = replace(sized[0], resident_claim_gb=sized[0].fit.vram_gb)
         built.extend(sized)
@@ -1157,7 +1156,7 @@ def _sharded_units(
     except (sharding.ShardingError, shardlaunch.LaunchError) as exc:
         raise UnitError(str(exc)) from exc
     notes = _host_figure_notes(engine)
-    allowance = plan.shards[0].allowance_bytes / _BYTES_PER_GIB
+    allowance = plan.shards[0].allowance_bytes / BYTES_PER_GIB
     units: list[Unit] = []
     for process in launched:
         held = process.shards
@@ -1178,9 +1177,8 @@ def _sharded_units(
                     fits=True,
                     headroom_gb=allowance,
                     why=" ".join((said, *notes)),
-                    vram_gb=max(s.required_bytes for s in held) / _BYTES_PER_GIB,
-                    card_free_gb=min(s.target.free_bytes for s in held)
-                    / _BYTES_PER_GIB,
+                    vram_gb=max(s.required_bytes for s in held) / BYTES_PER_GIB,
+                    card_free_gb=min(s.target.free_bytes for s in held) / BYTES_PER_GIB,
                     notes=notes,
                 ),
                 port=process.port,
@@ -1469,7 +1467,7 @@ def hold_together(units: Iterable[Unit], scans: Mapping[str, Scan]) -> tuple[str
         if len(spec.units) < 2 or spec.host not in scans:
             continue
         scan = scans[spec.host]
-        free = _free_vram_bytes(scan) / _BYTES_PER_GIB
+        free = _free_vram_bytes(scan) / BYTES_PER_GIB
         on_card: dict[int, list[Unit]] = {}
         # Only the units that are up hold memory: a sleeper's figures were
         # charged for the file it would occupy, not for a running server.
@@ -1922,7 +1920,7 @@ def _allowance_gb(
     (`vramfit.allowance`), the default headroom otherwise."""
     if spec.geometry is None:
         return DEFAULT_HEADROOM_GB
-    return _allowance_bytes(spec.geometry, gpu, ctx_per_slot, slots) / _BYTES_PER_GIB
+    return _allowance_bytes(spec.geometry, gpu, ctx_per_slot, slots) / BYTES_PER_GIB
 
 
 def _allowance_bytes(
@@ -1940,7 +1938,7 @@ def _allowance_bytes(
         n_ctx=ctx_per_slot * slots,
         n_seq_max=slots,
         n_ubatch=n_ubatch,
-        backend=gpu.backend if gpu is not None else vramfit.MEASURED_SCRATCH_BACKEND,
+        backend=gpu.backend if gpu is not None else hubwire.MEASURED_SCRATCH_BACKEND,
         unified=gpu is not None and shares_ram(gpu.kind),
     ).total
 
@@ -2091,12 +2089,12 @@ def _placement(
     return _Placement(
         n_cpu_moe=n_cpu_moe,
         width=slots,
-        vram_gb=card / _BYTES_PER_GIB,
+        vram_gb=card / BYTES_PER_GIB,
         ram_gb=max(
             spec.ram_gb, _host_gb(geometry, n_cpu_moe, engine=engine, host=host)
         ),
         headroom_gb=_allowance_bytes(geometry, gpu, ctx_per_slot, slots, n_ubatch)
-        / _BYTES_PER_GIB,
+        / BYTES_PER_GIB,
         head_bytes=head_bytes,
     )
 
@@ -2112,12 +2110,12 @@ def _host_gb(
     if offloaded <= 0:
         return 0.0
     if engine in derived.RUNTIME_RESIDENT_READ:
-        return offloaded / _BYTES_PER_GIB
+        return offloaded / BYTES_PER_GIB
     try:
         resident = derived.runtime_resident_gb(host)
     except derived.DerivedNumbersError as exc:
         raise UnitError(str(exc)) from exc
-    return offloaded / _BYTES_PER_GIB + resident
+    return offloaded / BYTES_PER_GIB + resident
 
 
 def _window_for(
