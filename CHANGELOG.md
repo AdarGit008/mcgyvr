@@ -359,7 +359,8 @@ archived outside this repository, under the same paths.
   session. Once the worker starts, a ring peer that came up may dial the
   rig's `accept_ports` and the rig may dial the peer's `dial_ports` (a new
   `OPEN_RING_SCRIPT`: TCP on wg0 only, replies to the ephemeral range, the
-  head's own dial rules); nothing changes on eth0. A rig without the switch
+  head's own dial rules); on eth0 a ring peer gets only the WireGuard UDP
+  rule any tunnel peer gets, while it is aimed at. A rig without the switch
   refuses a ring peer (`not_capable`) and makes exactly the calls it made.
   The pinned build (upstream llama.cpp) never dials a ring link and the head
   still runs with `GGML_RPC_NO_COMM=1`: this builds the tunnel and firewall

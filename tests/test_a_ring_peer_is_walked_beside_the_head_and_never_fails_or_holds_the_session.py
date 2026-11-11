@@ -3,20 +3,25 @@
 A worker may be named a second worker as a tunnel peer (``tunnel_up`` peer
 ``ring``: the worker <-> worker link of a ring, feature ``ring_peers``) only
 when its owner turned the ring links on (``ring_links``, off until set): a
-rig without it names no ``ring_peers`` and refuses such a peer. Such a peer
-is optional. It is walked beside the head, in the same loop and under the
-same deadline; once the head has settled, a ring peer still walking is given
+rig without it names no ``ring_peers`` and refuses such a peer, and a head
+refuses one whatever it names. Such a peer is optional. It is walked beside
+the head, in the same loop and under the same deadline, never through the
+birthday dance; once the head has settled, a ring peer still walking is given
 up at once, so it never stretches the bring-up. A ring peer no path reaches,
-one whose path is too narrow, and one with nothing this rig may aim at (left
-out of the tunnel, never configured) are all reported ``none``, and the
-session comes up all the same; its relay is never bound. The peer the
-session needs is held to every rule it always was.
+one whose path is too narrow, and one left out of the tunnel, never
+configured (nothing this rig may aim at but birthday candidates, or an
+identity the pins refuse) are all reported ``none``, and the session comes up
+all the same; its relay is never bound, its round trip is no link sample and
+it sets no pin. The peer the session needs is held to every rule it always
+was.
 
 Once the worker starts, a ring peer that came up may dial exactly the ports
 it is named to accept (``accept_ports``), and this rig may dial the peer's
 ``dial_ports`` on its tunnel address: TCP inside the tunnel only, its replies
-back to the local ephemeral range; nothing on eth0. A ring peer that did not
-come up opens nothing.
+back to the local ephemeral range; nothing on eth0. A ring peer in the tunnel
+that did not come up is let in on no rpc port and dialled on none, and keeps
+no eth0 rule; its WireGuard peer and the wg0 ICMP echo rules every tunnel peer
+gets at tunnel-up stay until the session's tunnel goes.
 """
 
 from __future__ import annotations
@@ -149,7 +154,7 @@ def test_a_ring_peer_this_rig_only_dials_is_not_let_in(pool: Pool) -> None:
     assert _scripts(pool, pooled.OPEN_RING_SCRIPT) == [(fakes.SELF, RING_PEER, "50052")]
 
 
-def test_a_dead_ring_peer_leaves_the_session_up_and_opens_nothing(
+def test_a_dead_ring_peer_leaves_the_session_up_and_is_let_in_on_no_port(
     pool: Pool,
 ) -> None:
     pool.docker.answering = {(fakes.PEER_ADDRESS, 51820)}
@@ -157,7 +162,10 @@ def test_a_dead_ring_peer_leaves_the_session_up_and_opens_nothing(
     report = pool.up("t1", **_body(_ring_peer()))
     assert _paths(report) == {"rig-peer": "lan", "rig-ring": "none"}
     assert pool.sessions.state_of("s1") == ("tunnel_up", "worker")
-    # the dead peer is left unaimed: no UDP rule for it on eth0
+    # it was in the tunnel (its WireGuard peer and wg0 ICMP rules, which stay) ...
+    (up,) = _scripts(pool, pooled.TUNNEL_SCRIPT)
+    assert RING_KEY in up and f"{RING_PEER}/32" in up
+    # ... but the dead peer is left unaimed: no UDP rule for it on eth0
     assert RING_ADDRESS not in _scripts(pool, pooled.PATH_SCRIPT)[-1]
     _start_worker(pool)
     assert _scripts(pool, pooled.OPEN_WORKER_SCRIPT) == [
