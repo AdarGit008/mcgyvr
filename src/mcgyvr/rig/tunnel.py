@@ -299,6 +299,7 @@ def plan(
     *,
     listen_port: int,
     own: Sequence[ipaddress.IPv4Interface],
+    drop: Collection[str] = (),
 ) -> TunnelPlan:
     """Lay out the tunnel a tunnel-up asks for, having checked it against this
     machine: the listen port is the one this session was prepared on, the
@@ -313,7 +314,8 @@ def plan(
     rules but two: its relay is never taken (the star through the head is its
     fallback), and with no endpoint this rig may aim at it is left out of the
     plan, never configured, rather than refusing the tunnel the session
-    needs."""
+    needs. So is a ring peer named in `drop` (one the identity check
+    refused), once its addresses are checked like any peer's."""
     if up.listen_port != listen_port:
         raise RefusedError(
             protocol.ErrorCode.BAD_MESSAGE,
@@ -368,7 +370,7 @@ def plan(
             taken.append(net)
         found = candidates(peer, network, own)
         relay = _relay(peer, network, own) if peer.ring is None else None
-        if not found and peer.ring is not None:
+        if peer.ring is not None and (not found or peer.rig_id in drop):
             unreached.append(peer.rig_id)
             continue
         if not found and relay is None:

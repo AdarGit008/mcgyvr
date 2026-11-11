@@ -1220,7 +1220,7 @@ class Sessions:
                     SessionCode.NOT_CAPABLE,
                     "peers: a ring peer, and this rig takes none",
                 )
-            unvetted = self._vet_peers(asked)
+            unvetted, dropped = self._vet_peers(asked)
             if unvetted is not None:
                 self._log(f"session {session.id}: refused: {unvetted}")
                 return sessionwire.refusal(
@@ -1228,7 +1228,9 @@ class Sessions:
                 )
             own = self._own(session, session.hello)
             try:
-                plan = tunnel.plan(asked, listen_port=session.listen_port, own=own)
+                plan = tunnel.plan(
+                    asked, listen_port=session.listen_port, own=own, drop=dropped
+                )
             except tunnel.RefusedError as refused:
                 return sessionwire.refusal(envelope.id, refused.code, refused.message)
             session.tunnel_asked = asked
@@ -1526,17 +1528,28 @@ class Sessions:
         share = self.machine.sharing()
         return share.ring_links and not share.native_here()
 
-    def _vet_peers(self, asked: sessionwire.TunnelUp) -> str | None:
-        """Why the peers of `asked` are refused, or None once each is taken
-        (:func:`mcgyvr.rig.identity.vet_peer`) and every new identity key among
-        them is pinned: the pins are written at most once.
+    def _vet_peers(
+        self, asked: sessionwire.TunnelUp
+    ) -> tuple[str | None, tuple[str, ...]]:
+        """Why the peers of `asked` are refused, or None once each peer the
+        session needs is taken (:func:`mcgyvr.rig.identity.vet_peer`) and every
+        new identity key among them is pinned: the pins are written at most
+        once. With it, the ring peers that are not taken, to be left out of
+        the tunnel.
+
+        A ring peer is held to the pins but never writes one: one the check
+        refuses is left out and logged, never refusing the tunnel the session
+        needs, and one taken pins nothing, so an optional link the session
+        never waits on cannot fill or set a pin a later peer is checked against.
 
         A peer taken with no identity key is logged, one line each: it is an
         agent from before identity keys, or a hub that left the key out, and
         nothing else would show that the peer went unchecked."""
         try:
             known = self._pins.all() if self._pins is not None else {}
-            for peer in asked.peers:
+            dropped: list[str] = []
+            # Every peer the session needs first, so its refusal is the one given.
+            for peer in sorted(asked.peers, key=lambda p: p.ring is not None):
                 why = identity.vet_peer(
                     rig_id=peer.rig_id,
                     public_key=peer.public_key,
@@ -1545,10 +1558,17 @@ class Sessions:
                     session_id=asked.session_id,
                     pinned=known.get(peer.rig_id),
                 )
-                if why is not None:
-                    return why
+                if why is None:
+                    continue
+                if peer.ring is None:
+                    return why, ()
+                self._log(
+                    f"session {asked.session_id}: ring peer {peer.rig_id} left out "
+                    f"of the tunnel: {why}"
+                )
+                dropped.append(peer.rig_id)
             for peer in asked.peers:
-                if peer.identity_key is None:
+                if peer.identity_key is None and peer.rig_id not in dropped:
                     self._log(
                         f"session {asked.session_id}: peer {peer.rig_id} sent no "
                         "identity key (an agent from before identity keys, or a "
@@ -1557,7 +1577,9 @@ class Sessions:
             met = {
                 peer.rig_id: peer.identity_key
                 for peer in asked.peers
-                if peer.identity_key is not None and peer.rig_id not in known
+                if peer.identity_key is not None
+                and peer.rig_id not in known
+                and peer.ring is None
             }
             if self._pins is not None and met:
                 for rig_id in sorted(self._pins.pin_all(met)):
@@ -1566,10 +1588,10 @@ class Sessions:
                         f"peer {rig_id} is checked but not pinned"
                     )
         except credentials.CredentialsError as exc:
-            return f"the pinned peers cannot be read: {exc}"
+            return f"the pinned peers cannot be read: {exc}", ()
         except OSError as exc:
-            return f"the pinned peers cannot be written: {exc.strerror or exc}"
-        return None
+            return f"the pinned peers cannot be written: {exc.strerror or exc}", ()
+        return None, tuple(dropped)
 
     def _status(self, session: _Session, re: str | None) -> str:
         failed = session.state == "failed"

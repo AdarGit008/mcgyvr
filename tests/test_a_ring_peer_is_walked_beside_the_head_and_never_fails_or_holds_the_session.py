@@ -28,9 +28,10 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from mcgyvr import hubwire
-from mcgyvr.rig import pooled, protocol, session, sessionwire, sharing
+from mcgyvr.rig import identity, pooled, protocol, session, sessionwire, sharing
 from tests import rig_pool_fakes as fakes
 from tests import rig_schema
 from tests.rig_pool_fakes import Pool, make_pool
@@ -232,6 +233,126 @@ def test_a_rig_without_ring_links_refuses_a_ring_peer(tmp_path: Path) -> None:
         assert refused is not None and refused["body"]["code"] == "not_capable"
         pool.settle()
         assert _scripts(pool, pooled.TUNNEL_SCRIPT) == []
+    finally:
+        pool.sessions.close()
+
+
+def _identity() -> identity.Identity:
+    return identity.Identity(Ed25519PrivateKey.generate())
+
+
+#: What a peer's identity check refuses (:func:`mcgyvr.rig.identity.vet_peer`),
+#: and the words its refusal names.
+FAULTS = {
+    "changed": "identity key changed",
+    "forged": "not signed",
+    "unsigned": "not signed",
+    "unnamed": "sends none",
+}
+
+
+def _fault(pins: identity.Pins, peer: dict[str, Any], fault: str) -> None:
+    """Give `peer` (a tunnel_up peer entry) the identity `fault`: a key other
+    than the one pinned for it, a tunnel key its identity did not sign, no
+    signature, or no key at all for a peer pinned once."""
+    first, now = _identity(), _identity()
+    if fault in ("changed", "unnamed"):
+        pins.pin(peer["rig_id"], first.public_key)
+    if fault == "unnamed":
+        return
+    peer[hubwire.IDENTITY_KEY_FIELD] = now.public_key
+    if fault == "changed":
+        signer = now
+    elif fault == "forged":
+        signer = _identity()
+    else:
+        return
+    peer[hubwire.SESSION_KEY_SIG_FIELD] = signer.sign_session_key(
+        "s1", peer["public_key"]
+    )
+
+
+def _signed(peer: dict[str, Any], who: identity.Identity) -> dict[str, Any]:
+    peer[hubwire.IDENTITY_KEY_FIELD] = who.public_key
+    peer[hubwire.SESSION_KEY_SIG_FIELD] = who.sign_session_key("s1", peer["public_key"])
+    return peer
+
+
+@pytest.mark.parametrize("fault", sorted(FAULTS))
+def test_a_ring_peer_the_identity_check_refuses_is_left_out_and_the_session_comes_up(
+    fault: str, tmp_path: Path
+) -> None:
+    pins = identity.Pins(tmp_path / "pins.json")
+    ring = _ring_peer()
+    _fault(pins, ring, fault)
+    before = pins.all()
+    pool = make_pool(
+        tmp_path / "pool", ring_links=True, rig_identity=_identity(), pins=pins
+    )
+    try:
+        _prepare(pool)
+        report = pool.up("t1", **_body(ring))
+        assert _paths(report) == {"rig-peer": "lan", "rig-ring": "none"}
+        assert pool.sessions.state_of("s1") == ("tunnel_up", "worker")
+        # never configured: no WireGuard peer, no rule, no aim for it
+        (up,) = _scripts(pool, pooled.TUNNEL_SCRIPT)
+        assert RING_KEY not in up and f"{RING_PEER}/32" not in up
+        assert RING_ADDRESS not in up
+        assert all(RING_KEY not in args for args in _scripts(pool, pooled.PATH_SCRIPT))
+        _start_worker(pool)
+        assert _scripts(pool, pooled.OPEN_WORKER_SCRIPT) == [
+            (fakes.SELF, "50053", f"{fakes.PEER}/32")
+        ]
+        assert _scripts(pool, pooled.OPEN_RING_SCRIPT) == []
+        (left,) = [line for line in pool.logged if "left out of the tunnel" in line]
+        assert "ring peer rig-ring" in left and FAULTS[fault] in left
+        # and no pin was set or changed by it
+        assert pins.all() == before
+    finally:
+        pool.sessions.close()
+
+
+@pytest.mark.parametrize("fault", sorted(FAULTS))
+def test_the_peer_the_session_needs_failing_the_identity_check_still_refuses_it(
+    fault: str, tmp_path: Path
+) -> None:
+    pins = identity.Pins(tmp_path / "pins.json")
+    body = _body(_signed(_ring_peer(), _identity()))
+    _fault(pins, body["peers"][0], fault)
+    before = pins.all()
+    pool = make_pool(
+        tmp_path / "pool", ring_links=True, rig_identity=_identity(), pins=pins
+    )
+    try:
+        _prepare(pool)
+        refused = pool.ask("tunnel_up", "t1", **body)
+        assert refused is not None and refused["type"] == "error"
+        assert refused["body"]["code"] == sessionwire.SessionCode.TUNNEL_FAILED
+        assert "peer rig-peer" in refused["body"]["message"]
+        assert FAULTS[fault] in refused["body"]["message"]
+        pool.settle()
+        assert _scripts(pool, pooled.TUNNEL_SCRIPT) == []
+        assert pins.all() == before
+    finally:
+        pool.sessions.close()
+
+
+def test_a_ring_peer_taken_pins_nothing_and_the_peer_the_session_needs_is_pinned(
+    tmp_path: Path,
+) -> None:
+    pins = identity.Pins(tmp_path / "pins.json")
+    needed, ring = _identity(), _identity()
+    body = _body(_signed(_ring_peer(), ring))
+    _signed(body["peers"][0], needed)
+    pool = make_pool(
+        tmp_path / "pool", ring_links=True, rig_identity=_identity(), pins=pins
+    )
+    try:
+        _prepare(pool)
+        report = pool.up("t1", **body)
+        assert _paths(report) == {"rig-peer": "lan", "rig-ring": "lan"}
+        # the optional link is checked against the pins but sets none
+        assert pins.all() == {"rig-peer": needed.public_key}
     finally:
         pool.sessions.close()
 
