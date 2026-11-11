@@ -33,10 +33,14 @@ Only a port this rig tunnels on is opened, and never one a session holds.
 
 Everything a router or the network says is hostile. A UPnP description is
 fetched only from the address that answered the discovery, over plain HTTP on
-a private address, at most ``MAX_DESCRIPTION_BYTES``, and refused when it
-declares a document type or an entity; a control URL must stay on that
-address. A NAT-PMP answer counts only from the gateway's own port with the
-opcode and internal port that were asked.
+a private address, at most ``MAX_DESCRIPTION_BYTES``, read whole within
+``HTTP_WAIT_S`` (connect, headers and body together) or not at all, and
+refused when it declares a document type or an entity; a control URL must
+stay on that address. At most ``MAX_LOCATIONS`` descriptions are fetched, each
+once, and a device that answers only as a root device (a TV, a printer) is
+asked only when no better answer became a gateway, and is a router only if
+its description names a WAN service. A NAT-PMP answer counts only from the
+gateway's own port with the opcode and internal port that were asked.
 
 The routers, the LAN hosts the tunnel is published on, this rig's tunnel
 ports, the socket maker, the clock and the wait are handed in, so all of
@@ -64,7 +68,7 @@ from pathlib import Path
 from typing import Any, Protocol
 
 from mcgyvr import atomic, hubwire
-from mcgyvr.rig import commands, protocol, sessionwire, udpwire
+from mcgyvr.rig import commands, protocol, sessionwire, tunnel, udpwire
 from mcgyvr.rig.sessionwire import PortMapped, SessionCode
 
 #: NAT-PMP (RFC 6886): the gateway's port, the first wait and the tries; each
@@ -72,8 +76,9 @@ from mcgyvr.rig.sessionwire import PortMapped, SessionCode
 NATPMP_PORT = 5351
 NATPMP_FIRST_WAIT_S = 0.25
 NATPMP_TRIES = 4
-#: UPnP: the discovery address, how long discovery listens, what it asks for,
-#: the most bytes of a description or a control answer, and each HTTP wait.
+#: UPnP: the discovery address, how long discovery listens, the WAN services
+#: a router is called on (best first), the most bytes of a description or a
+#: control answer, and each HTTP wait (a description fetch's whole time).
 SSDP_ADDRESS = ("239.255.255.250", 1900)
 SSDP_WAIT_S = 2.0
 WAN_SERVICES = (
@@ -81,6 +86,20 @@ WAN_SERVICES = (
     "urn:schemas-upnp-org:service:WANIPConnection:1",
     "urn:schemas-upnp-org:service:WANPPPConnection:1",
 )
+#: The gateway device types, and the root device every UPnP device is: some
+#: routers answer only a search for one of these. A root device may be a TV or
+#: a printer, so its description is fetched only when no better answer became
+#: a gateway, and only its description decides (it must name a WAN service).
+IGD_DEVICES = (
+    "urn:schemas-upnp-org:device:InternetGatewayDevice:2",
+    "urn:schemas-upnp-org:device:InternetGatewayDevice:1",
+)
+ROOT_DEVICE = "upnp:rootdevice"
+SEARCH_TARGETS = (*WAN_SERVICES, *IGD_DEVICES, ROOT_DEVICE)
+#: How many times each search is sent (a datagram may be lost), all within
+#: the first half of ``SSDP_WAIT_S``; and the most locations discovery keeps.
+SSDP_SENDS = 3
+MAX_LOCATIONS = 8
 MAX_DESCRIPTION_BYTES = 64 * 1024
 HTTP_WAIT_S = 3.0
 #: What a mapping says it is on the router.
@@ -337,22 +356,24 @@ class NatPmp:
 # --- UPnP IGD -------------------------------------------------------------------
 
 
-def ssdp_search(service: str) -> bytes:
-    """The M-SEARCH datagram that asks for one WAN service."""
+def ssdp_search(target: str, mx: int = 2) -> bytes:
+    """The M-SEARCH datagram that asks for one search target, to be answered
+    within ``mx`` seconds."""
     return (
         "M-SEARCH * HTTP/1.1\r\n"
         f"HOST: {SSDP_ADDRESS[0]}:{SSDP_ADDRESS[1]}\r\n"
         'MAN: "ssdp:discover"\r\n'
-        "MX: 2\r\n"
-        f"ST: {service}\r\n\r\n"
+        f"MX: {mx}\r\n"
+        f"ST: {target}\r\n\r\n"
     ).encode("ascii")
 
 
-def read_ssdp(data: bytes, source: str) -> str | None:
-    """The description URL a discovery answer names, when it may be fetched.
+def read_ssdp(data: bytes, source: str) -> tuple[str, str] | None:
+    """The description URL a discovery answer names, and the target it
+    answers (:data:`SEARCH_TARGETS`), when it may be fetched.
 
-    Only an HTTP answer naming a WAN service, whose URL is plain HTTP on the
-    very private address the answer came from, is kept.
+    Only an HTTP answer naming one of the targets searched for, whose URL is
+    plain HTTP on the very private address the answer came from, is kept.
     """
     try:
         text = data.decode("latin-1")
@@ -366,13 +387,18 @@ def read_ssdp(data: bytes, source: str) -> str | None:
         name, sep, value = line.partition(":")
         if sep:
             headers[name.strip().lower()] = value.strip()
-    if headers.get("st") not in WAN_SERVICES:
+    target = headers.get("st", "")
+    if target not in SEARCH_TARGETS:
         return None
     location = headers.get("location", "")
-    url = urllib.parse.urlsplit(location)
+    try:
+        url = urllib.parse.urlsplit(location)
+        _ = url.port  # a port out of range raises here, not at the fetch
+    except ValueError:
+        return None
     if url.scheme != "http" or url.hostname != source or not _private(source):
         return None
-    return location
+    return location, target
 
 
 def read_description(raw: bytes, location: str) -> tuple[str, str] | None:
@@ -586,45 +612,153 @@ def _upnp_error(action: str, code: int, values: dict[str, str]) -> MapError:
     return MapError("failed", f"UPnP {action}: {code} {said}".strip())
 
 
+def lan_interfaces() -> tuple[str, ...]:
+    """This host's LAN addresses, its own plumbing (bridges, tunnels, loopback)
+    left out (:func:`mcgyvr.rig.tunnel.lan_hosts`): discovery searches on each."""
+    return tuple(str(host) for host in tunnel.lan_hosts(tunnel.read_interfaces()))
+
+
+def _udp() -> socket.socket:
+    return socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
+
+def _search(
+    sock: socket.socket,
+    address: tuple[str, int],
+    ways: Sequence[str | None],
+    mx: int,
+) -> bool:
+    """Send every search target once on each way out (an interface's address,
+    or None for the system's default); whether any datagram went. A way that
+    cannot send is skipped."""
+    sent = False
+    for way in ways:
+        try:
+            sock.setsockopt(
+                socket.IPPROTO_IP,
+                socket.IP_MULTICAST_IF,
+                socket.inet_aton(way or "0.0.0.0"),
+            )
+            for target in SEARCH_TARGETS:
+                sock.sendto(ssdp_search(target, mx), address)
+                sent = True
+        except OSError:
+            continue
+    return sent
+
+
 def discover_upnp(
     *,
     wait_s: float = SSDP_WAIT_S,
     fetch: Callable[[str], bytes] | None = None,
+    interfaces: Callable[[], Sequence[str]] = lan_interfaces,
+    address: tuple[str, int] = SSDP_ADDRESS,
+    sock: Callable[[], socket.socket] = _udp,
 ) -> list[Gateway]:
-    """The UPnP WAN services that answer discovery on the LAN, best first."""
+    """The UPnP WAN services that answer discovery on the LAN, best first.
+
+    Every target of :data:`SEARCH_TARGETS` is searched for on the system's
+    default way out and on each LAN interface (``interfaces``, by address),
+    :data:`SSDP_SENDS` times within the first half of ``wait_s``, and answers
+    are heard for ``wait_s`` in all. An answer to a WAN service or a gateway
+    device is fetched first; a root device's only when none of those became a
+    gateway. At most :data:`MAX_LOCATIONS` descriptions are fetched, each one
+    once, and only a description naming a WAN service becomes a gateway.
+    """
     fetch = fetch or _fetch
-    locations: list[str] = []
-    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
-        sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 2)
-        try:
-            for service in WAN_SERVICES:
-                sock.sendto(ssdp_search(service), SSDP_ADDRESS)
-        except OSError:
+    own = tuple(dict.fromkeys(interfaces()))
+    # The default way out is searched on too, unless it is one of those.
+    ways = (*(() if local_address(*address) in own else (None,)), *own)
+    routers: list[str] = []  # answered a WAN service or a gateway device
+    roots: list[str] = []  # answered the root device alone so far
+    with sock() as udp:
+        udp.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 2)
+        started = time.monotonic()
+        ends = started + wait_s
+        if not _search(udp, address, ways, max(1, int(wait_s))):
             return []
-        ends = time.monotonic() + wait_s
-        while (left := ends - time.monotonic()) > 0 and len(locations) < 8:
-            ready, _, _ = select.select([sock], [], [], left)
+        sends = 1
+        while (left := ends - time.monotonic()) > 0 and len(routers) < MAX_LOCATIONS:
+            due = started + sends * wait_s / (2 * max(1, SSDP_SENDS - 1))
+            if sends < SSDP_SENDS and time.monotonic() >= due:
+                _search(udp, address, ways, max(1, int(left)))
+                sends += 1
+                continue
+            wait = min(left, due - time.monotonic()) if sends < SSDP_SENDS else left
+            ready, _, _ = select.select([udp], [], [], max(0.0, wait))
             if not ready:
-                break
-            data, source = sock.recvfrom(2048)
-            location = read_ssdp(data, source[0])
-            if location is not None and location not in locations:
-                locations.append(location)
-    found = []
-    for location in locations:
+                continue
+            try:
+                data, source = udp.recvfrom(2048)
+            except OSError:  # an ICMP error some systems hand an unconnected socket
+                continue
+            answer = read_ssdp(data, source[0])
+            if answer is None:
+                continue
+            location, target = answer
+            if target != ROOT_DEVICE:
+                if location in roots:
+                    roots.remove(location)
+                if location not in routers:
+                    routers.append(location)
+            elif location not in routers and location not in roots:
+                if len(roots) < MAX_LOCATIONS:
+                    roots.append(location)
+    found: list[Gateway] = []
+    for index, location in enumerate([*routers, *roots][:MAX_LOCATIONS]):
+        if index >= len(routers) and found:
+            break  # a root device is asked only when nothing better is a router
         try:
             described = read_description(fetch(location), location)
         except (OSError, http.client.HTTPException):
             continue
-        if described is not None:
+        if described is not None and Gateway(*described) not in found:
             found.append(Gateway(*described))
-    return found
+    return sorted(found, key=lambda gateway: WAN_SERVICES.index(gateway.service))
+
+
+class _Deadline(socket.socket):
+    """A connected socket whose every read waits only for what is left until
+    ``deadline`` (a :func:`time.monotonic` time): a device that trickles its
+    answer a byte at a time cannot hold a read past it."""
+
+    deadline = 0.0
+
+    def recv_into(self, buffer: Any, nbytes: int = 0, flags: int = 0) -> int:
+        left = self.deadline - time.monotonic()
+        if left <= 0:
+            raise TimeoutError("timed out")
+        self.settimeout(left)
+        return super().recv_into(buffer, nbytes, flags)
+
+
+class _Bounded(http.client.HTTPConnection):
+    """An HTTP connection that is over by ``deadline``: the connect, the
+    request, the headers and the body together."""
+
+    def __init__(self, host: str, port: int, deadline: float) -> None:
+        super().__init__(host, port, timeout=max(0.0, deadline - time.monotonic()))
+        self._deadline = deadline
+
+    def connect(self) -> None:
+        super().connect()
+        sock = _Deadline(fileno=self.sock.detach())
+        sock.deadline = self._deadline
+        left = self._deadline - time.monotonic()
+        if left <= 0:
+            sock.close()
+            raise TimeoutError("timed out")
+        sock.settimeout(left)
+        self.sock = sock
 
 
 def _fetch(location: str) -> bytes:
+    """A description, read whole within ``HTTP_WAIT_S`` of the start of the
+    fetch (connect, headers and body together); past that the fetch fails
+    (``TimeoutError``) and nothing it read is kept."""
     url = urllib.parse.urlsplit(location)
-    connection = http.client.HTTPConnection(
-        url.hostname or "", url.port or 80, timeout=HTTP_WAIT_S
+    connection = _Bounded(
+        url.hostname or "", url.port or 80, time.monotonic() + HTTP_WAIT_S
     )
     try:
         connection.request("GET", url.path or "/")
