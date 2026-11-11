@@ -284,7 +284,7 @@ def _run(
     contract = load_contract(contract_text)
     journal = tmp_path / "journal" / "orch.jsonl"
     journal.parent.mkdir()
-    recording = Recording(path=journal, orchestrator="orch")
+    recording = Recording(path=journal, session="orch")
     with TempDirSandbox(share_repo) as sandbox:
         outcome = escalate(
             config,

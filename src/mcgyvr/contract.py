@@ -292,12 +292,13 @@ LIMITS_FIELDS: tuple[Field, ...] = (
     Field(
         "max_output_tokens",
         "int",
-        "Not sent, and not needed: every model request is sent the most its "
-        "unit can give — the unit's `output_tokens`, clamped to the room its "
-        "`window` leaves once the prompt is paid for — so no contract caps a "
-        "reply below what its unit serves. Still read, so a contract that "
-        "states it loads; it caps nothing. A reply cut off at the unit's "
-        "maximum is a named failure, never applied to a file.",
+        "The most tokens this contract's reply may take, sent as the "
+        "request's `max_tokens` when it is below the most the unit can give "
+        "(the unit's `output_tokens`, clamped to the room its `window` leaves "
+        "once the prompt is paid for); the smaller of the two is sent. Unset, "
+        "the reply is sent the unit's maximum. A reply cut off at the cap is a "
+        "named failure, never applied to a file, so a cap smaller than the "
+        "file needs fails every attempt.",
         default=None,
         min_value=1,
     ),
@@ -630,10 +631,12 @@ class Verification:
 
 @dataclass(frozen=True)
 class Limits:
-    """What one execution may spend: retries and the prompt's window share.
+    """What one execution may spend: the reply cap, retries and the prompt's
+    window share.
 
-    `max_output_tokens` is read as the contract states it and never sent: every
-    request is sent its unit's maximum.
+    `max_output_tokens` is the contract's own reply cap: an attempt is sent the
+    smaller of it and its unit's maximum (`gate.preflight.contract_cap`), and
+    `None` sends the unit's maximum.
     """
 
     max_output_tokens: int | None

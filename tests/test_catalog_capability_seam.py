@@ -13,8 +13,10 @@ Promises:
 * A unit whose ``model`` is ``Qwen/Qwen2.5-Coder-7B-Instruct`` emits even
   though that id is not a table row's ``id``: it resolves to the mapped row's
   measured figure.
-* A catalog model the table does not name is servable from the catalog's own
-  bytes and KV figures, keyed by its ``model_id``.
+* A dense catalog model the table does not name is servable from the
+  catalog's own bytes, KV and recurrent figures, keyed by its ``model_id``; a
+  mixture of experts is sized from its file's header row instead
+  (``test_a_catalog_mixture_of_experts_is_sized_as_one``).
 * ``declared_models`` (the operator's ``launch`` block) still wins over both.
 """
 
@@ -32,7 +34,7 @@ from mcgyvr.serving import units_for
 
 REPO = "Qwen/Qwen2.5-Coder-7B-Instruct"
 REPO_14B = "Qwen/Qwen2.5-Coder-14B-Instruct"
-DEEPSEEK = "deepseek-ai/DeepSeek-Coder-V2-Lite-Instruct"
+DENSE_UNNAMED = "Qwen/Qwen3-8B"
 
 
 def _scan(host: str = "rig.example") -> Scan:
@@ -86,7 +88,8 @@ def test_a_catalog_pick_emits_via_the_mapped_measured_row() -> None:
 def test_a_catalog_model_the_table_does_not_name_is_servable() -> None:
     specs = {s.name: s for s in _model_specs()}
 
-    record = next(r for r in ks.shipped() if r.model_id == DEEPSEEK)
+    record = next(r for r in ks.shipped() if r.model_id == DENSE_UNNAMED)
+    assert record.architecture == "dense"
     spec = specs[record.model_id]
     assert spec.geometry is None
     assert spec.moe is False
@@ -95,6 +98,7 @@ def test_a_catalog_model_the_table_does_not_name_is_servable() -> None:
         (
             record.size_bytes.value
             + record.context_length.value * record.kv_bytes_per_token.value
+            + record.recurrent_bytes_per_slot.value
         )
         / (1024**3)
     )

@@ -373,6 +373,24 @@ def unit_max(rung: ServingWindow, prompt: str) -> ReplyCap:
     )
 
 
+def contract_cap(rung: ServingWindow, prompt: str, contract: Contract) -> ReplyCap:
+    """The reply cap a contract's attempt on `rung` is sent.
+
+    The unit's maximum (`unit_max`), or the contract's own
+    `limits.max_output_tokens` where it states a smaller one: the stricter of
+    the two is sent, and a reply cut off at it is a named failure. A contract
+    that states no cap is sent the unit's maximum.
+    """
+    cap = unit_max(rung, prompt)
+    stated = contract.limits.max_output_tokens
+    if stated is None or (cap.tokens is not None and cap.tokens <= stated):
+        return cap
+    return ReplyCap(
+        stated,
+        f"the contract's limits.max_output_tokens ({stated}), under {cap.basis}",
+    )
+
+
 def check_unit_ceiling_stated(
     contract: Contract, rung: ServingWindow
 ) -> PreflightIssue | None:

@@ -90,7 +90,7 @@ def test_a_floor_run_on_a_clean_target_is_nothing_to_change(
     assert result["committed"] is False
     (row,) = lj.rows(journal)
     assert row["outcome"] == NOTHING_TO_CHANGE
-    assert row["tier"] == "deterministic"
+    assert row["family"] == "deterministic"
     _untouched(repo, head)
 
 

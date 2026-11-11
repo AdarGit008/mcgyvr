@@ -5,7 +5,7 @@ worth: ``mcgyvr contract`` called a contract without one valid and
 ``mcgyvr direct`` refused it before any model was called. The cap is not the
 work's to state any more. Every request is sent the most its unit can give,
 clamped to the room the window leaves the prompt, so a contract with no cap
-runs, and one that states a cap is read and runs at the same number.
+runs; one that states a smaller cap is sent that cap instead.
 """
 
 from __future__ import annotations
@@ -135,7 +135,9 @@ def test_the_dispatch_sends_it_the_room_its_unit_leaves(
     assert sent == [("local_cheap", _room(contract))]
 
 
-def test_a_stated_cap_is_not_what_is_sent(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_a_stated_cap_below_the_units_maximum_is_what_is_sent(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     from mcgyvr.drive import dispatch_prompt
     from mcgyvr.worker.prompt import build_prompt
 
@@ -145,8 +147,8 @@ def test_a_stated_cap_is_not_what_is_sent(monkeypatch: pytest.MonkeyPatch) -> No
 
     dispatch_prompt(pool, "local_cheap", build_prompt(contract), contract)
 
-    assert sent == [("local_cheap", _room(contract))]
     assert _room(contract) > 512
+    assert sent == [("local_cheap", 512)]
 
 
 def test_a_run_reaches_a_model_at_its_units_maximum(

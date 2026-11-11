@@ -4,10 +4,11 @@
 #   make lint      ruff check + format check
 #   make typecheck mypy (strict)
 #   make docs      regenerate the generated docs (config reference, /mcgyvr, /mcgyvr-direct, /mcgyvr-use, COMMANDS.md)
+#   make catalog   regenerate data/model-catalog.json's header-read fields from data/model-geometry.json
 #   make check     everything CI runs
 #   make release   the local half of a release (build, checks, notes); prints the tag command
 # uv provides the interpreter and a reproducible, locked dependency set.
-.PHONY: setup test lint typecheck docs docs-check check release
+.PHONY: setup test lint typecheck docs docs-check catalog check release
 
 setup:  ## install dependencies (frozen — resolved from uv.lock)
 	# The project itself is rebuilt every time: its version is read from git
@@ -29,6 +30,9 @@ typecheck: setup  ## strict type checking
 docs: setup  ## render+check+delete the config reference; regenerate /mcgyvr, /mcgyvr-direct, /mcgyvr-use, COMMANDS.md
 	uv run --no-sync python -m mcgyvr.docgen
 	uv run --no-sync python -m mcgyvr.cli.verbdoc
+
+catalog: setup  ## regenerate the shipped catalog's header-read fields (architecture) from the shipped header rows
+	uv run --no-sync python -m mcgyvr.knowledge.regenerate
 
 docs-check: setup  ## fail if the reference does not render or the committed skill drifted
 	uv run --no-sync python -m mcgyvr.docgen --check

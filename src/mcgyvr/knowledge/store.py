@@ -157,7 +157,8 @@ def offline() -> Knowledge:
     ``skipped``. A cached record that names no use case keeps the shipped
     record's, since a cache written before records carried use cases says nothing
     about them; so does one naming a kind this build does not know, such as
-    the `coding` a cache wrote before that kind was called `code`."""
+    the `coding` a cache wrote before that kind was called `code`. A cached
+    record that states no architecture keeps the shipped record's the same way."""
     # Read here, not at import: the Hub module reads this one.
     from mcgyvr.knowledge.hub import USE_CASES as KINDS
 
@@ -168,6 +169,8 @@ def offline() -> Knowledge:
             hit = cached.pop(one.key)
             if not hit.use_cases or not set(hit.use_cases) <= set(KINDS):
                 hit = replace(hit, use_cases=one.use_cases)
+            if hit.architecture is None:
+                hit = replace(hit, architecture=one.architecture)
             known.append(Known(record=hit, origin=CACHE))
         else:
             known.append(Known(record=one, origin=SHIPPED))
