@@ -30,8 +30,9 @@ is here:
   :data:`CONTENT_TYPE`, :data:`BASE64`, :data:`TOKEN`, :data:`TICKET`), and
   its codes: :class:`CloseCode`, the channel's :class:`ErrorCode`, a
   refusal's :class:`SessionCode`, all of them :data:`AGENT_ERROR_CODES`; and
-  the rule for an IPv4 address a peer of another rig can be at
-  (:func:`is_peer_address`), which a LAN address keeps as well;
+  the rule for an address a peer of another rig can be at
+  (:func:`is_peer_address`), and for a LAN one (:func:`is_lan_address`:
+  private, and a peer's);
 * the optional behaviours an agent lists (:data:`FEATURES`, each named
   ``FEATURE_*``);
 * the UDP packets beside the channel: their version (:data:`UDP_VERSION`),
@@ -46,7 +47,8 @@ is here:
   hitchhike rung's model (:func:`rung_model`, :func:`rung_offer`);
 * the ladder a rider reports (``LADDER_*``);
 * the units a host advertises (:data:`MAX_SLOTS`, :data:`MAX_UNITS`,
-  ``UNIT_ADVERT_*``), the rule a ride cap keeps (:func:`rider_cap_fits`), and
+  ``UNIT_ADVERT_*``), the rule a ride cap keeps (:func:`rider_cap_fits`), the
+  cases both sides' room for a ride is held to (:data:`RIDE_ROOM_CASES`), and
   the setup keys of a unit's numbers (:data:`UNIT_SETUP_NAMES`);
 * the relay's limits (``RELAY_MAX_*``);
 * the ``/v1`` error codes with their one HTTP status each
@@ -93,8 +95,8 @@ is here:
   advert or heartbeat may name (:data:`MAX_RESOURCES`, and the kinds a rig names
   once: :func:`resources_fit`, :func:`readings_fit`),
   the legacy cards they make (:func:`cards_from_resources`,
-  :func:`card_readings_from`), the unit standby is counted in per kind
-  (:data:`STANDBY_UNITS`, its size :data:`STANDBY_UNIT_SIZE`) and the least a
+  :func:`card_readings_from`), the unit standby is counted in per kind, by
+  name (:data:`STANDBY_UNITS`; its size is the hub's) and the least a
   resource lends to count (:data:`LEND_FLOOR_MB`, :data:`LEND_FLOOR_CORES`,
   the oldest DDR generation host memory may be, :data:`RAM_DDR_MIN`, and
   :func:`counts_as_lent`);
@@ -427,12 +429,14 @@ TOKEN = re.compile(r"[0-9a-f]{32}")
 TICKET = re.compile(r"[A-Za-z0-9_-]{22,256}")
 
 
-def is_peer_address(address: ipaddress.IPv4Address) -> bool:
-    """Whether a peer of another rig can be at this IPv4 address: it is not
+def is_peer_address(address: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
+    """Whether a peer of another rig can be at this address: it is not
     loopback, link-local, multicast, reserved or unspecified.
 
     The one rule a rig's endpoints, its tunnel's aim and its probes' pings are
-    held to; a LAN address is one of these that is also private.
+    held to, and a hub's vouching for a candidate (an agent's IPv6 endpoint
+    too); a LAN address is one of these that is also private
+    (:func:`is_lan_address`).
     """
     return not (
         address.is_loopback
@@ -441,6 +445,13 @@ def is_peer_address(address: ipaddress.IPv4Address) -> bool:
         or address.is_reserved
         or address.is_unspecified
     )
+
+
+def is_lan_address(address: ipaddress.IPv4Address) -> bool:
+    """Whether a peer on this LAN could be reached at this IPv4 address: it is
+    private, and one a peer can be at (:func:`is_peer_address`). A rig names
+    its LAN endpoints by it and a hub vouches for one by it."""
+    return address.is_private and is_peer_address(address)
 
 
 class CloseCode(enum.IntEnum):
@@ -1031,6 +1042,47 @@ def rider_cap_fits(rider_cap: int, slots: int) -> bool:
     return 1 <= rider_cap < slots
 
 
+@dataclass(frozen=True)
+class RideRoomCase:
+    """One unit's state, and whether it has room for one more ride.
+
+    A unit of ``slots`` slots, a ride cap of ``rider_cap``, a server with
+    ``in_flight`` requests in flight (None: it does not say), rides among
+    them, and ``riding`` rides on it. ``free_slots`` is what its host
+    advertises: the slots the host's own requests leave free, rides not
+    counted. ``admits`` is whether another ride may start.
+    """
+
+    slots: int
+    rider_cap: int
+    in_flight: int | None
+    riding: int
+    free_slots: int
+    admits: bool
+
+
+#: The cases a ride's admission is held to on both sides. Admission runs
+#: twice on purpose: the hub seats a ride by the host's last advert and the
+#: rides it seated itself (optimistic), and the host's agent decides again by
+#: its unit's live count (``busy``). The two formulas stay apart, each its
+#: side's; both sides' tests hold theirs to these cases, so neither drifts
+#: without the other.
+RIDE_ROOM_CASES: tuple[RideRoomCase, ...] = (
+    # slots, rider_cap, in_flight, riding, free_slots, admits
+    RideRoomCase(4, 2, 0, 0, 4, True),
+    RideRoomCase(4, 2, 1, 1, 4, True),
+    RideRoomCase(4, 2, 2, 2, 4, False),  # the cap reached, slots free
+    RideRoomCase(4, 3, 3, 0, 1, True),  # the host's own leave one slot
+    RideRoomCase(4, 3, 4, 0, 0, False),  # the host's own take every slot
+    RideRoomCase(4, 3, 4, 1, 1, False),  # the one they leave is the ride's
+    RideRoomCase(8, 4, 5, 2, 5, True),
+    RideRoomCase(8, 4, 9, 2, 1, False),  # queued past the slots
+    RideRoomCase(2, 1, 0, 0, 2, True),
+    RideRoomCase(2, 1, 1, 1, 2, False),
+    RideRoomCase(4, 2, None, 0, 0, False),  # a server that does not say: full
+)
+
+
 def schema_bytes(name: str) -> bytes:
     """The schema ``name`` (one of :data:`SCHEMAS`) as shipped, byte for byte.
 
@@ -1127,27 +1179,17 @@ RESOURCE_NAME_MAX = 128
 FORMAT_CHARACTERS = re.compile("[\u061c\u200b-\u200f\u2028-\u202e\u2060-\u2064\ufeff]")
 #: Largest memory figure a resource may carry, in MiB, as a card's.
 RESOURCE_MAX_MB = 1 << 30
-_MB_PER_GIB = 1024
-#: How much of each kind one standby unit is, which a hub pays standby by:
-#: one card, whether its memory is its own or the host's, so a unified device
-#: is a card and never also memory; host memory per 16384 MiB (16 GiB) and
-#: cores per 8. Cards count in cards, ``ram`` in MiB and ``cpu`` in cores.
-STANDBY_UNIT_SIZE: Mapping[str, int] = MappingProxyType(
-    {
-        RESOURCE_GPU: 1,
-        RESOURCE_UNIFIED: 1,
-        RESOURCE_RAM: 16 * _MB_PER_GIB,
-        RESOURCE_CPU: 8,
-    }
-)
-#: The unit standby is counted in for each kind, by name, made from its size
-#: (:data:`STANDBY_UNIT_SIZE`).
+#: The unit standby is counted in for each kind, by name: one card, whether
+#: its memory is its own or the host's, so a unified device is a card and
+#: never also memory; host memory per 16 GiB and cores per 8. How much one
+#: unit is, and what it pays, is the hub's accounting (its ``config``), held
+#: there to these names.
 STANDBY_UNITS: Mapping[str, str] = MappingProxyType(
     {
         RESOURCE_GPU: "card",
         RESOURCE_UNIFIED: "card",
-        RESOURCE_RAM: f"{STANDBY_UNIT_SIZE[RESOURCE_RAM] // _MB_PER_GIB}GiB",
-        RESOURCE_CPU: f"{STANDBY_UNIT_SIZE[RESOURCE_CPU]}cores",
+        RESOURCE_RAM: "16GiB",
+        RESOURCE_CPU: "8cores",
     }
 )
 #: The least a resource must lend to count as lent: a hub counts a rig as

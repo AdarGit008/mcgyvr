@@ -14,6 +14,27 @@ entries name development tooling, flags and records outside this repository.
 
 ### Changed
 
+- **The LAN rule is defined once, in hubwire, for the rig and the hub (I-74).**
+  New: `hubwire.is_lan_address`, an address that is private and one a peer can
+  be at. The rig's `tunnel.is_lan` is that function, and the hub vouches for a
+  LAN endpoint by it. `hubwire.is_peer_address` now takes an IPv6 address as
+  well, which the hub's candidate check passes it; its answers for IPv4 are
+  unchanged.
+
+- **Both sides hold a ride's admission to one set of cases (I-132).** New:
+  `hubwire.RIDE_ROOM_CASES` (`RideRoomCase`), unit states with what a host
+  advertises free and whether one more ride is admitted. The rig's admission
+  (`rig/hitchhike.py` `Units.ride`, `free_slots`) is tested against them, and
+  the hub's seating against the same cases. The two formulas stay apart on
+  purpose: the hub seats by the last advert, the host decides by its live
+  count.
+
+- **The hub keeps the standby unit sizes (I-130).** `hubwire.STANDBY_UNIT_SIZE`
+  is gone: how much one standby unit is (a card, 16 GiB of host memory, 8
+  cores) is the hub's accounting, and no product code read it.
+  `hubwire.STANDBY_UNITS` keeps the unit names, unchanged (`card`, `16GiB`,
+  `8cores`).
+
 - **The wire's remaining names are defined once, in `mcgyvr.hubwire`, and the hub
   imports them (I-68, I-69, I-70, I-73, I-77, I-86, I-109, I-128, I-151).** New
   in hubwire: the seven feature names an agent may list (`FEATURES`,
