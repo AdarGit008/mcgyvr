@@ -115,6 +115,20 @@ def test_a_ring_peer_that_answers_is_reported_and_opened_to_its_ports_alone(
     assert _scripts(pool, pooled.OPEN_RING_SCRIPT) == [(fakes.SELF, RING_PEER, "50052")]
 
 
+def test_a_ring_peers_round_trip_is_never_sent_as_a_link_sample(pool: Pool) -> None:
+    _prepare(pool)
+    report = pool.up("t1", **_body(_ring_peer()))
+    # both walks timed a round trip; the report carries each beside its path
+    assert {p["rig_id"] for p in report["body"]["peers"] if "rtt_us" in p} == {
+        "rig-peer",
+        "rig-ring",
+    }
+    pool.settle()
+    # but peer_rtt, which the hub records as a link it plans on, names the head alone
+    (frame,) = pool.box.of_type("peer_rtt")
+    assert [s["rig_id"] for s in frame["body"]["samples"]] == ["rig-peer"]
+
+
 def test_a_ring_peer_named_only_to_dial_in_opens_no_dial(pool: Pool) -> None:
     _prepare(pool)
     pool.up("t1", **_body(_ring_peer(accept_ports=[50053])))

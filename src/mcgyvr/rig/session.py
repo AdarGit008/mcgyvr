@@ -2287,7 +2287,8 @@ class Sessions:
 
         A session with a path to every peer moves to ``tunnel_up``, and the waiting
         ``tunnel_up`` frames are answered with the paths, followed by one frame of
-        round trips for the peers that have them. A peer given up on only because its
+        round trips for the peers that have them (never a ring peer's: the hub would
+        record it as a link it plans on). A peer given up on only because its
         endpoint answered small pings alone refuses those frames with
         ``path_too_narrow`` and the reason, and any other lost peer fails the session
         as ``no_path``.
@@ -2305,7 +2306,9 @@ class Sessions:
                     endpoint=result.endpoint,
                     rtt_us=rtt,
                 )
-                samples.append((walk.peer.rig_id, rtt))
+                if walk.peer.ring is None:
+                    # A ring peer's round trip is no link the hub plans on.
+                    samples.append((walk.peer.rig_id, rtt))
             paths.append(result)
         assert session.plan is not None
         for rig_id in session.plan.unreached:
