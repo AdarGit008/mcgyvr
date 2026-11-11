@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import dataclasses
 import json
+import sys
 import uuid
 from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass
@@ -637,9 +638,19 @@ def hello(
     except ValueError:
         if not any(hubwire.CACHE_FIT_FIELD in m for m in body.get("models", ())):
             raise
+    dropped = 0
     for model in body["models"]:
-        model.pop(hubwire.CACHE_FIT_FIELD, None)
+        dropped += model.pop(hubwire.CACHE_FIT_FIELD, None) is not None
+    _say(
+        f"hello: the cache answers of {dropped} model(s) would pass the "
+        f"{MAX_MESSAGE_BYTES}-byte message limit; sent without them, so the hub "
+        "sizes those models from their flat figures"
+    )
     return _frame("hello", message_id, body, None)
+
+
+def _say(line: str) -> None:
+    print(line, file=sys.stderr, flush=True)
 
 
 def heartbeat(

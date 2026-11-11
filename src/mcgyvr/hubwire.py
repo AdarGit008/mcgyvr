@@ -1947,8 +1947,11 @@ def bytes_on_card(
 #: (``-ctk`` and ``-ctv``).
 HEAD_KV_CACHE_TYPE = "q8_0"
 #: Bytes one element of a :data:`HEAD_KV_CACHE_TYPE` cache costs: q8_0 keeps
-#: 32 elements in 34 bytes (a half-precision scale each block). The product's
-#: scanner holds every type's width; a test holds this one to it.
+#: 32 elements in 34 bytes (a half-precision scale each block). Every type's
+#: width is the product's scanner's (``mcgyvr.serving.vramfit.CACHE_ELEM_BYTES``),
+#: which this module cannot import: it is stdlib only, for the hub to import
+#: without the product's serving stack. So the head's one width is written
+#: here as well, and a test holds it to the scanner's.
 HEAD_KV_BYTES_PER_ELEMENT = 34 / 32
 #: The micro-batch a session's head runs (``-ub``): the rows its compute
 #: buffer's KQ mask holds, and the batch a sliding-window cache keeps in flight.
