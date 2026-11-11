@@ -22,9 +22,8 @@ The schema id is `mcgyvr.delegate_log/2`. Every way the command can end is one
 `kind`; the prefix is the group. Within `/2` new kinds may be added, so a
 reader must tolerate a kind it does not know (`read` returns it as a plain
 string); renaming or removing a kind, or changing a field, is `/3`. `/2`
-renamed the `orchestrator_*` kinds `proposer_*` (and `config_no_orchestrator`
-`config_no_proposer`); a `/1` record is still read for one release, its old
-kinds read under their new names with a `RenamedWarning`.
+gave the role's kinds their `proposer_*` names (and `config_no_proposer`);
+a `/1` record is refused like any other version, naming `/2`: no window.
 
 ======================== ==== =================================================
 kind                     exit when
@@ -104,19 +103,9 @@ from typing import Any
 
 from mcgyvr import atomic
 from mcgyvr.exits import Exit
-from mcgyvr.renamed import warn_renamed
 
 #: The record's schema name and version, written as its `schema` key.
 SCHEMA_ID = "mcgyvr.delegate_log/2"
-#: The id before the kinds were renamed, read for one release, and each old
-#: kind's new name (string literals: the old names are read, never written).
-OLD_SCHEMA_ID = "mcgyvr.delegate_log/1"
-_V1_KINDS = {
-    "config_no_orchestrator": "config_no_proposer",
-    "orchestrator_unrunnable": "proposer_unrunnable",
-    "orchestrator_unavailable": "proposer_unavailable",
-    "orchestrator_dispatch_failed": "proposer_dispatch_failed",
-}
 
 
 class DelegateKind(StrEnum):
@@ -189,7 +178,7 @@ DECOMPOSED: frozenset[DelegateKind] = frozenset(
 
 
 class DelegateLogError(ValueError):
-    """A file that is not a `mcgyvr.delegate_log/2` (or `/1`) record."""
+    """A file that is not a `mcgyvr.delegate_log/2` record."""
 
 
 @dataclass(frozen=True)
@@ -273,23 +262,19 @@ class DelegateLog:
         only writes the record.
 
         A `kind` this build does not know is kept as its string (see the module
-        note on growing kinds); everything else must have the shape `/1` gives.
+        note on growing kinds); everything else must have the shape `/2` gives.
         """
         if not isinstance(data, dict):
             raise DelegateLogError(
                 f"a delegate log is an object, not {json_type(data)}"
             )
         schema = data.get("schema")
-        if schema not in (SCHEMA_ID, OLD_SCHEMA_ID):
+        if schema != SCHEMA_ID:
             raise DelegateLogError(
-                f"this reads {SCHEMA_ID} records (and {OLD_SCHEMA_ID}, for one "
-                f"release), and the file says {schema!r}"
+                f"this reads {SCHEMA_ID} records, and the file says {schema!r}"
             )
         try:
             kind_text = _of(data, "kind", str)
-            if schema == OLD_SCHEMA_ID and kind_text in _V1_KINDS:
-                warn_renamed(f"{OLD_SCHEMA_ID} kind", kind_text, _V1_KINDS[kind_text])
-                kind_text = _V1_KINDS[kind_text]
             kind: DelegateKind | str = (
                 DelegateKind(kind_text)
                 if kind_text in DelegateKind._value2member_map_
@@ -325,7 +310,7 @@ class DelegateLog:
 
 
 def read(path: Path) -> DelegateLog:
-    """The record at `path`; `DelegateLogError` when it is not a `/1` record.
+    """The record at `path`; `DelegateLogError` when it is not a `/2` record.
 
     The reader outside tools and the tests import; no product command reads it.
     """
@@ -358,7 +343,7 @@ def json_schema() -> dict[str, Any]:
         "description": (
             f"{SCHEMA_ID}: what one `mcgyvr PROMPT --log PATH` came to. Defined "
             f"in src/mcgyvr/delegate_log.py, the one copy; import it, do not "
-            f"copy it. New kinds may be added under /1: a reader tolerates a "
+            f"copy it. New kinds may be added under /2: a reader tolerates a "
             f"kind it does not know."
         ),
         "$ref": "#/$defs/DelegateLog",
