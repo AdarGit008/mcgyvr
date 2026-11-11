@@ -46,7 +46,8 @@ is here:
   hitchhike rung's model (:func:`rung_model`, :func:`rung_offer`);
 * the ladder a rider reports (``LADDER_*``);
 * the units a host advertises (:data:`MAX_SLOTS`, :data:`MAX_UNITS`,
-  ``UNIT_ADVERT_*``), the rule a ride cap keeps (:func:`rider_cap_fits`), and
+  ``UNIT_ADVERT_*``), the rule a ride cap keeps (:func:`rider_cap_fits`), the
+  cases both sides' room for a ride is held to (:data:`RIDE_ROOM_CASES`), and
   the setup keys of a unit's numbers (:data:`UNIT_SETUP_NAMES`);
 * the relay's limits (``RELAY_MAX_*``);
 * the ``/v1`` error codes with their one HTTP status each
@@ -1029,6 +1030,47 @@ def rider_cap_fits(rider_cap: int, slots: int) -> bool:
     """Whether a unit of ``slots`` slots may take ``rider_cap`` rides at once:
     at least one, and fewer than its slots, so the host keeps one."""
     return 1 <= rider_cap < slots
+
+
+@dataclass(frozen=True)
+class RideRoomCase:
+    """One unit's state, and whether it has room for one more ride.
+
+    A unit of ``slots`` slots, a ride cap of ``rider_cap``, a server with
+    ``in_flight`` requests in flight (None: it does not say), rides among
+    them, and ``riding`` rides on it. ``free_slots`` is what its host
+    advertises: the slots the host's own requests leave free, rides not
+    counted. ``admits`` is whether another ride may start.
+    """
+
+    slots: int
+    rider_cap: int
+    in_flight: int | None
+    riding: int
+    free_slots: int
+    admits: bool
+
+
+#: The cases a ride's admission is held to on both sides. Admission runs
+#: twice on purpose: the hub seats a ride by the host's last advert and the
+#: rides it seated itself (optimistic), and the host's agent decides again by
+#: its unit's live count (``busy``). The two formulas stay apart, each its
+#: side's; both sides' tests hold theirs to these cases, so neither drifts
+#: without the other.
+RIDE_ROOM_CASES: tuple[RideRoomCase, ...] = (
+    # slots, rider_cap, in_flight, riding, free_slots, admits
+    RideRoomCase(4, 2, 0, 0, 4, True),
+    RideRoomCase(4, 2, 1, 1, 4, True),
+    RideRoomCase(4, 2, 2, 2, 4, False),  # the cap reached, slots free
+    RideRoomCase(4, 3, 3, 0, 1, True),  # the host's own leave one slot
+    RideRoomCase(4, 3, 4, 0, 0, False),  # the host's own take every slot
+    RideRoomCase(4, 3, 4, 1, 1, False),  # the one they leave is the ride's
+    RideRoomCase(8, 4, 5, 2, 5, True),
+    RideRoomCase(8, 4, 9, 2, 1, False),  # queued past the slots
+    RideRoomCase(2, 1, 0, 0, 2, True),
+    RideRoomCase(2, 1, 1, 1, 2, False),
+    RideRoomCase(4, 2, None, 0, 0, False),  # a server that does not say: full
+)
 
 
 def schema_bytes(name: str) -> bytes:

@@ -14,6 +14,14 @@ entries name development tooling, flags and records outside this repository.
 
 ### Changed
 
+- **Both sides hold a ride's admission to one set of cases (I-132).** New:
+  `hubwire.RIDE_ROOM_CASES` (`RideRoomCase`), unit states with what a host
+  advertises free and whether one more ride is admitted. The rig's admission
+  (`rig/hitchhike.py` `Units.ride`, `free_slots`) is tested against them, and
+  the hub's seating against the same cases. The two formulas stay apart on
+  purpose: the hub seats by the last advert, the host decides by its live
+  count.
+
 - **The hub keeps the standby unit sizes (I-130).** `hubwire.STANDBY_UNIT_SIZE`
   is gone: how much one standby unit is (a card, 16 GiB of host memory, 8
   cores) is the hub's accounting, and no product code read it.
