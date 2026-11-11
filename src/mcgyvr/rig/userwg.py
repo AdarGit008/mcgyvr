@@ -33,6 +33,7 @@ listens anywhere else on this host.
 from __future__ import annotations
 
 import contextlib
+import ipaddress
 import json
 import os
 import threading
@@ -85,6 +86,83 @@ ENGINE_ENV_PREFIXES = ("GGML_", "CUDA_", "VK_", "MTL_", "METAL_")
 #: (std::getenv("GGML_RPC_NO_RDMA")) { return; }``,
 #: https://github.com/ggml-org/llama.cpp/blob/b11960/ggml/src/ggml-rpc/transport.cpp).
 HEAD_FIXED_ENV = {"GGML_RPC_NO_COMM": "1", "GGML_RPC_NO_RDMA": "1"}
+#: What a ring build's head is always given instead. RDMA stays off: the
+#: fork reads ``GGML_RPC_NO_RDMA`` as upstream does (``transport.cpp``), and
+#: the head's connections are loopback forwards RDMA cannot take. No
+#: ``GGML_RPC_NO_COMM``: the fork has no ``comm_init`` and reads no such
+#: variable, and its ring is told apart per worker pair by the head itself.
+RING_HEAD_FIXED_ENV = {"GGML_RPC_NO_RDMA": "1"}
+#: The variable that tells a ring build's head, per ``--rpc`` endpoint, the
+#: address the OTHER workers reach that worker at (the fork's
+#: ``GGML_RPC_PEER_ENDPOINTS``: ``local=peer[,local=peer...]``, each side
+#: ``host:port``): a native head reaches each worker through a loopback
+#: forward, an address no worker can dial.
+PEER_ENDPOINTS_ENV = "GGML_RPC_PEER_ENDPOINTS"
+#: What a ring build's head never takes from the agent's own environment: the
+#: two variables :func:`head_build_env` alone decides (the fork reads a peer
+#: mapping at its first connection even when star only, and aborts on a
+#: malformed one).
+RING_SET_ENV = frozenset({PEER_ENDPOINTS_ENV, pooled.STAR_ONLY_ENV})
+#: The fork's bounds on it, past which its head aborts at its first
+#: connection: at most 16 pairs (``GGML_RPC_MAX_SERVERS``), each side at most
+#: 255 bytes, the whole value at most 8192, no ``local`` or ``peer`` twice, and
+#: each side an IPv4 ``host:port``.
+PEER_ENDPOINTS_MAX_PAIRS = 16
+PEER_ENDPOINTS_MAX_SIDE = 255
+PEER_ENDPOINTS_MAX_BYTES = 8192
+
+
+def _ipv4_endpoint(text: str) -> bool:
+    host, colon, port = text.rpartition(":")
+    if not colon or len(text) > PEER_ENDPOINTS_MAX_SIDE or not port.isdigit():
+        return False
+    try:
+        ipaddress.IPv4Address(host)
+    except ValueError:
+        return False
+    return str(int(port)) == port and 1 <= int(port) <= 65535
+
+
+def peer_endpoints(pairs: Sequence[tuple[str, str]]) -> dict[str, str] | None:
+    """The head's :data:`PEER_ENDPOINTS_ENV` for ``pairs`` of (the ``--rpc``
+    endpoint the head dials, the worker's own tunnel ``host:port``): nothing
+    for no pair, and None when the pairs break a bound the fork holds the
+    value to (the head would abort), so the head runs star only instead. The
+    one place the fork's spelling of it is written."""
+    if not pairs:
+        return {}
+    locals_ = [local for local, _ in pairs]
+    peers = [peer for _, peer in pairs]
+    value = ",".join(f"{local}={peer}" for local, peer in pairs)
+    if (
+        len(pairs) > PEER_ENDPOINTS_MAX_PAIRS
+        or len(set(locals_)) != len(locals_)
+        or len(set(peers)) != len(peers)
+        or not all(_ipv4_endpoint(side) for side in (*locals_, *peers))
+        or len(value) > PEER_ENDPOINTS_MAX_BYTES
+    ):
+        return None
+    return {PEER_ENDPOINTS_ENV: value}
+
+
+def head_build_env(
+    spec: pooled.HeadSpec, pairs: Sequence[tuple[str, str]]
+) -> dict[str, str]:
+    """What a native head of ``spec``'s build is always given: the upstream
+    build's :data:`HEAD_FIXED_ENV`; a ring build's :data:`RING_HEAD_FIXED_ENV`
+    with, when its workers may pass tensors worker to worker, each forward's
+    worker named as the other workers reach it (:func:`peer_endpoints`), and
+    else :data:`mcgyvr.rig.pooled.STAR_ONLY_ENV`: also when the forwards are
+    more, or other, than that value may name, so the session runs star only
+    rather than its head aborting."""
+    if not spec.ring:
+        return dict(HEAD_FIXED_ENV)
+    named = None if spec.star_only else peer_endpoints(pairs)
+    if named is None:
+        return {**RING_HEAD_FIXED_ENV, pooled.STAR_ONLY_ENV: "1"}
+    return {**RING_HEAD_FIXED_ENV, **named}
+
+
 #: The bytes of a log read for its last lines.
 LOG_TAIL_BYTES = 1 << 16
 #: The folder, under the native units' state folder, a session's process
@@ -108,15 +186,25 @@ def pinned_helper() -> list[str]:
         raise pooled.PoolError(str(exc)) from exc
 
 
-def pinned_engine() -> Engine:
+def pinned_engine(pin: llamacpp.Pin | None = None) -> Engine:
     """The pinned llama-server build for this machine
-    (:func:`mcgyvr.serving.native.pick`), fetched and verified on first use."""
+    (:func:`mcgyvr.serving.native.pick`), of the upstream pin or of ``pin``,
+    fetched and verified on first use."""
     try:
-        build = native.pick()
-        folder = native.binaries(build)
+        build = native.pick(pin)
+        folder = native.binaries(build, pin)
     except native.NativeError as exc:
         raise pooled.PoolError(str(exc)) from exc
     return Engine(program=folder / hostos.exe(llamacpp.SERVER), backend=build.backend)
+
+
+def ring_engine() -> Engine:
+    """The ring build's llama-server for this machine, fetched and verified the
+    first time a session runs it, never before."""
+    pin = llamacpp.RING
+    if pin is None:
+        raise pooled.PoolError("no ring build is pinned")
+    return pinned_engine(pin)
 
 
 def helper_env(env: Mapping[str, str]) -> dict[str, str]:
@@ -223,6 +311,7 @@ class NativeHost:
         agent_pid: int,
         helper: Callable[[], Sequence[str]] = pinned_helper,
         engine: Callable[[], Engine] = pinned_engine,
+        ring: Callable[[], Engine] | None = None,
         env: Mapping[str, str] | None = None,
         log_path: Callable[[str], Path] = native.log_path,
         records: Callable[[], Path] = records_dir,
@@ -231,12 +320,14 @@ class NativeHost:
         self._agent_pid = agent_pid
         self._helper = helper
         self._engine = engine
+        self._ring_engine = ring_engine if ring is None else ring
         self._env = dict(os.environ if env is None else env)
         self._log_path = log_path
         self._records = records
         self._reply_s = reply_s
         self._lock = threading.Lock()
         self._fetching = threading.Lock()
+        self._ring_fetching = threading.Lock()
         self._runs: dict[str, _Run] = {}
         self._argv: list[str] | None = None
         self._found: Engine | None = None
@@ -493,12 +584,25 @@ class NativeHost:
             )
         if run.api_port is None or found is None:
             raise pooled.PoolError("the session prepared no API port or build")
+        if llamacpp.RING is not None and spec.build == llamacpp.RING.id:
+            # A lock of its own: two ring fetches wait on each other, and no
+            # other session's prepare (``tunnel_image``) waits on either.
+            with self._ring_fetching:
+                ring = self._ring_engine()
+            if ring.backend != found.backend:
+                raise pooled.PoolError(
+                    f"the ring build runs {ring.backend}, the session's cards "
+                    f"were named for {found.backend}"
+                )
+            found = ring
         local = []
+        pairs = []
         for device in spec.rpc:
             host, _, port = device.rpartition(":")
             forwarded = run.helper.forward("head", host, int(port))
             run.forwards.append(forwarded)
             local.append(f"{LOOPBACK}:{forwarded}")
+            pairs.append((local[-1], device))
         argv = pooled.head_server_args(
             spec,
             model=str(spec.models_dir / spec.model),
@@ -508,9 +612,13 @@ class NativeHost:
         # The key goes in the head's environment, never its argv, which any local
         # user may list; llama-server reads it as its --api-key.
         env = {
-            **engine_env(self._env),
+            **{
+                key: value
+                for key, value in engine_env(self._env).items()
+                if not (spec.ring and key in RING_SET_ENV)
+            },
             **native.device_env(found.backend, spec.gpus),
-            **HEAD_FIXED_ENV,
+            **head_build_env(spec, pairs),
             unitkey.LLAMA_ENV: spec.api_key,
         }
         block = head_block(run.head_name, argv, env, spec.gpus)

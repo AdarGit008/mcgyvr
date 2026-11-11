@@ -229,8 +229,10 @@ class Build:
     assets: tuple[str, ...]
 
 
-def _build(os_name: str, arch: str, backend: str, *assets: str) -> Build:
-    stem = assets[0].removeprefix(f"llama-{TAG}-bin-")
+def _build(
+    os_name: str, arch: str, backend: str, *assets: str, tag: str = TAG
+) -> Build:
+    stem = assets[0].removeprefix(f"llama-{tag}-bin-")
     for suffix in (".tar.gz", ".zip"):
         stem = stem.removesuffix(suffix)
     return Build(os_name, arch, backend, stem, assets)
@@ -295,6 +297,70 @@ BUILDS: tuple[Build, ...] = (
 )
 
 
+@dataclass(frozen=True)
+class Pin:
+    """One llama.cpp build a pooled session may run, as the wire names it
+    (:class:`mcgyvr.hubwire.Runtime`): the upstream pin (:data:`UPSTREAM`) and,
+    once its owner fills it in, the ring build (:data:`RING`).
+
+    ``id`` is the id a rig offers it by; ``repo`` and ``tag`` the release it is
+    (:attr:`runtime`, the same for its image and its archives); ``rpc_proto``
+    the RPC protocol it speaks, (major, minor); ``ring`` whether its workers
+    pass tensors worker to worker. ``release`` and ``builds`` are its native
+    archives (each with its size and sha256) and the builds they make, by
+    system, architecture and backend: none, and no native rig offers it.
+    ``image`` is its Linux image, pinned by digest (``<name>@sha256:<hex>``,
+    so a pull holds it to those bytes), holding llama-server at
+    ``head_binary`` and the rpc worker at ``worker_binary``: without all three,
+    no container rig offers it. The upstream pin names none of the two: a
+    container rig runs it from its owner's image and binaries, as always.
+    """
+
+    id: str
+    repo: str
+    tag: str
+    rpc_proto: tuple[int, int]
+    ring: bool
+    release: Release
+    builds: tuple[Build, ...] = ()
+    image: str | None = None
+    head_binary: str | None = None
+    worker_binary: str | None = None
+
+    @property
+    def runtime(self) -> str:
+        """The build's name on the wire: ``<repo>@<tag>``."""
+        return f"{self.repo}@{self.tag}"
+
+
+#: The id a rig offers the upstream pin by, the ring pin by, and an owner's
+#: own image (a build no pin names) by.
+UPSTREAM_ID = "upstream"
+RING_ID = "ring"
+IMAGE_ID = "image"
+#: The upstream pin: what every rig runs today, and the default build.
+UPSTREAM = Pin(
+    id=UPSTREAM_ID,
+    repo=REPO,
+    tag=TAG,
+    rpc_proto=(RPC_PROTO_MAJOR, RPC_PROTO_MINOR),
+    ring=False,
+    release=RELEASE,
+    builds=BUILDS,
+    image=IMAGE,
+)
+#: The ring build: a release of the llama.cpp fork whose workers pass tensors
+#: worker to worker (RPC protocol 7.3). Empty (None) until such a release is
+#: published: then no rig offers a ring build, fetches anything for one or
+#: names anything new in its hello. To turn it on, its owner sets it to a
+#: :class:`Pin` with ``id=RING_ID``, ``ring=True``, the fork's ``repo`` and
+#: ``tag`` (its archives are fetched from that GitHub release), its
+#: ``rpc_proto``, a :class:`~mcgyvr.serving.release.Release` of its native
+#: archives with their sizes and sha256 and the :class:`Build` rows they make
+#: (``_build(..., tag=<its tag>)``), and its digest-pinned ``image``.
+RING: Pin | None = None
+
+
 def cuda_major(build: Build) -> int | None:
     """The CUDA major version a CUDA build was made with, from its archive name."""
     if build.backend != CUDA:
@@ -346,22 +412,30 @@ def backend_for(
 
 
 def build_for(
-    os_name: str, arch: str, backend: str, *, nvidia_driver: str | None = None
+    os_name: str,
+    arch: str,
+    backend: str,
+    *,
+    nvidia_driver: str | None = None,
+    pin: Pin | None = None,
 ) -> Build:
-    """The pinned build for this system, architecture and backend.
+    """The pinned build for this system, architecture and backend: of the
+    upstream pin, or of ``pin``'s builds when it is named.
 
     For CUDA, the newest CUDA major version `nvidia_driver` runs. Raises
     :class:`NoBuildError` naming what there is when none fits.
     """
-    rows = [b for b in BUILDS if (b.os, b.arch, b.backend) == (os_name, arch, backend)]
+    builds = BUILDS if pin is None else pin.builds
+    tag = TAG if pin is None else pin.tag
+    rows = [b for b in builds if (b.os, b.arch, b.backend) == (os_name, arch, backend)]
     if backend == CUDA:
         rows = [b for b in rows if driver_runs(b, nvidia_driver)]
     if not rows:
         offered = sorted(
-            {b.backend for b in BUILDS if (b.os, b.arch) == (os_name, arch)}
+            {b.backend for b in builds if (b.os, b.arch) == (os_name, arch)}
         )
         raise NoBuildError(
-            f"no pinned llama.cpp {TAG} build runs {backend} on {os_name} {arch}"
+            f"no pinned llama.cpp {tag} build runs {backend} on {os_name} {arch}"
             + (
                 f" (driver {nvidia_driver})"
                 if backend == CUDA and nvidia_driver

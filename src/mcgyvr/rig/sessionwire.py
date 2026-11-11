@@ -240,6 +240,9 @@ class WorkerStart:
     session_id: str
     cards: tuple[WorkerCard, ...]
     digest: str | None = None  # the sha256 of the weights the head will load
+    #: The build to start, an id from this rig's own hello
+    #: (:data:`mcgyvr.hubwire.RUNTIME_ID_FIELD`), or None for its default build.
+    runtime_id: str | None = None
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -270,6 +273,12 @@ class HeadStart:
     tensor_split: tuple[int, ...]
     n_gpu_layers: int
     slots: int = DEFAULT_SLOTS
+    #: The build to start, as :attr:`WorkerStart.runtime_id` says.
+    runtime_id: str | None = None
+    #: Whether a ring build's workers may pass tensors worker to worker
+    #: (:data:`mcgyvr.hubwire.HEAD_RING_FIELD`): False runs its head star only,
+    #: None (left out) is the build's own default.
+    ring: bool | None = None
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -485,6 +494,15 @@ def _start(envelope: protocol.Envelope) -> _Body:
     return _Body(envelope.body, "body", envelope.id)
 
 
+def _runtime_id(body: _Body) -> str | None:
+    """The build a start names (:data:`mcgyvr.hubwire.RUNTIME_ID_FIELD`), None
+    when it names none; refused unless it is of the id's shape."""
+    found: str | None = body.text(
+        hubwire.RUNTIME_ID_FIELD, hubwire.RUNTIME_ID, optional=True
+    )
+    return found
+
+
 def _token(body: _Body, field: str) -> bytes:
     return bytes.fromhex(body.text(field, TOKEN))
 
@@ -579,7 +597,8 @@ def read_tunnel_up(envelope: protocol.Envelope) -> TunnelUp:
 
 def read_worker_start(envelope: protocol.Envelope) -> WorkerStart:
     """Read a worker_start body: which cards, on which ports and backend, to serve,
-    and the digest of the weights the head will load, when the hub names it."""
+    the digest of the weights the head will load, when the hub names it, and the
+    build to serve them with, when it names one."""
     body = _start(envelope)
     session_id = body.text("session_id", SESSION_ID)
     cards = []
@@ -604,11 +623,17 @@ def read_worker_start(envelope: protocol.Envelope) -> WorkerStart:
         if body.has("model")
         else None
     )
-    return WorkerStart(session_id=session_id, cards=tuple(cards), digest=digest)
+    return WorkerStart(
+        session_id=session_id,
+        cards=tuple(cards),
+        digest=digest,
+        runtime_id=_runtime_id(body),
+    )
 
 
 def read_head_start(envelope: protocol.Envelope) -> HeadStart:
-    """Read a head_start body: the model, its devices and its slots.
+    """Read a head_start body: the model, its devices and its slots, and the
+    build to run and whether its ring may be used, when the hub names them.
 
     Context is the window each slot gets; tensor_split holds one share per
     device and must not sum to zero.
@@ -673,6 +698,12 @@ def read_head_start(envelope: protocol.Envelope) -> HeadStart:
             "n_gpu_layers", 0, MAX_GPU_LAYERS, default=DEFAULT_GPU_LAYERS
         ),
         slots=_slots(body),
+        runtime_id=_runtime_id(body),
+        ring=(
+            body.flag(hubwire.HEAD_RING_FIELD)
+            if body.has(hubwire.HEAD_RING_FIELD)
+            else None
+        ),
     )
 
 

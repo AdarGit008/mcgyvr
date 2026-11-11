@@ -237,7 +237,11 @@ firewall unasked); `up` from `tunnel.TunnelPlan` (mtu `pooled.TUNNEL_MTU`);
 device, then `spawn` of `head` (the pinned llama-server, `--host 127.0.0.1`, `--rpc` naming the
 forwards, an environment of PATH-like variables plus `GGML_*`/`CUDA_*`/`VK_*`/`MTL_*`/`METAL_*`,
 the card variables, and always `GGML_RPC_NO_COMM=1` and `GGML_RPC_NO_RDMA=1`, so the head never asks
-a worker for comm_init's wildcard listener and never negotiates RDMA, and `LLAMA_API_KEY`, the key
+a worker for comm_init's wildcard listener and never negotiates RDMA (a session that runs the ring
+build, `head_start.runtime_id` naming it: its own pinned llama-server, fetched then, with
+`GGML_RPC_NO_RDMA=1` alone, since the fork has no comm_init, and either `GGML_RPC_STAR_ONLY=1` when
+`head_start.ring` is false or `GGML_RPC_PEER_ENDPOINTS` naming, for each forward, the worker's tunnel
+`host:port` the other workers dial: `userwg.head_build_env`), and `LLAMA_API_KEY`, the key
 this session made for the head's API, which the head asks of every request but `/health`; the key is
 in the `spawn` env only, never in `argv`, and the helper keeps it as it keeps every request field: in
 memory, never on stdout, stderr or a file); `state`/`lease` while it

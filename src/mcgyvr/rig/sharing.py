@@ -117,6 +117,12 @@ class Sharing:
     a router's forward is refused. `ring_links` lets this rig take a session's
     worker <-> worker tunnel peers (it names ``ring_peers``): the pinned build
     never dials one, so it stays off unless the owner turns it on in the file.
+    `ring_image` is the image the owner names for the ring build
+    (:data:`mcgyvr.serving.llamacpp.RING`): the rig offers that build, beside
+    the one `image` runs, only when the reference pins the ring pin's own
+    digest (``<name>@sha256:<hex>``, a mirror of it too), so docker holds it to
+    those bytes; another reference names no build the rig knows, and a start
+    of the ring build is refused naming it. Unwritten until set.
     `notes` carries what the reader said about retired settings, and takes no
     part in comparison.
     """
@@ -139,6 +145,7 @@ class Sharing:
     port_forward: bool = False
     port_forward_permanent: bool = False
     ring_links: bool = False
+    ring_image: str | None = None
     notes: tuple[str, ...] = field(default=(), compare=False)
 
     def native_here(self) -> bool:
@@ -513,11 +520,12 @@ def read(data: object) -> Sharing:
         ):
             raise _refuse("roles", "not a list of distinct roles: head, worker")
         out["roles"] = tuple(roles)
-    if data.get("image") is not None:
-        image = data["image"]
-        if not isinstance(image, str) or not protocol.RUNTIME.fullmatch(image):
-            raise _refuse("image", "not an image reference")
-        out["image"] = image
+    for name in ("image", "ring_image"):
+        if data.get(name) is not None:
+            image = data[name]
+            if not isinstance(image, str) or not protocol.RUNTIME.fullmatch(image):
+                raise _refuse(name, "not an image reference")
+            out[name] = image
     for name in ("head_binary", "worker_binary"):
         if name in data:
             value = data[name]
@@ -608,6 +616,8 @@ def as_data(sharing: Sharing) -> dict[str, Any]:
     for name in _CONSENTS:
         if not data[name]:
             data.pop(name)  # unwritten until given, so older agents read the file
+    if data["ring_image"] is None:
+        data.pop("ring_image")  # unwritten until given, as the consents
     for name in ("roles", "cards", "endpoints"):
         if data[name] is not None:
             data[name] = list(data[name])
