@@ -14,6 +14,12 @@ entries name development tooling, flags and records outside this repository.
 
 ### Changed
 
+- **The hub keeps the standby unit sizes (I-130).** `hubwire.STANDBY_UNIT_SIZE`
+  is gone: how much one standby unit is (a card, 16 GiB of host memory, 8
+  cores) is the hub's accounting, and no product code read it.
+  `hubwire.STANDBY_UNITS` keeps the unit names, unchanged (`card`, `16GiB`,
+  `8cores`).
+
 - **The wire's remaining names are defined once, in `mcgyvr.hubwire`, and the hub
   imports them (I-68, I-69, I-70, I-73, I-77, I-86, I-109, I-128, I-151).** New
   in hubwire: the seven feature names an agent may list (`FEATURES`,

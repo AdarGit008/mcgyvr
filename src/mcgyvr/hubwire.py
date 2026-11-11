@@ -93,8 +93,8 @@ is here:
   advert or heartbeat may name (:data:`MAX_RESOURCES`, and the kinds a rig names
   once: :func:`resources_fit`, :func:`readings_fit`),
   the legacy cards they make (:func:`cards_from_resources`,
-  :func:`card_readings_from`), the unit standby is counted in per kind
-  (:data:`STANDBY_UNITS`, its size :data:`STANDBY_UNIT_SIZE`) and the least a
+  :func:`card_readings_from`), the unit standby is counted in per kind, by
+  name (:data:`STANDBY_UNITS`; its size is the hub's) and the least a
   resource lends to count (:data:`LEND_FLOOR_MB`, :data:`LEND_FLOOR_CORES`,
   the oldest DDR generation host memory may be, :data:`RAM_DDR_MIN`, and
   :func:`counts_as_lent`);
@@ -1127,27 +1127,17 @@ RESOURCE_NAME_MAX = 128
 FORMAT_CHARACTERS = re.compile("[\u061c\u200b-\u200f\u2028-\u202e\u2060-\u2064\ufeff]")
 #: Largest memory figure a resource may carry, in MiB, as a card's.
 RESOURCE_MAX_MB = 1 << 30
-_MB_PER_GIB = 1024
-#: How much of each kind one standby unit is, which a hub pays standby by:
-#: one card, whether its memory is its own or the host's, so a unified device
-#: is a card and never also memory; host memory per 16384 MiB (16 GiB) and
-#: cores per 8. Cards count in cards, ``ram`` in MiB and ``cpu`` in cores.
-STANDBY_UNIT_SIZE: Mapping[str, int] = MappingProxyType(
-    {
-        RESOURCE_GPU: 1,
-        RESOURCE_UNIFIED: 1,
-        RESOURCE_RAM: 16 * _MB_PER_GIB,
-        RESOURCE_CPU: 8,
-    }
-)
-#: The unit standby is counted in for each kind, by name, made from its size
-#: (:data:`STANDBY_UNIT_SIZE`).
+#: The unit standby is counted in for each kind, by name: one card, whether
+#: its memory is its own or the host's, so a unified device is a card and
+#: never also memory; host memory per 16 GiB and cores per 8. How much one
+#: unit is, and what it pays, is the hub's accounting (its ``config``), held
+#: there to these names.
 STANDBY_UNITS: Mapping[str, str] = MappingProxyType(
     {
         RESOURCE_GPU: "card",
         RESOURCE_UNIFIED: "card",
-        RESOURCE_RAM: f"{STANDBY_UNIT_SIZE[RESOURCE_RAM] // _MB_PER_GIB}GiB",
-        RESOURCE_CPU: f"{STANDBY_UNIT_SIZE[RESOURCE_CPU]}cores",
+        RESOURCE_RAM: "16GiB",
+        RESOURCE_CPU: "8cores",
     }
 )
 #: The least a resource must lend to count as lent: a hub counts a rig as

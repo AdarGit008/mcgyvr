@@ -783,18 +783,10 @@ def test_every_kind_has_one_standby_unit_and_only_names_it() -> None:
         hubwire.STANDBY_UNITS["ram"] = "1GiB"  # type: ignore[index]
 
 
-def test_every_kinds_standby_unit_has_the_size_its_name_says() -> None:
-    """A hub pays standby per unit of these sizes: a card, 16384 MiB of host
-    memory, 8 cores; the names are made from them."""
-    assert dict(hubwire.STANDBY_UNIT_SIZE) == {
-        "gpu": 1,
-        "unified": 1,
-        "ram": 16384,
-        "cpu": 8,
-    }
-    assert tuple(hubwire.STANDBY_UNIT_SIZE) == tuple(hubwire.STANDBY_UNITS)
-    with pytest.raises(TypeError):
-        hubwire.STANDBY_UNIT_SIZE["ram"] = 1  # type: ignore[index]
+def test_the_wire_names_the_standby_units_and_leaves_their_sizes_to_the_hub() -> None:
+    """How much one unit is, and what it pays, is the hub's accounting, which
+    no product code reads: the wire carries the names alone."""
+    assert not hasattr(hubwire, "STANDBY_UNIT_SIZE")
 
 
 # --- the least a resource lends to count --------------------------------------------
