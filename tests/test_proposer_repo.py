@@ -1,4 +1,4 @@
-"""Attach holds the boundary the whole orchestrator sits behind: a repository
+"""Attach holds the boundary the whole proposer sits behind: a repository
 is required, and both a local checkout and a clone URL reach the *same*
 internal state at a known revision.
 

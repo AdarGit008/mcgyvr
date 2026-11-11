@@ -4,7 +4,7 @@ The agent that types ``mcgyvr direct`` has to decide what to do next: accept
 the change, commit it, or write a different contract. Told only ``the gate
 rejected the change on acceptance; no verifier was asked``, while the finding
 lines (``RetryNotes``) go only into the model's retry prompt, a caller cannot
-see why the gate refused and cannot replan; it can only try the same contract
+see why the gate refused and cannot redecompose; it can only try the same contract
 again.
 
 Two channels, one content. On stdout, each failed attempt is followed by its

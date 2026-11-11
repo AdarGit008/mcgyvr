@@ -94,8 +94,8 @@ def test_the_loader_and_the_schema_enumerate_the_same_keys() -> None:
     # else in the loader is a schema field and vice versa.
     assert {f.name for f in config.UNIT_FIELDS} == files._UNIT_KEYS - {"unit_id"}
     assert {
-        f.name for f in config.SCHEMA if f.name not in ("units", "relief")
+        f.name for f in config.SCHEMA if f.name not in ("units", "hitchhike")
     } == files._POLICY_KEYS
     assert {"units", "rigs", "fleets"} == files._FLEET_KEYS
-    # The relief block is the third file's, written by a sync: in neither list.
-    assert {"relief"} == files._RELIEF_FILE_KEYS
+    # The hitchhike block is the third file's, written by a sync: in neither list.
+    assert {"hitchhike"} == files._HITCHHIKE_FILE_KEYS

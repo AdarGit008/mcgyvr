@@ -13,7 +13,7 @@ A rung skipped so is skipped every time, and a mistyped name would be skipped
 without a word. So each such dispatch writes one line to the run's log (its
 standard error) naming the rung and the model it does not know.
 
-A relief rung's ``404`` is unchanged: a stale rung, a full rung, with no
+A hitchhike rung's ``404`` is unchanged: a stale rung, a full rung, with no
 line. Any other ``404`` is still the rung's error.
 
 Every server here is a loopback one this test starts.
@@ -36,7 +36,7 @@ from mcgyvr.ladder_map import unit_map
 from mcgyvr.route import Verdict
 from mcgyvr.runner import (
     BackendError,
-    ReliefUnavailableError,
+    HitchhikeUnavailableError,
     Request,
     RunnerError,
     UnknownModelError,
@@ -53,7 +53,7 @@ LOCAL_MODEL = "qwen2.5-coder-3b"
 
 
 def mixed(address: str) -> str:
-    """A keyed rung, a keyless one and a relief rung, all at ``address``."""
+    """A keyed rung, a keyless one and a hitchhike rung, all at ``address``."""
     return f"""
 units:
   pooled:
@@ -69,7 +69,7 @@ units:
     window: 32768
 ladder: [local_fast, pooled]
 fanout: idle
-relief:
+hitchhike:
   {RIDE}:
     address: {address}
     model: hitchhike@{RUNG_ID}
@@ -159,14 +159,14 @@ def test_any_other_answer_is_still_the_rungs_error(
     assert notes(capsys) == []
 
 
-def test_a_relief_rungs_404_is_a_stale_rung_as_before(
+def test_a_hitchhike_rungs_404_is_a_stale_rung_as_before(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     seen: list[str] = []
     with answering(*UNKNOWN, seen) as address:
         _, outcome = ask(address, RIDE, tmp_path)
 
-    assert isinstance(outcome, ReliefUnavailableError)
+    assert isinstance(outcome, HitchhikeUnavailableError)
     assert not isinstance(outcome, UnknownModelError)
     assert notes(capsys) == []
 

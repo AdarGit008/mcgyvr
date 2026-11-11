@@ -22,7 +22,7 @@ from mcgyvr.catalog import catalog
 from mcgyvr.decision import Choice, ChoiceAnswer, Decision, Question
 from mcgyvr.decompose.candidates import directive
 from mcgyvr.decompose.decompose import decompose
-from mcgyvr.delegate import ClassifierProposer
+from mcgyvr.delegate import FillProposer
 from mcgyvr.repo.index import Index, build_index
 
 REQUEST = (
@@ -72,7 +72,7 @@ def _choosing(asked: dict[str, Choice], *, task: str | None = None) -> Any:
 
 def test_the_task_question_offers_the_request_then_the_directive(repo: Index) -> None:
     asked: dict[str, Choice] = {}
-    decompose(repo, REQUEST, propose=ClassifierProposer(classify=_choosing(asked)))
+    decompose(repo, REQUEST, propose=FillProposer(classify=_choosing(asked)))
 
     code = catalog().require("code")
     assert list(asked["task"].options.values()) == [
@@ -83,9 +83,7 @@ def test_the_task_question_offers_the_request_then_the_directive(repo: Index) ->
 
 def test_a_rank_0_pick_carries_the_request_into_the_contract(repo: Index) -> None:
     asked: dict[str, Choice] = {}
-    result = decompose(
-        repo, REQUEST, propose=ClassifierProposer(classify=_choosing(asked))
-    )
+    result = decompose(repo, REQUEST, propose=FillProposer(classify=_choosing(asked)))
 
     assert result.refusals == ()
     (contract,) = result.contracts
@@ -97,7 +95,7 @@ def test_a_directive_pick_goes_into_the_contract_unchanged(repo: Index) -> None:
     line = directive(catalog().require("code"), "chunk.py", "chunk")
     asked: dict[str, Choice] = {}
     result = decompose(
-        repo, REQUEST, propose=ClassifierProposer(classify=_choosing(asked, task=line))
+        repo, REQUEST, propose=FillProposer(classify=_choosing(asked, task=line))
     )
 
     (contract,) = result.contracts

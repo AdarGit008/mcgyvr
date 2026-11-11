@@ -41,7 +41,7 @@ units:
     width: 1
 ladder:
 - planner
-orchestrator:
+proposer:
   unit: planner
   model: planner-model
 journal:

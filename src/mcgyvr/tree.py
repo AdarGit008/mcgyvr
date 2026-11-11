@@ -27,7 +27,8 @@ committed tree, never asked of a model:
   nothing in the set creates (`unprovided`).
 
 A held contract is not dead: a provider retried (`retry`) or replaced
-(`replace`, the contracts a re-plan proposed in its place, `mcgyvr.replan`)
+(`replace`, the contracts a re-decomposition proposed in its place,
+`mcgyvr.redecompose`)
 frees it again. Only `seal` — the queue drained — turns what is still held
 into `dead`, the contracts that get a result with outcome `blocked` and no
 attempt spent.
@@ -554,8 +555,8 @@ class Tree:
                     "result": node.result,
                     "blocked_by": node.hold.as_json() if node.hold else None,
                     **(
-                        {"replaces": node.contract.replan.replaces}
-                        if node.contract.replan.stated
+                        {"replaces": node.contract.lineage.replaces}
+                        if node.contract.lineage.stated
                         else {}
                     ),
                     **({"batch": node.batch} if node.batch else {}),

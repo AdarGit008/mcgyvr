@@ -1,7 +1,7 @@
-"""Ask the hub for the relief rungs this setup may ride, and keep them written;
+"""Ask the hub for the hitchhike rungs this setup may ride, and keep them written;
 ask it for the member's balance with the same key.
 
-A relief rung is a unit other people lend you through the hub (hitchhike): it
+A hitchhike rung is a unit other people lend you through the hub: it
 is a step of the ladder only where you name it there, so all this module does
 is report the shape of your own ladder to the hub and record the rungs it
 answers with.
@@ -12,12 +12,12 @@ answers with.
 * :func:`fetch` posts that report to ``RUNGS_PATH`` on the hub's own address
   with the personal key, and :func:`read` validates the answer whole: one
   unreadable rung refuses the answer rather than being half-kept.
-* :func:`render` turns the answer into the ``relief`` block of the setup's
-  ``relief.yaml``, and :func:`sync` writes it, loading the setup with it first
+* :func:`render` turns the answer into the ``hitchhike`` block of the setup's
+  ``hitchhike.yaml``, and :func:`sync` writes it, loading the setup with it first
   so an answer the setup would refuse is never written.
 * :func:`ask`, :func:`load_setup` and :func:`keep` are the one fetch and the
   one writer of every file a sync keeps beside a setup (:data:`KEPT`):
-  ``relief.yaml`` here, ``crew.yaml`` for :mod:`mcgyvr.rig.crew`.
+  ``hitchhike.yaml`` here, ``crew.yaml`` for :mod:`mcgyvr.rig.crew`.
 * :class:`Refresher` re-runs a sync off the rig agent's heartbeat, no more
   often than the hub's ``refresh_s``, and once every ``RETRY_S`` after a
   failure.
@@ -48,13 +48,15 @@ from mcgyvr import atomic
 from mcgyvr.config import (
     CREW_FILENAME,
     FLEET_FILENAME,
+    HITCHHIKE_FILENAME,
+    OLD_HITCHHIKE_FILENAME,
     POLICY_FILENAME,
-    RELIEF_FILENAME,
     RIDE_SCOPE,
     Config,
     ConfigError,
     Unit,
     config_path,
+    kept_file,
     parse,
 )
 from mcgyvr.fleet.files import (
@@ -91,7 +93,7 @@ MAX_CREDITS_BYTES = 64 * 1024
 MAX_BALANCE = CREDITS_MAX_BALANCE
 BALANCE = re.compile(rf"(?=.{{1,{MAX_BALANCE}}}$){CREDITS_BALANCE.pattern}")
 #: The variable name a sync reads the rider's personal hub key from when it is
-#: told none, and the agent's refresh when ``relief.yaml`` records none.
+#: told none, and the agent's refresh when ``hitchhike.yaml`` records none.
 KEY_ENV = "MCGYVR_HUB_API_KEY"
 #: What the address check names as the credential that would travel in clear.
 CARRYING = "your personal hub key"
@@ -100,7 +102,7 @@ FETCH_TIMEOUT_S = 15.0
 #: Most bytes of the hub's answer that are read; one more is read to tell an
 #: overrun from an answer that fills the mark exactly.
 MAX_ANSWER_BYTES = 256 * 1024
-#: Most relief rungs one answer may list.
+#: Most hitchhike rungs one answer may list.
 MAX_RUNGS = 64
 #: Longest host handle or served model an answer may name.
 MAX_TEXT = 256
@@ -108,9 +110,10 @@ MAX_TEXT = 256
 MAX_PRIVACY = 2000
 #: Longest rung address an answer may carry.
 MAX_ADDRESS = 2048
-#: Widest a rung may say it takes at once, which becomes its width in relief.yaml.
+#: Widest a rung may say it takes at once, which becomes its width in hitchhike.yaml.
 MAX_RUNG_WIDTH = 1024
-#: What a relief rung's name in relief.yaml starts with: the hub's rung id follows.
+#: What a hitchhike rung's name in hitchhike.yaml starts with: the hub's rung id
+#: follows.
 NAME_PREFIX = "hitchhike-"
 #: Seconds before a failed sync is tried again, whatever the hub last asked for:
 #: a failure leaves no refresh interval behind to wait by.
@@ -124,12 +127,12 @@ class SyncError(Exception):
 
     A folder with no ``fleet.yaml``, a setup that does not load, a ladder the
     hub cannot take, a file that cannot be read, or a hub that could not be
-    reached. Whatever ``relief.yaml`` already holds is left as it was.
+    reached. Whatever ``hitchhike.yaml`` already holds is left as it was.
     """
 
 
 class PrivateSetupError(SyncError):
-    """The setup says ``private: true``: it rides no relief rung, so nothing
+    """The setup says ``private: true``: it rides no hitchhike rung, so nothing
     is synced and the hub is sent nothing."""
 
 
@@ -138,7 +141,7 @@ class HubAnswerError(Exception):
 
     A refusal status, a body over ``MAX_ANSWER_BYTES``, a body that is not
     JSON, a listing shaped otherwise than :func:`read` requires, or a listing
-    the setup would not load with. ``relief.yaml`` is left as it was.
+    the setup would not load with. ``hitchhike.yaml`` is left as it was.
     """
 
 
@@ -154,14 +157,23 @@ class Kept:
     filename: str
     argument: str
     holds: str
+    #: The name the file had before: read where only it is there, and removed
+    #: once the file is written under ``filename``. None: it had no other.
+    old_filename: str | None = None
+
+    def source(self, folder: Path) -> Path:
+        """The file the setup in ``folder`` holds this one's text in."""
+        return kept_file(folder, self.filename, self.old_filename)
 
 
-#: The relief rungs a hub lent you, kept by this module.
-RELIEF = Kept(RELIEF_FILENAME, "relief_text", "relief rungs")
+#: The hitchhike rungs a hub lent you, kept by this module.
+HITCHHIKE = Kept(
+    HITCHHIKE_FILENAME, "hitchhike_text", "hitchhike rungs", OLD_HITCHHIKE_FILENAME
+)
 #: The units your crews lend you, kept by :mod:`mcgyvr.rig.crew`.
 CREW = Kept(CREW_FILENAME, "crew_text", "crew units")
 #: Every file a sync keeps, each read with the setup whichever one is written.
-KEPT: tuple[Kept, ...] = (RELIEF, CREW)
+KEPT: tuple[Kept, ...] = (HITCHHIKE, CREW)
 
 
 @dataclass(frozen=True)
@@ -177,7 +189,7 @@ class Setup:
 
 @dataclass(frozen=True)
 class Ride:
-    """One relief rung as the hub describes it.
+    """One hitchhike rung as the hub describes it.
 
     ``id`` is the 32 hex digits its name carries, and ``address`` is checked to
     be the hub's own origin because the key is sent there.
@@ -196,7 +208,7 @@ class Ride:
 
     @property
     def name(self) -> str:
-        """The rung's name in ``relief.yaml``: the prefix, then the rung id."""
+        """The rung's name in ``hitchhike.yaml``: the prefix, then the rung id."""
         return f"{NAME_PREFIX}{self.id}"
 
     @property
@@ -212,7 +224,7 @@ class Rides:
 
     ``ride`` is whether the hub matches this rider to work at all, ``privacy``
     is the warning it wants shown, ``refresh_s`` is how long to wait before
-    asking again, and ``rungs`` are the relief rungs to write, in the order the
+    asking again, and ``rungs`` are the hitchhike rungs to write, in the order the
     hub listed them.
     """
 
@@ -270,7 +282,7 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
 def ladder_report(config: Config) -> dict[str, Any]:
     """The ladder this setup runs, in the shape the hub places rungs by.
 
-    The units of your own the ladder names (a relief rung a step names is the
+    The units of your own the ladder names (a hitchhike rung a step names is the
     hub's, not yours) are sorted by family rank and each reported with
     its model, its family name, its file size in bytes and its parameter count
     in billions where either is known. ``floor`` is the index of the first rung
@@ -290,13 +302,13 @@ def ladder_report(config: Config) -> dict[str, Any]:
     units = [
         config.units[name]
         for name in config.ladder.names
-        if not config.units[name].relief
+        if not config.units[name].hitchhike
     ]
     climbing = sorted(units, key=lambda unit: known.family_of(unit).rank)
     if not 1 <= len(climbing) <= LADDER_MAX_RUNGS:
         raise SyncError(
             f"the ladder cannot be reported: it has {len(climbing)} rungs of "
-            f"your own (a relief rung a step names is the hub's and not "
+            f"your own (a hitchhike rung a step names is the hub's and not "
             f"reported), and the hub takes 1 to {LADDER_MAX_RUNGS}"
         )
     rungs = []
@@ -481,8 +493,6 @@ def _ride(raw: object, where: str, origin: tuple[str, str, int]) -> Ride:
         raise refused(f"{where}.model", "is outside the model pattern")
     if rung_offer(model) != rung_id:
         raise refused(f"{where}.model", "does not name this rung")
-    if raw.get("relief") is not True:
-        raise refused(f"{where}.relief", "is not true")
     position = raw.get("position")
     if position not in RUNG_POSITIONS:
         raise refused(f"{where}.position", f"is not one of {', '.join(RUNG_POSITIONS)}")
@@ -549,12 +559,12 @@ def read(document: object, hub: str) -> Rides:
 
 
 def render(rides: Rides, key_env: str, scope: str = RIDE_SCOPE) -> str:
-    """The ``relief.yaml`` text for one answer.
+    """The ``hitchhike.yaml`` text for one answer.
 
     ``key_env``, the NAME of the variable the key was read from, is recorded
     beside the rungs (:data:`mcgyvr.fleet.files.KEY_ENV_FIELD`), so the
     agent's refresh reads the key where this sync did (:func:`key_env`). Every
-    rung becomes a block under ``relief``, keyed by its name and carrying
+    rung becomes a block under ``hitchhike``, keyed by its name and carrying
     its address, model, key variable name, width, position, host, served model,
     the answers that say it is full (:data:`mcgyvr.hubwire.RUNG_BUSY`), the
     scope its requests name: ``scope``, the setup's ``ride_scope`` (unsaid:
@@ -588,13 +598,13 @@ def render(rides: Rides, key_env: str, scope: str = RIDE_SCOPE) -> str:
         "# until rig identity signs it, the key is the hub's word (SECURITY.md).\n"
     )
     return header + yaml.safe_dump(
-        {KEY_ENV_FIELD: key_env, "relief": block}, sort_keys=False
+        {KEY_ENV_FIELD: key_env, "hitchhike": block}, sort_keys=False
     )
 
 
 def key_env(folder: Path) -> str:
     """The NAME of the variable a sync of the setup in ``folder`` reads the
-    personal hub key from: the one its ``relief.yaml`` records, as the last
+    personal hub key from: the one its ``hitchhike.yaml`` records, as the last
     ``mcgyvr rig rungs sync`` was told it; where it records none, the one its
     ``crew.yaml`` units name, as ``mcgyvr rig crew sync`` was; else
     :data:`KEY_ENV`.
@@ -602,11 +612,8 @@ def key_env(folder: Path) -> str:
     A file that cannot be read, does not load, or names something not a
     variable's name raises :class:`SyncError`.
     """
-    for filename, read in (
-        (RELIEF_FILENAME, recorded_key_env),
-        (CREW_FILENAME, crew_key_env),
-    ):
-        path = folder / filename
+    for kept, read in ((HITCHHIKE, recorded_key_env), (CREW, crew_key_env)):
+        path = kept.source(folder)
         text = _read_text(path)
         if not text.strip():
             continue
@@ -645,7 +652,7 @@ def load_setup(folder: Path, kept: Kept) -> Setup:
     texts = {
         "fleet_text": _read_text(fleet),
         "policy_text": _read_text(folder / POLICY_FILENAME),
-        **{each.argument: _read_text(folder / each.filename) for each in KEPT},
+        **{each.argument: _read_text(each.source(folder)) for each in KEPT},
     }
     try:
         config = _parse(folder, texts)
@@ -666,7 +673,7 @@ def _parse(folder: Path, texts: Mapping[str, str]) -> Config:
         texts["fleet_text"],
         texts["policy_text"],
         path=folder,
-        relief_text=texts[RELIEF.argument],
+        hitchhike_text=texts[HITCHHIKE.argument],
         crew_text=texts[CREW.argument],
     )
 
@@ -704,6 +711,8 @@ def keep(
         ) from exc
     target = setup.folder / kept.filename
     atomic.write(target, text)
+    if kept.old_filename is not None:
+        (setup.folder / kept.old_filename).unlink(missing_ok=True)
     return target
 
 
@@ -719,8 +728,8 @@ def sync(
     """Sync once: report the setup's ladder, then write the answer beside it.
 
     The setup is read by :func:`load_setup`, its ladder reported, and the
-    answer written by :func:`keep` as ``relief.yaml``, each rung under
-    ``ride_scope`` (unsaid: the setup's): a relief rung a step or a role binds
+    answer written by :func:`keep` as ``hitchhike.yaml``, each rung under
+    ``ride_scope`` (unsaid: the setup's): a hitchhike rung a step or a role binds
     that the hub no longer lists, or an answer the setup would refuse, leaves
     the file as it was. A private setup raises :class:`PrivateSetupError`
     before anything is sent. Returns the answer read and the file it was
@@ -728,17 +737,19 @@ def sync(
     when one is given; its ``unsealed`` names each rung the setup asked sealed
     that the answer lists with no key.
     """
-    setup = load_setup(folder, RELIEF)
+    setup = load_setup(folder, HITCHHIKE)
     own = setup.config
     if own.private:
         raise PrivateSetupError(
             f"the setup in {folder} is private (`private: true`): it rides no "
-            "relief rung, so nothing is synced and the hub is sent nothing; set "
+            "hitchhike rung, so nothing is synced and the hub is sent nothing; set "
             "`private: false` in its policy to ride"
         )
     rides = fetch(hub, key, ladder_report(own))
     scope = ride_scope or own.ride_scope
-    sealed_before = {name for name, unit in own.relief.items() if unit.seal is not None}
+    sealed_before = {
+        name for name, unit in own.hitchhike.items() if unit.seal is not None
+    }
     rides = replace(
         rides,
         unsealed=tuple(
@@ -749,9 +760,9 @@ def sync(
     )
     target = keep(
         setup,
-        RELIEF,
+        HITCHHIKE,
         render(rides, key_env, scope),
-        held=[name for name, unit in own.units.items() if unit.relief],
+        held=[name for name, unit in own.units.items() if unit.hitchhike],
         listed={each.name for each in rides.rungs},
     )
     if scoped is not None:
@@ -760,12 +771,12 @@ def sync(
 
 
 #: What each narrower ride scope means for the rungs a sync kept, as the sync
-#: says it. The hub never lists a rider's own rigs as relief rungs, so under
+#: says it. The hub never lists a rider's own rigs as hitchhike rungs, so under
 #: `own` none of them can serve.
 _WHOSE = {
     SCOPE_OWN: (
         "only your own rigs may take this setup's rides, and the hub never "
-        "lists your own rigs as relief rungs, so no relief rung serves it; "
+        "lists your own rigs as hitchhike rungs, so no hitchhike rung serves it; "
         "`--ride-scope crew` lets your crewmates' rigs take them"
     ),
     SCOPE_CREW: (
@@ -789,14 +800,14 @@ def ride_scope_line(rides: Rides, scope: str) -> str | None:
 def unsealed_note(name: str) -> str:
     """What a sync says of a rung it asked sealed that the hub lists keyless."""
     return (
-        f"note: relief rung {name} was asked sealed and the hub lists no key for "
+        f"note: hitchhike rung {name} was asked sealed and the hub lists no key for "
         "it now, so it is asked in clear from here on (its host's agent or the "
         "hub may be older, or the hub dropped the key)"
     )
 
 
 def _thread(work: Callable[[], None]) -> None:
-    threading.Thread(target=work, name="relief-rungs", daemon=True).start()
+    threading.Thread(target=work, name="hitchhike-rungs", daemon=True).start()
 
 
 def _say(line: str) -> None:
@@ -856,7 +867,7 @@ class Refresher:
         try:
             rides = self._sync()
         except (SyncError, HubAnswerError, OSError, ValueError) as exc:
-            failure = f"note: the relief rungs were not synced: {exc}"
+            failure = f"note: the hitchhike rungs were not synced: {exc}"
             with self._lock:
                 self._due = self._clock() + RETRY_S
                 self._going = False
@@ -886,7 +897,7 @@ def refresher_for(
     """A :class:`Refresher` for this machine, or ``None`` where no key is set.
 
     The setup synced is ``folder`` or, left unsaid, the config path the rig
-    itself reads, and the key is read from the variable its ``relief.yaml``
+    itself reads, and the key is read from the variable its ``hitchhike.yaml``
     names (:func:`key_env`): that variable must hold a key or nothing is synced
     at all. Each run reads the name and the key again, since a sync by hand may
     have named another variable since, or the key been removed, and writes the

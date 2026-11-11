@@ -197,7 +197,7 @@ def test_the_bare_verb_says_the_same_before_it_drafts(
     _isolate(tmp_path, monkeypatch)
     config = tmp_path / "mcgyvr.yaml"
     config.write_text(
-        FLEET + "ladder: [cheap]\norchestrator:\n  unit: cheap\n", encoding="utf-8"
+        FLEET + "ladder: [cheap]\nproposer:\n  unit: cheap\n", encoding="utf-8"
     )
 
     # The note is said before the role is asked, so the role need not answer.

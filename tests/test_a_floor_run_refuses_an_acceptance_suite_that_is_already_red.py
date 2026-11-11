@@ -4,7 +4,7 @@
 tree first (`Acceptance.baseline`): a suite already red there is refused as an
 orchestration error, not charged to the change. The floor did not, so a red
 suite reached the gate after the tool ran and read as the tool's change being
-``rejected`` — the wrong thing to replan from. The same baseline now runs on
+``rejected`` — the wrong thing to redecompose from. The same baseline now runs on
 the floor, before the tool step, and nothing is written to the journal for a
 run that never started its work.
 """

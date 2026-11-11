@@ -7,12 +7,12 @@ ladder (`route.top_rung`, `delegate.top_rung_proposer_for`) to correct — up
 to `max_reproposals` rounds, 1 by default, 0 for none — on the evidence's
 `refused`, and vets what comes back as it vets a first answer; what is still
 refused is reported. The proposer that made a proposal is never asked to redo
-it: neither the scaffold, nor Jev's fill, nor the prose proposer.
+it: neither the scaffold, nor Jev's fill, nor the draft proposer.
 
 The top rung is shown each refused proposal, field by field, and its refusal
-as data (`render`), in the shape a re-plan shows a spent contract
-(`mcgyvr.replan`): under a section that says what it is, one value per line,
-flattened and held to `replan.MAX_LINE_CHARS`, closed by a line nothing
+as data (`render`), in the shape a re-decomposition shows a spent contract
+(`mcgyvr.redecompose`): under a section that says what it is, one value per line,
+flattened and held to `redecompose.MAX_LINE_CHARS`, closed by a line nothing
 rendered can be.
 """
 
@@ -22,7 +22,7 @@ from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
 from mcgyvr.config import MAX_REPROPOSALS_DEFAULT
-from mcgyvr.replan import flat
+from mcgyvr.redecompose import flat
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.config import Config

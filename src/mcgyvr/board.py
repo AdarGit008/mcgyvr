@@ -644,7 +644,7 @@ class Board:
 
     def state(self, tree_id: str, contract_id: str) -> State | None:
         """Where a contract stands on the tree, or None once it is not there
-        (re-planned away)."""
+        (re-decomposed away)."""
         with self._shared():
             tree = self._trees[tree_id]
             try:

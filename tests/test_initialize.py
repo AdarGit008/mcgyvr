@@ -95,7 +95,7 @@ def test_init_writes_the_use_case_and_its_deployment_default(tmp_path: Path) -> 
     config = load_config(tmp_path / "setup")
     assert config.use_case == "mcgyvr-code"
     assert config.deployment == "hybrid"
-    assert config.provisions_local_orchestrator is False
+    assert config.provisions_local_proposer is False
 
 
 def test_chat_defaults_to_hybrid_and_an_explicit_deployment_wins(
@@ -105,7 +105,7 @@ def test_chat_defaults_to_hybrid_and_an_explicit_deployment_wins(
     chat = load_config(tmp_path / "chat")
     assert chat.use_case == "chat"
     assert chat.deployment == "hybrid"
-    assert chat.provisions_local_orchestrator is False  # chat needs no orchestrator
+    assert chat.provisions_local_proposer is False  # chat needs no proposer
 
     initialize(
         tmp_path / "agent",
@@ -117,7 +117,7 @@ def test_chat_defaults_to_hybrid_and_an_explicit_deployment_wins(
     assert agent.use_case == "agent"
     assert agent.deployment == "local-only"
     # A raw use case has no proposer in its path, local-only or not.
-    assert agent.provisions_local_orchestrator is False
+    assert agent.provisions_local_proposer is False
 
 
 def test_a_machine_with_no_backend_refuses_rather_than_writing(tmp_path: Path) -> None:

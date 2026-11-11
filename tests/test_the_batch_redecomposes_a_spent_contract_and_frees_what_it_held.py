@@ -1,17 +1,17 @@
-"""A batch re-plans a contract whose ladder is spent, and frees what it held.
+"""A batch re-decomposes a contract whose ladder is spent, and frees what it held.
 
 A batch of two: one contract renames a function in `pkg/codec.py`, the other
 moves its caller in `pkg/export.py` to the new name and waits on the first.
 The rename climbs every rung and comes to `ladder_spent`. Rather than stop
 there and hold the caller, the batch hands the spent contract back to the
-orchestrator with the failure notes its climb left (`attempts[].notes` of its
+proposer with the failure notes its climb left (`attempts[].notes` of its
 result), takes the contract that comes back in its place on the tree, and
-runs it; once it lands the caller is sent. `max_replans` bounds how many
-times a line of work is re-planned, read from the `replan` lineage the new
+runs it; once it lands the caller is sent. `max_redecompositions` bounds how many
+times a line of work is re-decomposed, read from the `redecompose` lineage the new
 contract carries, never from memory.
 
-The run of each contract and the orchestrator are stood in for, so what is
-checked is what the batch hands the orchestrator, what it swaps in, the order
+The run of each contract and the proposer are stood in for, so what is
+checked is what the batch hands the proposer, what it swaps in, the order
 it runs in and what the results say, against a real repository.
 """
 
@@ -59,7 +59,7 @@ CALLER = Contract(
     target_content=EXPORT,
     depends_on=("code-rename",),
 )
-#: What the orchestrator proposes in the spent rename's place: the same target,
+#: What the proposer proposes in the spent rename's place: the same target,
 #: a narrower task.
 NARROWER = Contract(
     id="code-narrow",
@@ -168,8 +168,8 @@ def stand_in(
     return run
 
 
-class Orchestrator:
-    """Stands in for re-planning: answers `proposes`, and keeps what it was shown."""
+class Proposer:
+    """Stands in for re-decomposing: answers `proposes`, and keeps what it was shown."""
 
     def __init__(self, *proposes: Contract) -> None:
         self.proposes = proposes
@@ -188,9 +188,9 @@ def run_batch(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     came_to: dict[str, tuple[str, bool]],
-    orchestrator: Orchestrator,
+    proposer: Proposer,
     *,
-    max_replans: int | None = None,
+    max_redecompositions: int | None = None,
 ) -> tuple[int, list[Contract], Path]:
     journal = tmp_path / "journal"
     ran: list[Contract] = []
@@ -208,10 +208,10 @@ def run_batch(
         session=Session("test-session"),
     )
     policy = Policy({"journal.dir": str(journal), "dependents": "hold"})
-    if max_replans is not None:
-        policy["max_replans"] = max_replans
+    if max_redecompositions is not None:
+        policy["max_redecompositions"] = max_redecompositions
     code = command._run_delegated(
-        args, repo, dec, [], cast(Config, policy), replan=orchestrator
+        args, repo, dec, [], cast(Config, policy), redecompose=proposer
     )
     return code, ran, journal
 
@@ -223,13 +223,13 @@ def results(journal: Path, cid: str) -> list[dict[str, Any]]:
     ]
 
 
-def test_a_spent_rename_is_replanned_and_its_caller_runs_after_the_replacement(
+def test_a_spent_rename_is_redecomposed_and_its_caller_runs_after_the_replacement(
     repo: Path,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    orchestrator = Orchestrator(NARROWER)
+    proposer = Proposer(NARROWER)
     code, ran, journal = run_batch(
         repo,
         tmp_path,
@@ -239,25 +239,25 @@ def test_a_spent_rename_is_replanned_and_its_caller_runs_after_the_replacement(
             "code-narrow": ("accepted", True),
             "code-caller": ("accepted", False),
         },
-        orchestrator,
+        proposer,
     )
 
     assert [c.id for c in ran] == ["code-rename", "code-narrow", "code-caller"]
     assert code == 0
-    # The orchestrator was shown the spent contract and the notes its climb left,
+    # The proposer was shown the spent contract and the notes its climb left,
     # as records, not as prose.
-    (spent,) = orchestrator.shown
+    (spent,) = proposer.shown
     assert spent.contract.id == "code-rename"
     assert spent.failures == (NOTES,)
     # The contract run in its place says what it replaces and which round it is.
     narrow = ran[1]
-    assert (narrow.replan.replaces, narrow.replan.round) == ("code-rename", 1)
+    assert (narrow.lineage.replaces, narrow.lineage.round) == ("code-rename", 1)
     # The spent run's result says what became of it.
     (result,) = results(journal, "code-rename")
     assert result["outcome"] == "ladder_spent"
-    assert result["replanned"]["round"] == 1
-    assert result["replanned"]["max_replans"] == 1
-    assert result["replanned"]["contracts"] == ["code-narrow"]
+    assert result["redecomposed"]["round"] == 1
+    assert result["redecomposed"]["max_redecompositions"] == 1
+    assert result["redecomposed"]["contracts"] == ["code-narrow"]
     assert "code-narrow" in result["detail"]
     # The tree took the new contract in the spent one's place.
     (state,) = (journal / "trees").glob("tree-*.json")
@@ -266,13 +266,13 @@ def test_a_spent_rename_is_replanned_and_its_caller_runs_after_the_replacement(
     assert rows["code-narrow"]["state"] == "landed"
     assert rows["code-narrow"]["replaces"] == "code-rename"
     assert rows["code-caller"]["waits_on"] == ["code-narrow"]
-    assert "re-planned" in capsys.readouterr().err
+    assert "re-decomposed" in capsys.readouterr().err
 
 
-def test_a_replacement_that_is_spent_too_is_not_replanned_past_max_replans(
+def test_a_replacement_that_is_spent_too_is_not_redecomposed_past_max_redecompositions(
     repo: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    orchestrator = Orchestrator(NARROWER)
+    proposer = Proposer(NARROWER)
     code, ran, journal = run_batch(
         repo,
         tmp_path,
@@ -281,57 +281,57 @@ def test_a_replacement_that_is_spent_too_is_not_replanned_past_max_replans(
             "code-rename": ("ladder_spent", False),
             "code-narrow": ("ladder_spent", False),
         },
-        orchestrator,
+        proposer,
     )
 
     assert [c.id for c in ran] == ["code-rename", "code-narrow"]
-    assert len(orchestrator.shown) == 1
+    assert len(proposer.shown) == 1
     (second,) = results(journal, "code-narrow")
-    assert second["replanned"]["contracts"] == []
-    assert "max_replans" in second["replanned"]["detail"]
+    assert second["redecomposed"]["contracts"] == []
+    assert "max_redecompositions" in second["redecomposed"]["detail"]
     (held,) = results(journal, "code-caller")
     assert held["outcome"] == "blocked"
     assert held["blocked_by"]["providers"][0]["contract"] == "code-narrow"
     assert code == 3
 
 
-def test_max_replans_zero_leaves_a_spent_contract_where_it_stopped(
+def test_max_redecompositions_zero_leaves_a_spent_contract_where_it_stopped(
     repo: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    orchestrator = Orchestrator(NARROWER)
+    proposer = Proposer(NARROWER)
     code, ran, journal = run_batch(
         repo,
         tmp_path,
         monkeypatch,
         {"code-rename": ("ladder_spent", False)},
-        orchestrator,
-        max_replans=0,
+        proposer,
+        max_redecompositions=0,
     )
 
     assert [c.id for c in ran] == ["code-rename"]
-    assert orchestrator.shown == []
+    assert proposer.shown == []
     (result,) = results(journal, "code-rename")
-    assert "replanned" not in result
+    assert "redecomposed" not in result
     assert results(journal, "code-caller")[0]["outcome"] == "blocked"
     assert code == 3
 
 
-def test_a_replan_that_proposes_the_spent_contract_again_frees_nothing(
+def test_a_redecompose_that_proposes_the_spent_contract_again_frees_nothing(
     repo: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    orchestrator = Orchestrator(RENAME)
+    proposer = Proposer(RENAME)
     code, ran, journal = run_batch(
         repo,
         tmp_path,
         monkeypatch,
         {"code-rename": ("ladder_spent", False)},
-        orchestrator,
+        proposer,
     )
 
     assert [c.id for c in ran] == ["code-rename"]
     (result,) = results(journal, "code-rename")
-    assert result["replanned"]["contracts"] == []
-    assert "nothing new" in result["replanned"]["detail"]
+    assert result["redecomposed"]["contracts"] == []
+    assert "nothing new" in result["redecomposed"]["detail"]
     assert results(journal, "code-caller")[0]["outcome"] == "blocked"
     assert code == 3
 
@@ -350,18 +350,18 @@ def test_a_replacement_that_waits_on_the_spent_contract_is_not_taken(
         stop_conditions=STOP,
         depends_on=("code-rename",),
     )
-    orchestrator = Orchestrator(RENAME, follow_up)
+    proposer = Proposer(RENAME, follow_up)
     code, ran, journal = run_batch(
         repo,
         tmp_path,
         monkeypatch,
         {"code-rename": ("ladder_spent", False)},
-        orchestrator,
+        proposer,
     )
 
     assert [c.id for c in ran] == ["code-rename"]
     (result,) = results(journal, "code-rename")
-    assert result["replanned"]["contracts"] == []
-    assert "nothing new" in result["replanned"]["detail"]
+    assert result["redecomposed"]["contracts"] == []
+    assert "nothing new" in result["redecomposed"]["detail"]
     assert results(journal, "code-caller")[0]["outcome"] == "blocked"
     assert code == 3

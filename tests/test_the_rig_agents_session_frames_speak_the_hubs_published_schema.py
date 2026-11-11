@@ -426,7 +426,7 @@ def test_the_devices_a_head_start_names_are_the_wires_kinds(
 
     assert hubwire.HEAD_DEVICE_KINDS == (
         hubwire.HEAD_DEVICE_LOCAL,
-        hubwire.HEAD_DEVICE_RPC,
+        hubwire._HEAD_DEVICE_RPC,
         hubwire.HEAD_DEVICE_CPU,
     )
     assert hubwire.HEAD_DEVICE_KINDS == ("local", "rpc", "cpu")

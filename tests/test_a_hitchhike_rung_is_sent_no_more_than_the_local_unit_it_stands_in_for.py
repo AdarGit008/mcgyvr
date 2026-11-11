@@ -1,7 +1,7 @@
-"""A relief rung is sent no more than the local unit it stands in for gives.
+"""A hitchhike rung is sent no more than the local unit it stands in for gives.
 
 Every request is sent its unit's maximum
-(``tests/test_every_generating_request_is_sent_its_units_maximum.py``). A relief
+(``tests/test_every_generating_request_is_sent_its_units_maximum.py``). A hitchhike
 rung is another person's unit and declares nothing, so its maximum is the
 reply room of the local unit it stands in for — the first usable rung of the
 rider's own ladder, the one a ride stands in for when it is full:
@@ -36,7 +36,7 @@ def key(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def pool(local: int | None, *, second: int | None = None) -> UnitMap:
-    """A ladder of one local unit (and a dearer second), with one relief rung."""
+    """A ladder of one local unit (and a dearer second), with one hitchhike rung."""
 
     def room(tokens: int | None) -> str:
         return "" if tokens is None else f"    output_tokens: {tokens}\n"
@@ -51,7 +51,7 @@ def pool(local: int | None, *, second: int | None = None) -> UnitMap:
         "    model: qwen3.6:35b-a3b\n"
         "    width: 1\n" + room(second) + f"ladder: [{LOCAL}, local_dear]\n"
         "fanout: idle\n"
-        "relief:\n"
+        "hitchhike:\n"
         f"  {RIDE}:\n"
         "    address: http://localhost:8765/v1\n"
         f"    model: hitchhike@{RUNG_ID}\n"

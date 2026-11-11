@@ -1,6 +1,6 @@
 """The hub wire, defined once: the product's, the hub's by import.
 
-The hub serves models to a member's rigs and the product rides them: relief
+The hub serves models to a member's rigs and the product rides them: hitchhike
 rungs (hitchhike), the ladder a rider reports, the units a host advertises,
 the resources a rig lends, the relay that carries a ride, the ``/v1``
 refusals a rider reads, and the agent channel a rig holds to the hub. Every
@@ -39,11 +39,11 @@ is here:
   pongs a port check answers (:data:`PORT_CHECK_MAX_PONGS`), and the kind and
   reason bytes (``UDP_KIND_*``, ``PROBE_PING`` .. ``PROBE_BULK``,
   ``RELAY_BAD_TICKET`` .. ``RELAY_RATE_LIMITED``);
-* :data:`RUNG_POSITIONS`, where a relief rung's host model sits against the
+* :data:`RUNG_POSITIONS`, where a hitchhike rung's host model sits against the
   rider's ladder;
 * :data:`MODEL_NAME`, the shape of a model name on the wire, and
   :data:`RUNG_PREFIX`, which with an offer's id (:data:`OFFER_ID`) names a
-  relief rung's model (:func:`rung_model`, :func:`rung_offer`);
+  hitchhike rung's model (:func:`rung_model`, :func:`rung_offer`);
 * the ladder a rider reports (``LADDER_*``);
 * the units a host advertises (:data:`MAX_SLOTS`, :data:`MAX_UNITS`,
   ``UNIT_ADVERT_*``), the rule a ride cap keeps (:func:`rider_cap_fits`), and
@@ -57,7 +57,7 @@ is here:
   (:data:`FORWARDED_FIELDS`, :data:`CHAT_TEMPLATE_KEYS`);
 * a sealed ride's shapes: the envelope a request carries
   (:data:`SEALED_FIELD`, :data:`SEAL_VERSION`, ``SEAL_*`` patterns), the key a
-  unit advertises and a relief rung lists (:data:`SEAL_KEY_FIELD`), what such
+  unit advertises and a hitchhike rung lists (:data:`SEAL_KEY_FIELD`), what such
   a request and its answer leave in clear (:data:`SEALED_CLEAR_FIELDS`,
   :data:`SEALED_ANSWER_CLEAR_FIELDS`) and the refusal of a key no unit holds
   (:data:`SEAL_KEY_UNKNOWN`);
@@ -77,7 +77,9 @@ is here:
   recommended (:data:`USE_CASE_CATEGORY`), the header a request names its own in
   (:data:`USE_CASE_HEADER`), and which use cases each pool serves
   (:data:`POOL_USE_CASES`, :func:`pool_serves`): a request naming one its
-  pool does not serve is refused (:data:`USE_CASE_NOT_SERVED`);
+  pool does not serve is refused (:data:`USE_CASE_NOT_SERVED`); the pools
+  themselves are :data:`POOLS` (:data:`POOL_SOLO`, :data:`POOL_GENERAL`,
+  :data:`POOL_CREW`, :data:`POOL_HITCHHIKE`, :data:`POOL_SHARED_LADDER`);
 * the hub's published JSON Schemas (:data:`SCHEMAS`), shipped inside this
   package and read with :func:`schema_bytes` and :func:`schema`, and the
   version the rider schema is published at (:data:`RIDER_SCHEMA_VERSION`);
@@ -86,10 +88,10 @@ is here:
   (:class:`ResourceReading`): their kinds (:data:`RESOURCE_KINDS`, the card
   kinds :data:`CARD_KINDS`, :func:`shares_ram`), backends
   (:data:`RESOURCE_BACKENDS`, each named ``BACKEND_*``), what a number is
-  (:data:`FIGURE_KINDS`), the host a rig runs on (:data:`HOST_OS`,
+  (:data:`FIGURE_KINDS`), the system a rig runs on (:data:`HOST_OS`,
   :data:`HOST_ARCH`, each named ``HOST_*`` and ``ARCH_*``), how many one
-  advert or heartbeat may name (:data:`MAX_RESOURCES`, the kinds a rig names
-  once, :data:`ONE_PER_RIG`, :func:`resources_fit`, :func:`readings_fit`),
+  advert or heartbeat may name (:data:`MAX_RESOURCES`, and the kinds a rig names
+  once: :func:`resources_fit`, :func:`readings_fit`),
   the legacy cards they make (:func:`cards_from_resources`,
   :func:`card_readings_from`), the unit standby is counted in per kind
   (:data:`STANDBY_UNITS`, its size :data:`STANDBY_UNIT_SIZE`) and the least a
@@ -149,8 +151,10 @@ from __future__ import annotations
 import base64
 import binascii
 import enum
+import functools
 import hashlib
 import ipaddress
+import itertools
 import json
 import re
 from collections.abc import Mapping, Sequence
@@ -159,14 +163,14 @@ from importlib import resources
 from types import MappingProxyType
 from typing import Any, Literal, get_args
 
-#: Where a relief rung's host model sits against the models of the rider's own
+#: Where a hitchhike rung's host model sits against the models of the rider's own
 #: ladder, as the hub judges it: shown, never a place on the ladder.
 RUNG_POSITIONS: tuple[str, ...] = ("above_ceiling", "below_floor", "within")
 
 #: A model name on the wire: named, never addressed by path, so no separator
 #: and no leading dot; 1 to 128 characters.
 MODEL_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._+=@-]{0,127}")
-#: What a relief rung's model starts with: the hub's offer id follows.
+#: What a hitchhike rung's model starts with: the hub's offer id follows.
 RUNG_PREFIX = "hitchhike@"
 #: An offer's id, as the hub writes it: 32 lowercase hex digits.
 OFFER_ID = re.compile(r"[0-9a-f]{32}")
@@ -601,7 +605,7 @@ OUT_OF_SCOPE = api_error("out_of_scope")
 #: again under the same scope and model, it is refused again. A request
 #: naming no use case is not held to it.
 USE_CASE_NOT_SERVED = api_error("use_case_not_served")
-#: The answers that say a relief rung cannot take a request now, sorted: the
+#: The answers that say a hitchhike rung cannot take a request now, sorted: the
 #: hub names no host running the model (404 ``model_not_found``), the host's
 #: machine is away (503 ``hitchhike_host_away``), the hub has not yet matched
 #: this host to work (503 ``hitchhike_not_served_yet``), the host's unit
@@ -909,7 +913,7 @@ def scopes_serving(use_case: str) -> tuple[str, ...]:
 def serving_pool(scope: str, model: str) -> str:
     """The pool a request for ``model`` under ``scope`` is served from.
 
-    A relief rung's model (:data:`RUNG_PREFIX` and an offer) is a ride, served
+    A hitchhike rung's model (:data:`RUNG_PREFIX` and an offer) is a ride, served
     from :data:`POOL_HITCHHIKE` whatever the scope; any other model is served
     from the scope's pool (:data:`SCOPE_POOLS`). Raises KeyError for a scope
     that is not one of :data:`SCOPE_VALUES`.
@@ -927,7 +931,7 @@ def serving_pool(scope: str, model: str) -> str:
 # request and a sealed answer to without opening either.
 
 #: The field a sealed request carries its envelope in, at the top level of an
-#: OpenAI chat completion request; and the field of a unit's advert, and of a relief
+#: OpenAI chat completion request; and the field of a unit's advert, and of a hitchhike
 #: rung the hub lists, carrying the key a request to it is sealed to.
 SEALED_FIELD = "sealed"
 SEAL_KEY_FIELD = "seal"
@@ -1001,7 +1005,7 @@ def rung_model(offer: str) -> str:
 
 
 def rung_offer(model: str) -> str | None:
-    """The offer id a relief rung's ``model`` names, or None when it names none."""
+    """The offer id a hitchhike rung's ``model`` names, or None when it names none."""
     if not model.startswith(RUNG_PREFIX):
         return None
     offer = model[len(RUNG_PREFIX) :]
@@ -1094,11 +1098,11 @@ ARCH_X86_64 = "x86_64"
 ARCH_ARM64 = "arm64"
 HOST_ARCH: tuple[str, ...] = (ARCH_X86_64, ARCH_ARM64)
 #: Most resources one advert may name; of them, at most :data:`MAX_CARDS`
-#: cards, and each kind of :data:`ONE_PER_RIG` once.
+#: cards, and each kind of :data:`_ONE_PER_RIG` once.
 MAX_RESOURCES = 32
 #: The kinds a rig names at most once: one device whose memory is the host's
 #: (a host has one such memory to share), the host's memory and its cores.
-ONE_PER_RIG: tuple[str, ...] = (RESOURCE_UNIFIED, RESOURCE_RAM, RESOURCE_CPU)
+_ONE_PER_RIG: tuple[str, ...] = (RESOURCE_UNIFIED, RESOURCE_RAM, RESOURCE_CPU)
 #: Most cards one hello or heartbeat may report.
 MAX_CARDS = 16
 #: Highest index a resource may have: a card's highest index.
@@ -1351,8 +1355,8 @@ def resources_fit(resources: Sequence[Resource]) -> None:
     :data:`MAX_RESOURCES`, each valid (:meth:`Resource.validate`), each
     ``(kind, index)`` once, at most :data:`MAX_CARDS` cards, each card index
     once across :data:`CARD_KINDS`, and at most one of each kind in
-    :data:`ONE_PER_RIG`: one ``unified`` device, one ``ram``, one ``cpu``."""
-    _fit(resources, ONE_PER_RIG)
+    :data:`_ONE_PER_RIG`: one ``unified`` device, one ``ram``, one ``cpu``."""
+    _fit(resources, _ONE_PER_RIG)
 
 
 def counts_as_lent(resource: Resource) -> bool:
@@ -1381,7 +1385,7 @@ def readings_fit(readings: Sequence[ResourceReading]) -> None:
     """Raise ValueError unless one heartbeat may carry ``readings``, by the
     rules of :func:`resources_fit` (each card index once across
     :data:`CARD_KINDS` among them), but for how many of a kind it reads: how
-    many of each a rig has is its advert's to say (:data:`ONE_PER_RIG`).
+    many of each a rig has is its advert's to say (:data:`_ONE_PER_RIG`).
     Whether each names an advertised resource, and its ``free_mb`` that
     resource's ``total_mb`` at most, is the hub's to hold against the advert
     it keeps, which reads nothing of a ``(kind, index)`` the advert did not
@@ -1574,7 +1578,7 @@ IDENTITY_KEY_CHARS = 44
 IDENTITY_SIG = re.compile(r"[A-Za-z0-9+/]{85}[AQgw]==")
 #: What every signed tunnel key starts with, so a signature made for it is
 #: never a signature over anything else the key might one day sign.
-SESSION_KEY_CONTEXT = b"mcgyvr session tunnel key v1\x00"
+_SESSION_KEY_CONTEXT = b"mcgyvr session tunnel key v1\x00"
 #: How many base32 characters of the key's sha256 a fingerprint shows (80
 #: bits), in groups of :data:`FINGERPRINT_GROUP`.
 FINGERPRINT_CHARS = 16
@@ -1588,7 +1592,7 @@ def session_key_message(session_id: str, public_key: str) -> bytes:
     so a hub cannot hand an old session's key to a new one."""
     for field, value in (("session_id", session_id), ("public_key", public_key)):
         _need(isinstance(value, str) and "\x00" not in value, field, "not plain text")
-    return SESSION_KEY_CONTEXT + f"{session_id}\x00{public_key}\x00".encode()
+    return _SESSION_KEY_CONTEXT + f"{session_id}\x00{public_key}\x00".encode()
 
 
 def identity_key_bytes(identity_key: str) -> bytes:
@@ -1626,11 +1630,11 @@ def identity_fingerprint(identity_key: str) -> str:
 #: head's own host memory and cores (``cpu``), which serve a whole model only,
 #: never a pipeline stage (see :class:`Resource`).
 HEAD_DEVICE_LOCAL = "local"
-HEAD_DEVICE_RPC = "rpc"
+_HEAD_DEVICE_RPC = "rpc"
 HEAD_DEVICE_CPU = "cpu"
 HEAD_DEVICE_KINDS: tuple[str, ...] = (
     HEAD_DEVICE_LOCAL,
-    HEAD_DEVICE_RPC,
+    _HEAD_DEVICE_RPC,
     HEAD_DEVICE_CPU,
 )
 
@@ -1672,7 +1676,7 @@ FITTED_ON = "apple"
 #: Quantisation names, by the efficiency class they decode at. Matched on the
 #: name's start, case-insensitively, after a ``UD-`` prefix: ``Q4_K_M`` is
 #: ``q4``, ``IQ4_XS`` is ``iq4``, ``UD-Q4_K_XL`` is ``q4``.
-QUANT_CLASSES: Mapping[str, tuple[str, ...]] = MappingProxyType(
+_QUANT_CLASSES: Mapping[str, tuple[str, ...]] = MappingProxyType(
     {
         "8bit": ("f16", "bf16", "q8"),
         "4bit": ("q4", "iq4", "mxfp4", "q5", "q6"),
@@ -1684,7 +1688,7 @@ _QUANT_PREFIX = "ud-"
 def quant_class(quant: str) -> str | None:
     """The efficiency class of a quantisation name, None when it has none."""
     name = quant.strip().lower().removeprefix(_QUANT_PREFIX)
-    for klass, prefixes in QUANT_CLASSES.items():
+    for klass, prefixes in _QUANT_CLASSES.items():
         if name.startswith(prefixes):
             return klass
     return None
@@ -2043,6 +2047,145 @@ def bytes_on_card(
         layer_f16_bytes_per_token=layer_f16_bytes_per_token,
     ).total
     return card_bytes(weights=weights, cache=cache, state=state, allowance=allowance)
+
+
+# --- the head's engine flags ------------------------------------------------------
+#
+# What a session's head runs with that a plan's memory depends on: the product
+# starts every head with these (``mcgyvr.rig.pooled.head_server_args``), and the
+# hub's planner prices a card at them, so neither side assumes the other's.
+
+#: The KV cache type a session's head runs, for keys and values alike
+#: (``-ctk`` and ``-ctv``).
+HEAD_KV_CACHE_TYPE = "q8_0"
+#: Bytes one element of a :data:`HEAD_KV_CACHE_TYPE` cache costs: q8_0 keeps
+#: 32 elements in 34 bytes (a half-precision scale each block). Every type's
+#: width is the product's scanner's (``mcgyvr.serving.vramfit.CACHE_ELEM_BYTES``),
+#: which this module cannot import: it is stdlib only, for the hub to import
+#: without the product's serving stack. So the head's one width is written
+#: here as well, and a test holds it to the scanner's.
+HEAD_KV_BYTES_PER_ELEMENT = 34 / 32
+#: The micro-batch a session's head runs (``-ub``): the rows its compute
+#: buffer's KQ mask holds, and the batch a sliding-window cache keeps in flight.
+HEAD_UBATCH = 512
+
+
+# --- a rig's answers to "what does this model's cache take" ----------------------
+#
+# A rig sizes each model it holds by the product's own law (sliding-window
+# layers, recurrent state, a sequence's padded cells), so the hub need not
+# re-derive a cache from a flattened shape. It answers on a grid: per context a
+# slot and per slot count, what the model's caches and recurrent state take
+# across all its layers, at the head's cache type and micro-batch, and the most
+# any run of consecutive blocks holds above its even share of that. The hub
+# picks among the answers; a card of a split holds its blocks' even share and,
+# since its blocks are one run, that excess at most beside it.
+
+#: The ModelInfo field a rig's answers travel in (:class:`CacheFit`); an agent
+#: from before it, or one that could not size the model, sends none.
+CACHE_FIT_FIELD = "cache_fit"
+#: The slot counts a rig answers for: the counts a hub plans a head with,
+#: halving from its target (a count between two is priced at the next one up).
+FIT_SLOTS: tuple[int, ...] = (1, 2, 4, 8, 16)
+#: The contexts per slot a rig answers at, up to :data:`MAX_CTX`; a rig answers
+#: those up to the model's trained context, and that context too.
+FIT_CTX: tuple[int, ...] = tuple(1 << k for k in range(11, 21))
+#: Most slot counts and most contexts one model's answers may hold.
+MAX_FIT_SLOT_COUNTS = 8
+MAX_FIT_CONTEXTS = 16
+#: Largest answer the wire carries, in MiB.
+MAX_FIT_CACHE_MIB = 1 << 40
+
+
+def _rising(values: object, low: int, high: int, most: int, field: str) -> None:
+    _need(
+        type(values) is tuple
+        and 1 <= len(values) <= most
+        and all(_is_int(v) and low <= v <= high for v in values)
+        and all(a < b for a, b in itertools.pairwise(values)),
+        field,
+        f"not 1 to {most} rising integers, each {low} to {high}",
+    )
+
+
+@dataclass(frozen=True, kw_only=True)
+class CacheFit:
+    """A rig's answers for one model: ``cache_mib[i][j]`` is the MiB (rounded
+    up) its KV caches and recurrent state take, across all its layers, at
+    ``ctx[i]`` of context per slot over ``slots[j]`` slots, at
+    :data:`HEAD_KV_CACHE_TYPE` and :data:`HEAD_UBATCH`. ``excess_mib[i][j]``
+    is, at the same point, the most any run of consecutive blocks holds above
+    its even share of that (``cache_mib`` over the layers, a block each): 0 when
+    every block costs the same, about a full-attention layer's cache above the
+    average when most layers slide. A card of a layer split holds one run of
+    blocks, so its share plus the excess holds them whatever the layer pattern.
+    Both axes rise; the rig answers on :data:`FIT_CTX` and :data:`FIT_SLOTS`,
+    and a reader takes whatever axes it is sent."""
+
+    slots: tuple[int, ...]
+    ctx: tuple[int, ...]
+    cache_mib: tuple[tuple[int, ...], ...]
+    excess_mib: tuple[tuple[int, ...], ...]
+
+    @functools.cached_property
+    def _hash(self) -> int:
+        return hash((self.slots, self.ctx, self.cache_mib, self.excess_mib))
+
+    def __hash__(self) -> int:
+        # a planner keys its caches by a model's figures, these among them:
+        # hashed once, not every answer at every lookup
+        return self._hash
+
+    def validate(self) -> None:
+        """Raise ValueError, naming the field at fault, unless both axes rise
+        within their limits and there is one answer per context and slot count."""
+        _rising(self.slots, 1, MAX_SLOTS, MAX_FIT_SLOT_COUNTS, "cache_fit.slots")
+        _rising(self.ctx, 1, MAX_CTX, MAX_FIT_CONTEXTS, "cache_fit.ctx")
+        for field in ("cache_mib", "excess_mib"):
+            rows = getattr(self, field)
+            _need(
+                type(rows) is tuple
+                and len(rows) == len(self.ctx)
+                and all(
+                    type(row) is tuple
+                    and len(row) == len(self.slots)
+                    and all(_is_int(v) and 0 <= v <= MAX_FIT_CACHE_MIB for v in row)
+                    for row in rows
+                ),
+                f"cache_fit.{field}",
+                f"not one row per context of one answer per slot count, each 0 to "
+                f"{MAX_FIT_CACHE_MIB}",
+            )
+
+    def at(self, ctx: int, slots: int) -> tuple[int, int] | None:
+        """The bytes the caches take at ``ctx`` per slot over ``slots`` slots,
+        and the excess a run of blocks holds beyond its share, both from the
+        cheapest answer at or above both, which holds them since neither
+        context nor slots shrinks a cache. None when no answer reaches them."""
+        first = next((j for j, s in enumerate(self.slots) if s >= slots), None)
+        if first is None:
+            return None
+        found = [
+            (total, excess)
+            for c, totals, excesses in zip(
+                self.ctx, self.cache_mib, self.excess_mib, strict=True
+            )
+            if c >= ctx
+            for total, excess in zip(totals[first:], excesses[first:], strict=True)
+        ]
+        if not found:
+            return None
+        total, excess = min(found)
+        return total * BYTES_PER_MIB, excess * BYTES_PER_MIB
+
+    def body(self) -> dict[str, list[Any]]:
+        """The answers as the wire carries them."""
+        return {
+            "slots": list(self.slots),
+            "ctx": list(self.ctx),
+            "cache_mib": [list(row) for row in self.cache_mib],
+            "excess_mib": [list(row) for row in self.excess_mib],
+        }
 
 
 @dataclass(frozen=True)

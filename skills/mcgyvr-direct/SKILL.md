@@ -1,6 +1,6 @@
 ---
 name: mcgyvr-direct
-description: "Run task contracts you wrote with mcgyvr, a CLI that runs each on deterministic tools, local models or API models and keeps only what its deterministic gate accepts. Pass contract files or a directory of them: mcgyvr vets each one as it vets a proposal, prints every refusal with what to change, and runs the rest in dependency order. Use it when a change has one target and a way to judge it, or for work /mcgyvr refused or could not finish: write the contracts, validate them, run them, read the result files, replan from the findings. It never loads itself; invoke it with /mcgyvr-direct <files|dir>. The schema below is the only contract vocabulary."
+description: "Run task contracts you wrote with mcgyvr, a CLI that runs each on deterministic tools, local models or API models and keeps only what its deterministic gate accepts. Pass contract files or a directory of them: mcgyvr vets each one as it vets a proposal, prints every refusal with what to change, and runs the rest in dependency order. Use it when a change has one target and a way to judge it, or for work /mcgyvr refused or could not finish: write the contracts, validate them, run them, read the result files, re-decompose from the findings. It never loads itself; invoke it with /mcgyvr-direct <files|dir>. The schema below is the only contract vocabulary."
 disable-model-invocation: true
 ---
 
@@ -14,7 +14,7 @@ runs the ones that pass in the order their dependency tree allows, gates
 every answer deterministically, and leaves an accepted `code` change in the
 working tree. It never commits unless told to, and it never writes anything
 else into the repository. No proposer is asked: refusals and spent work come
-back to you.
+back to you. The session agent chooses direct or delegate; mcgyvr dispatches.
 
 ## Step 1 — write the contracts
 
@@ -174,11 +174,11 @@ another's work names its id in `depends_on`.
   determined by `target`: a rename fans across every file that references the symbol, so the pair has to
   be said. Meaningless on any other contract and ignored there.
 
-**`replan`**
+**`lineage`**
 - type: block; optional
 - description: Where this contract came from when it was proposed in place of one whose ladder was spent:
-  the id it replaces and the re-plan round. Written by the batch that re-planned it, never by hand. Not
-  worker-facing.
+  the id it replaces and the re-decomposition round. Written by the batch that re-decomposed it, never by
+  hand. Not worker-facing.
 
 #### `deps`
 
@@ -232,8 +232,8 @@ How the change is judged once the gate has passed.
 **`verification.policy`**
 - type: one of `gate_only`, `model`; optional, default `gate_only`
 - description: How the change is judged. `gate_only` is honoured only for work a deterministic tool does;
-  work a model does is raised to `model`, which asks a fresh-context reviewer to agree. An install with
-  no reviewer labels such an acceptance unverified.
+  work a model does is raised to `model`, which asks a fresh-context verifier to agree. An install with
+  no verifier labels such an acceptance unverified.
 
 #### `limits`
 
@@ -283,22 +283,23 @@ other contract and ignored there.
   that is not a name would produce a tree that no longer parses while reporting success. e.g.
   fetch_document.
 
-#### `replan`
+#### `lineage`
 
 Where this contract came from when it was proposed in place of one whose ladder was spent: the id it
-replaces and the re-plan round. Written by the batch that re-planned it, never by hand. Not
+replaces and the re-decomposition round. Written by the batch that re-decomposed it, never by hand. Not
 worker-facing.
 
-**`replan.replaces`**
+**`lineage.replaces`**
 - type: text; optional, default empty
 - description: The id of the contract this one was proposed in place of, when a batch handed that
-  contract back to the orchestrator because its ladder was spent (`max_replans`). e.g. code-1f2e3d4c5b.
+  contract back to the proposer because its ladder was spent (`max_redecompositions`). e.g.
+  code-1f2e3d4c5b.
 
-**`replan.round`**
+**`lineage.round`**
 - type: number (min 0); optional, default `0`
-- description: Which re-plan this contract came from: 1 for one proposed in place of a contract nobody
-  re-planned, one more than the contract it replaces otherwise. A batch re-plans a spent contract only
-  while this is below `max_replans`, so the bound is read from the contract.
+- description: Which re-decomposition this contract came from: 1 for one proposed in place of a contract
+  nobody re-decomposed, one more than the contract it replaces otherwise. A batch re-decomposes a spent
+  contract only while this is below `max_redecompositions`, so the bound is read from the contract.
 
 ### Deterministic operations
 
@@ -366,26 +367,26 @@ sessions are detected from the environment, otherwise pass `--session ID`.
   that typed this command, and a refusal, exit 2, when there is none); not needed with --output, which
   runs nothing.
 - `--record DIR` — also journal each run under DIR, as a complete second copy.
-- `--output DIR` — stop once the contracts are planned: write each one that passed vetting to
+- `--output DIR` — stop once the contracts are decomposed: write each one that passed vetting to
   DIR/<id>.json and run none of them, so `mcgyvr direct DIR` can run them later. Without it a prompt's
   contracts are printed on stdout and run from a temporary directory, and `direct` runs its files where
   they are.
 - `--result PATH` — where *you* read the result file, when the set is one contract (`direct` with one
   file); mcgyvr keeps its own copy under the journal directory either way. Refused for more than one
-  contract, and for a prompt, whose contracts are not known before it is planned.
+  contract, and for a prompt, whose contracts are not known before it is decomposed.
 - `--notes-from RESULT` — start a contract's climb with the failure notes of an earlier run of it: RESULT
   is that run's result file, and seeds the contract in the set whose id it names; give it once per
   contract. Its records are checked (same contract, the notes schema, repo-relative paths) and shown to
   the first attempt under a banner naming the earlier run, under `retry_notes: climb`; the result's
   `seeded` says what was read and handed. For a rerun on another ladder or machine. Refused for a prompt,
-  whose contracts are proposed new and whose re-plans carry their own notes.
+  whose contracts are proposed new and whose re-decompositions carry their own notes.
 
 `mcgyvr direct -h` lists every flag. `--budget` is refused here: there is
 no prompt to read.
 
 ### How it ended
 
-- 0 — the contracts were planned (and, unless `--output`, every one that ran
+- 0 — the contracts were decomposed (and, unless `--output`, every one that ran
   ended well).
 - 1 — a failure: the config, the proposer or its reply, the repository, a
   run that did not land its change, or a crash; stderr says which.
@@ -404,7 +405,7 @@ you read it with `--result PATH`; for more, pass `--record DIR` and read
 the config's `journal.dir`, in `results/`. The file's keys:
 
 - `outcome` — one word, and what it leaves to do next:
-  - `accepted` — the work landed; nothing to replan.
+  - `accepted` — the work landed; nothing to re-decompose.
   - `rejected` — the deterministic gate refused the change; the
     findings name the check a different contract has to answer.
   - `delivery_refused` — judged acceptable, but the write to the tree
@@ -412,11 +413,12 @@ the config's `journal.dir`, in `results/`. The file's keys:
   - `nothing_to_change` — a tool found nothing to do; exit 0.
   - `ladder_spent` — everything this machine offers was tried and none
     produced an acceptable change. Raising a number changes what it
-    costs to fail, not whether it fails. In a batch planned from a
+    costs to fail, not whether it fails. In a batch decomposed from a
     prompt (`mcgyvr "<prompt>"`) the contract goes back to the proposer
     with its failure notes and what comes back runs in its place, up to
-    `max_replans` (default 1); `replanned` says what became of it. Under
-    `mcgyvr direct` no proposer is asked and nothing re-plans it: you
+    `max_redecompositions` (default 1); `redecomposed` says what became of
+    it. Under
+    `mcgyvr direct` no proposer is asked and nothing re-decomposes it: you
     do, from the findings (Step 5).
   - `escalation_ceiling` — stopped at a ceiling on how far the work may
     be moved up, with dearer tries never entered; that says it was not
@@ -440,7 +442,7 @@ the config's `journal.dir`, in `results/`. The file's keys:
 - `attempts[]` — every try: `rung`, `attempt`, `verdict` (`passed`,
   `failed`, `declined`, `error`), `detail`, `findings` (the gate's lines
   behind a failure), `notes` (the record those lines are rendered from;
-  below), `attempt_id`, `draw`, `draws`, `rows`, `relief`,
+  below), `attempt_id`, `draw`, `draws`, `rows`, `hitchhike`,
   `model`, `address`. `draws` is the
   breadth the attempt asked for (`breadth.draws`), whatever the verdict;
   `rows` is how many of those draws left a journal row, which is `draws`
@@ -448,14 +450,14 @@ the config's `journal.dir`, in `results/`. The file's keys:
   raised before dispatching. `draw` is the draw the entry is about, and is
   `null` — with `attempt_id` `null` beside it — on an `error` no single
   dispatch caused: `rows: 0` means it raised before dispatching at all,
-  and anything more means it raised past draw `rows - 1`. `relief` is
+  and anything more means it raised past draw `rows - 1`. `hitchhike` is
   `true` for a rung lent through a hub — recorded like any try, but
   charged against the budget only when it passes — and `model`/`address`
-  name the unit that served it, so a relief try shows which borrowed
+  name the unit that served it, so a hitchhike try shows which borrowed
   machine answered.
 - `assurance` — what an `accepted` result rests on, and `detail` says it
   in a sentence: `deterministic` (a tool's change, on the gate),
-  `verified` (a reviewer agreed), `unverified` (no reviewer could be
+  `verified` (a verifier agreed), `unverified` (no verifier could be
   asked; `detail` says why) or `unchecked` (a reply no check judges:
   no checks, no review). A reply is never reviewed.
 - `findings` — why a change was refused, one line per reason: the
@@ -475,7 +477,7 @@ the config's `journal.dir`, in `results/`. The file's keys:
 - `notes` — what the run said in passing (not failure notes): the
   uncommitted and untracked paths the sandbox of HEAD left out, what a
   tool printed as it worked (what a rename renamed), what the baseline
-  left behind (now cleaned up), and a relief rung that duplicates a unit
+  left behind (now cleaned up), and a hitchhike rung that duplicates a unit
   this install serves.
 - `triage` — only under `triage: jev` or a contract's `start_rung`: the
   `rung` the climb started on and its `source` (`jev`, asked for this
@@ -495,15 +497,16 @@ the config's `journal.dir`, in `results/`. The file's keys:
   the result read, `records`, the failure-notes records read from it,
   each with the `run` it was made in, and `handed`, how many the climb
   opened with (all under `retry_notes: climb`, else none).
-- `replanned` — only on a `ladder_spent` result in a batch planned from a
-  prompt with `max_replans` above 0: the `round`, the `max_replans` it was
+- `redecomposed` — only on a `ladder_spent` result in a batch decomposed from a
+  prompt with `max_redecompositions` above 0: the `round`, the
+  `max_redecompositions` it was
   held to, the ids of the `contracts` proposed in its place (empty when it
-  was not re-planned; each of those contract files carries `replan`: the
+  was not re-decomposed; each of those contract files carries `lineage`: the
   id it `replaces` and its `round`) and a `detail` sentence, which
   `detail` repeats.
 
 `attempts[].notes` is the failure-notes record of a failed try, `null` on
-a try that left none. It is built from what the gate, the reviewer or the
+a try that left none. It is built from what the gate, the verifier or the
 reply parser observed — never from a model's account — so an optional
 field is `null` where the check reported nothing for it. Its JSON Schema
 is `references/failure-notes.schema.json`. The record:
@@ -543,7 +546,7 @@ Each entry of its `notes`:
 **`kind`**
 - type: one of `finding`, `inconclusive`, `refusal`, `unreadable`
 - description: `finding`: the check rejected the change. `inconclusive`: the rung ran and could not
-  decide. `refusal`: a reviewer refused a change the gate passed. `unreadable`: the reply could not be
+  decide. `refusal`: a verifier refused a change the gate passed. `unreadable`: the reply could not be
   read, so nothing was gated.
 
 **`message`**
@@ -598,9 +601,9 @@ the program that did the work with `family: deterministic` and no prompt
 or reply beside it. `--record DIR` adds a complete second copy for your
 own use. `--notes-from RESULT` starts a contract's climb with an earlier
 run's failure notes, under a banner naming that run: for a rerun on another
-ladder or machine, never instead of replanning.
+ladder or machine, never instead of re-decomposing.
 
-## Step 5 — replan from the findings, never retry the same contract
+## Step 5 — re-decompose from the findings, never retry the same contract
 
 A failed attempt already had its retries inside the run, and under
 `mcgyvr direct` a spent ladder is not handed to a proposer: the next

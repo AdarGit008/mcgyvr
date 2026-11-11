@@ -41,7 +41,7 @@ from mcgyvr.decompose.decompose import (
     emit_one,
 )
 from mcgyvr.decompose.fields import FIELD_ORDER
-from mcgyvr.delegate import ClassifierProposer, proposer_by_authoring
+from mcgyvr.delegate import FillProposer, proposer_by_authoring
 from mcgyvr.gate.adapters import JavaScriptAdapter, PythonAdapter
 from mcgyvr.ladder_map import unit_map
 from mcgyvr.refine import (
@@ -411,7 +411,7 @@ def test_a_split_into_more_parts_than_max_refine_fanout_is_refused(
     )
     jev = ScriptedJev(split=tasks(prompt), picks={"partition": "sentence"})
     propose = proposer_by_authoring(
-        "classifier", typed=refining(jev, max_fanout=2), prose=no_prose
+        "fill", typed=refining(jev, max_fanout=2), prose=no_prose
     )
     assert propose is not None
 
@@ -499,9 +499,7 @@ def prose_answer(evidence: Evidence) -> Sequence[Proposal]:
 def test_when_jev_declines_prose_stands_in_for_the_whole_request(
     index: Index, prompt: str, jev: ScriptedJev
 ) -> None:
-    propose = proposer_by_authoring(
-        "classifier", typed=refining(jev), prose=prose_answer
-    )
+    propose = proposer_by_authoring("fill", typed=refining(jev), prose=prose_answer)
     assert propose is not None
 
     result = decompose(index, prompt, propose=propose)
@@ -517,7 +515,7 @@ def test_the_prose_path_never_asks_jev_and_emits_what_prose_proposed(
     index: Index,
 ) -> None:
     jev = ScriptedJev()
-    propose = proposer_by_authoring("prose", typed=refining(jev), prose=prose_answer)
+    propose = proposer_by_authoring("draft", typed=refining(jev), prose=prose_answer)
     assert propose is prose_answer
 
     result = decompose(index, "document listing", propose=propose)
@@ -559,9 +557,9 @@ units:
     rig: local
 ladder:
 - fast
-orchestrator:
+proposer:
   unit: orch
-  authoring: classifier
+  authoring: fill
 """
 
 
@@ -591,7 +589,7 @@ def test_delegate_refines_with_the_configured_bounds_when_jev_is_bound(
     typed = _typed_for(monkeypatch, text)
     assert isinstance(typed, RefiningProposer)
     assert (typed.max_splits, typed.max_fanout) == (2, 4)
-    assert isinstance(typed.classifier, ClassifierProposer)
+    assert isinstance(typed.classifier, FillProposer)
     assert typed.classifier.model == "example-judge:1b"
 
 
@@ -714,7 +712,7 @@ def test_with_prose_authoring_delegate_builds_no_typed_proposer(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     with_jev = "jev:\n  unit: judge\n"
-    text = UNITS.replace("  authoring: classifier\n", "  authoring: prose\n")
+    text = UNITS.replace("  authoring: fill\n", "  authoring: draft\n")
     assert _typed_for(monkeypatch, text + with_jev) is None
 
 
@@ -724,7 +722,7 @@ def test_unset_authoring_is_the_classifier_under_mcgyvr_code_with_jev_on(
     """`mcgyvr-code` turns its opt-ins on: with a Jev unit bound and on, unset
     authoring is the classifier refined by Jev; with Jev switched off it is
     still the classifier path, the scaffold alone (I-30a)."""
-    unset = UNITS.replace("  authoring: classifier\n", "")
+    unset = UNITS.replace("  authoring: fill\n", "")
     on = _typed_for(monkeypatch, unset + "jev:\n  unit: judge\n")
     assert isinstance(on, RefiningProposer)
     off = unset + "jev:\n  unit: judge\n  enabled: false\n"

@@ -75,7 +75,7 @@ if TYPE_CHECKING:  # typing.TypeAlias is 3.10's; a shipped reader runs on 3.9
 
 KB_PER_GB = 1024.0 * 1024.0
 MIB_PER_GB = 1024.0
-BYTES_PER_GB = 1024.0**3
+BYTES_PER_GIB = 1024.0**3
 MIB_BYTES = 1024 * 1024
 
 # The bandwidth probe copies a block of memory COPY_PASSES times and keeps the
@@ -1265,9 +1265,9 @@ def _other_memory(platform_: _Platform) -> _MemoryRead:
         notes.append(f"Memory: available memory not read — {unread}.")
     else:
         facts.append({"field": "memory.available_gb", "how": free_how})
-    gb = None if available is None else round(available / BYTES_PER_GB, 1)
+    gb = None if available is None else round(available / BYTES_PER_GIB, 1)
     mib = None if available is None else available // MIB_BYTES
-    memory = {"total_gb": round(total / BYTES_PER_GB, 1), "available_gb": gb}
+    memory = {"total_gb": round(total / BYTES_PER_GIB, 1), "available_gb": gb}
     return memory, facts, notes, (total // MIB_BYTES, mib)
 
 
@@ -2031,10 +2031,10 @@ def _disk(path: str, linux: bool = True) -> tuple[dict[str, Any], list[dict[str,
             if parent == probe:
                 break
             probe = parent
-    disk: dict[str, Any] = {"path": path, "free_gb": round(free / BYTES_PER_GB, 1)}
+    disk: dict[str, Any] = {"path": path, "free_gb": round(free / BYTES_PER_GIB, 1)}
     facts = [{"field": "disk.free_gb", "how": f"free space on {path}"}]
     if total:
-        disk["total_gb"] = round(total / BYTES_PER_GB, 1)
+        disk["total_gb"] = round(total / BYTES_PER_GIB, 1)
         facts.append({"field": "disk.total_gb", "how": f"total space on {path}"})
     device = _disk_device(path) if linux else None
     if device is not None:

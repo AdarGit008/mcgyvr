@@ -35,11 +35,11 @@ from . import notes as failure_notes
 from .config import (
     CREW_FILENAME,
     FLEET_FILENAME,
+    HITCHHIKE_FILENAME,
     JOURNAL_DIR_DEFAULT,
     KNOBS,
     LAUNCHER_NATIVE,
     POLICY_FILENAME,
-    RELIEF_FILENAME,
     SCHEMA,
     SWITCHES,
     USE_CASES,
@@ -259,7 +259,7 @@ def render_reference() -> str:
         "# Configuration reference",
         "",
         f"Every key `{FLEET_FILENAME}`, `{POLICY_FILENAME}` and "
-        f"`{RELIEF_FILENAME}` accept.",
+        f"`{HITCHHIKE_FILENAME}` accept.",
         "",
         "This page is generated from `SCHEMA` in `src/mcgyvr/config.py` — the same",
         "declaration the loader validates against. It is not a description of the",
@@ -446,12 +446,11 @@ GLOSSARY: tuple[tuple[str, str], ...] = (
     (
         "fill",
         "Jev picks each field of the scaffold from its fixed candidates "
-        "(`authoring: classifier` in today's policy.yaml).",
+        "(`proposer.authoring: fill`).",
     ),
     (
         "draft",
-        "a model writes the proposals freely, as JSON (`authoring: prose` in "
-        "today's policy.yaml).",
+        "a model writes the proposals freely, as JSON (`proposer.authoring: draft`).",
     ),
     (
         "vet",
@@ -462,7 +461,7 @@ GLOSSARY: tuple[tuple[str, str], ...] = (
     (
         "proposer",
         "the propose stage, fill or draft as `authoring` picks; policy.yaml "
-        "binds its model in the block spelled `orchestrator` today.",
+        "binds its model in the `proposer` block.",
     ),
     (
         "direct",
@@ -498,7 +497,8 @@ GLOSSARY: tuple[tuple[str, str], ...] = (
         "slot sharing: a host offers open slots of their own units, and a "
         "rider's task takes one only when the rider's own rung is full "
         "(`fanout: idle`), never as a step to climb. A host can read the "
-        "prompts sent to it.",
+        "prompts sent to it. The rungs a hub lends a rider this way are "
+        "hitchhike rungs, kept in `hitchhike.yaml` by `mcgyvr rig rungs sync`.",
     ),
     (
         "general pool",
@@ -906,12 +906,12 @@ def render_setup() -> str:
         "",
         f"- `{FLEET_FILENAME}` — what runs where: `units`, `rigs` and `fleets`.",
         f"- `{POLICY_FILENAME}` — how work moves over those units: `ladder` and "
-        "every other top-level key below but `relief`.",
+        "every other top-level key below but `hitchhike`.",
         "",
-        f"A third file, `{RELIEF_FILENAME}`, holds `relief`: the units other",
+        f"A third file, `{HITCHHIKE_FILENAME}`, holds `hitchhike`: the units other",
         "people lend you through a hub. `mcgyvr rig rungs sync` writes it whole",
         "and nothing else does, so it is neither locked nor edited by hand.",
-        "Beside `relief` it records `api_key_env`: the NAME of the variable the",
+        "Beside `hitchhike` it records `api_key_env`: the NAME of the variable the",
         "sync read your personal hub key from (`--key-env`), which the rig",
         "agent's refresh and `mcgyvr rig status` read the key from too (where",
         f"it records none, the one the units of `{CREW_FILENAME}` name).",
@@ -946,7 +946,7 @@ def render_setup() -> str:
         "cheapest-first with",
         "their family, attempt budget and model; the escalation ceiling and where it",
         "came from; every skipped rung with the reason it was skipped; and the",
-        "orchestrator and verifier models. `--probe` also asks each unit whether it",
+        "proposer and verifier models. `--probe` also asks each unit whether it",
         "is answering — off by default, because resolving a ladder should not need",
         "a network. Run it whenever a run picks a rung you did not expect.",
         "",
@@ -1044,12 +1044,12 @@ def _use_cases_section() -> list[str]:
         "`mcgyvr use NAME` switches it (`/mcgyvr-use` is the same, typed in a chat):",
         "",
         "- `mcgyvr-code` — mcgyvr between the model and you: contracts proposed,",
-        "  vetted, run up the ladder, gated, repaired, reviewed and re-planned,",
+        "  vetted, run up the ladder, gated, repaired, verified and re-decomposed,",
         "  each point under its own switch below, every one on by default but",
         "  delivery (`delivery.commit` stays off). A",
         "  policy that names no use case is `mcgyvr-code`. A batch runs",
         "  `--jobs auto` (the fleet's slots), and proposals are authored by the",
-        "  classifier when a Jev unit is bound and on.",
+        "  fill proposer when a Jev unit is bound and on.",
         "- `code` — a coding model mcgyvr recommends, served raw.",
         "- `chat` — a text model served raw.",
         "- `agent` — a model with tool-calling served raw.",
@@ -1120,7 +1120,7 @@ def render_use_skill() -> str:
         "that are now on or off. Show the user what it printed.",
         "",
         "- `mcgyvr-code` opts in: contracts are proposed, vetted, run up the",
-        "  ladder, gated, repaired, reviewed and re-planned, each under its own",
+        "  ladder, gated, repaired, verified and re-decomposed, each under its own",
         "  switch in the policy, every one on by default.",
         "- `code`, `chat` and `agent` serve the model raw: no stage runs, and",
         "  `mcgyvr PROMPT` and `mcgyvr direct` refuse until `mcgyvr use",
@@ -1301,7 +1301,8 @@ def _ended() -> list[str]:
     for a session agent, so the skills say the codes in words (#792).
     """
     return [
-        "- 0 — the contracts were planned (and, unless `--output`, every one that ran",
+        "- 0 — the contracts were decomposed (and, unless `--output`, every one that "
+        "ran",
         "  ended well).",
         "- 1 — a failure: the config, the proposer or its reply, the repository, a",
         "  run that did not land its change, or a crash; stderr says which.",
@@ -1340,7 +1341,7 @@ _DIRECT_FLAGS: tuple[str, ...] = (*_PROMPT_FLAGS, "--result", "--notes-from")
 
 
 def render_skill() -> str:
-    """Render the /mcgyvr skill: a prompt, planned into contracts and run.
+    """Render the /mcgyvr skill: a prompt, decomposed into contracts and run.
 
     Thin on purpose: it says how to hand the user's words to `mcgyvr "<prompt>"`,
     what happens to them, how to read how the batch ended and where its results
@@ -1352,7 +1353,8 @@ def render_skill() -> str:
     lines = [
         "---",
         "name: mcgyvr",
-        'description: "Offload a coding request to mcgyvr, a CLI that plans a prompt '
+        'description: "Offload a coding request to mcgyvr, a CLI that decomposes a '
+        "prompt "
         "into task contracts and runs them on deterministic tools, local models or "
         "API models, keeping only what its deterministic gate accepts. Pass the "
         "user's words as the prompt: mcgyvr surveys the repository, a proposer "
@@ -1367,11 +1369,16 @@ def render_skill() -> str:
         "",
         "# /mcgyvr",
         "",
-        "Offload a coding request to mcgyvr in the user's own words. mcgyvr plans it",
+        "Offload a coding request to mcgyvr in the user's own words. mcgyvr",
+        "decomposes it",
         "into contracts (one target, one task, one way to judge it each), runs them,",
         "gates every answer deterministically, and leaves accepted `code` changes in",
         "the working tree. It never commits unless told to, and it never writes",
         "anything else into the repository.",
+        "",
+        "mcgyvr has two modes: delegate (`mcgyvr PROMPT`, this skill) and direct",
+        "(`mcgyvr direct`, /mcgyvr-direct). The session agent chooses direct or",
+        "delegate; mcgyvr dispatches.",
         "",
         "## Run it",
         "",
@@ -1381,7 +1388,7 @@ def render_skill() -> str:
         "",
         "The prompt is everything the user wrote after `/mcgyvr`, passed as one",
         "argument; one whose first word is a command name goes after `--`",
-        '(`mcgyvr -- "<prompt>"`). The contracts planned are printed on stdout, and',
+        '(`mcgyvr -- "<prompt>"`). The contracts decomposed are printed on stdout, and',
         "what happens to them on stderr.",
         "",
         *_HEAD_AND_SESSION,
@@ -1391,13 +1398,14 @@ def render_skill() -> str:
         "```",
         "prompt -survey-> evidence -scaffold-> proposals -(Jev fills, if opted in)->",
         "       -vet-> contracts | refusals -(top rung fixes a refusal)-> vet again",
-        "       -schedule-> tree -run-> settle -(spent)-> replan",
+        "       -schedule-> tree -run-> settle -(spent)-> re-decompose",
         "```",
         "",
-        "Planning is survey, propose and vet. mcgyvr reads the repository for the",
+        "Decomposing is survey, scaffold, fill and vet. mcgyvr reads the repository",
+        "for the",
         "evidence the prompt points at, and the scaffold lays out each field's",
         "candidates from it, with no model asked. With Jev opted in, Jev picks from",
-        "them; without it the scaffold's first candidates stand. `authoring: prose`",
+        "them; without it the scaffold's first candidates stand. `authoring: draft`",
         "opts in to a model drafting the proposals instead. Every proposal is vetted:",
         "its target is a file the index holds, each dependency's signature is in the",
         "index or in a contract that creates it, what the worker is shown fits its",
@@ -1406,12 +1414,13 @@ def render_skill() -> str:
         "`max_reproposals` times; one still refused is printed as `refused:` with a",
         "`change:` line saying what to change.",
         "",
-        "Dispatch is schedule, run, settle and replan. The contracts that passed go on",
+        "Dispatch is schedule, run, settle and re-decompose. The contracts that",
+        "passed go on",
         "one dependency tree and run in the order it allows, each settled as it ends.",
         "One whose provider did not land is held, never sent (`blocked`). One whose",
         "ladder is spent goes back to the proposer with its failure notes (the top",
-        "rung when no orchestrator model is bound), and what comes back runs in its",
-        "place, up to `max_replans` times.",
+        "rung when no proposer model is bound), and what comes back runs in its",
+        "place, up to `max_redecompositions` times.",
         "",
         "## Flags that matter",
         "",
@@ -1434,8 +1443,9 @@ def render_skill() -> str:
         "## Refused or spent: hand it to /mcgyvr-direct",
         "",
         "A refusal, a contract held `blocked` behind one, and a contract whose ladder",
-        "is spent past `max_replans` are work this batch will not finish. Finish it",
-        "with /mcgyvr-direct: write the contracts yourself, or plan again with",
+        "is spent past `max_redecompositions` are work this batch will not finish.",
+        "Finish it",
+        "with /mcgyvr-direct: write the contracts yourself, or decompose again with",
         "`--output DIR`, which writes each contract that passed vetting to",
         "`DIR/<id>.json` and runs none, fix those files from the refusals and the",
         "findings, and run them with `/mcgyvr-direct DIR`.",
@@ -1446,7 +1456,7 @@ def render_skill() -> str:
 #: What the result file's `outcome` says, and what it leaves to do next.
 _OUTCOMES: tuple[str, ...] = (
     "- `outcome` — one word, and what it leaves to do next:",
-    "  - `accepted` — the work landed; nothing to replan.",
+    "  - `accepted` — the work landed; nothing to re-decompose.",
     "  - `rejected` — the deterministic gate refused the change; the",
     "    findings name the check a different contract has to answer.",
     "  - `delivery_refused` — judged acceptable, but the write to the tree",
@@ -1454,11 +1464,12 @@ _OUTCOMES: tuple[str, ...] = (
     "  - `nothing_to_change` — a tool found nothing to do; exit 0.",
     "  - `ladder_spent` — everything this machine offers was tried and none",
     "    produced an acceptable change. Raising a number changes what it",
-    "    costs to fail, not whether it fails. In a batch planned from a",
+    "    costs to fail, not whether it fails. In a batch decomposed from a",
     '    prompt (`mcgyvr "<prompt>"`) the contract goes back to the proposer',
     "    with its failure notes and what comes back runs in its place, up to",
-    "    `max_replans` (default 1); `replanned` says what became of it. Under",
-    "    `mcgyvr direct` no proposer is asked and nothing re-plans it: you",
+    "    `max_redecompositions` (default 1); `redecomposed` says what became of",
+    "    it. Under",
+    "    `mcgyvr direct` no proposer is asked and nothing re-decomposes it: you",
     "    do, from the findings (Step 5).",
     "  - `escalation_ceiling` — stopped at a ceiling on how far the work may",
     "    be moved up, with dearer tries never entered; that says it was not",
@@ -1486,7 +1497,7 @@ _RESULT_KEYS: tuple[str, ...] = (
     "- `attempts[]` — every try: `rung`, `attempt`, `verdict` (`passed`,",
     "  `failed`, `declined`, `error`), `detail`, `findings` (the gate's lines",
     "  behind a failure), `notes` (the record those lines are rendered from;",
-    "  below), `attempt_id`, `draw`, `draws`, `rows`, `relief`,",
+    "  below), `attempt_id`, `draw`, `draws`, `rows`, `hitchhike`,",
     "  `model`, `address`. `draws` is the",
     "  breadth the attempt asked for (`breadth.draws`), whatever the verdict;",
     "  `rows` is how many of those draws left a journal row, which is `draws`",
@@ -1494,14 +1505,14 @@ _RESULT_KEYS: tuple[str, ...] = (
     "  raised before dispatching. `draw` is the draw the entry is about, and is",
     "  `null` — with `attempt_id` `null` beside it — on an `error` no single",
     "  dispatch caused: `rows: 0` means it raised before dispatching at all,",
-    "  and anything more means it raised past draw `rows - 1`. `relief` is",
+    "  and anything more means it raised past draw `rows - 1`. `hitchhike` is",
     "  `true` for a rung lent through a hub — recorded like any try, but",
     "  charged against the budget only when it passes — and `model`/`address`",
-    "  name the unit that served it, so a relief try shows which borrowed",
+    "  name the unit that served it, so a hitchhike try shows which borrowed",
     "  machine answered.",
     "- `assurance` — what an `accepted` result rests on, and `detail` says it",
     "  in a sentence: `deterministic` (a tool's change, on the gate),",
-    "  `verified` (a reviewer agreed), `unverified` (no reviewer could be",
+    "  `verified` (a verifier agreed), `unverified` (no verifier could be",
     "  asked; `detail` says why) or `unchecked` (a reply no check judges:",
     "  no checks, no review). A reply is never reviewed.",
     "- `findings` — why a change was refused, one line per reason: the",
@@ -1521,7 +1532,7 @@ _RESULT_KEYS: tuple[str, ...] = (
     "- `notes` — what the run said in passing (not failure notes): the",
     "  uncommitted and untracked paths the sandbox of HEAD left out, what a",
     "  tool printed as it worked (what a rename renamed), what the baseline",
-    "  left behind (now cleaned up), and a relief rung that duplicates a unit",
+    "  left behind (now cleaned up), and a hitchhike rung that duplicates a unit",
     "  this install serves.",
     "- `triage` — only under `triage: jev` or a contract's `start_rung`: the",
     "  `rung` the climb started on and its `source` (`jev`, asked for this",
@@ -1541,10 +1552,11 @@ _RESULT_KEYS: tuple[str, ...] = (
     "  the result read, `records`, the failure-notes records read from it,",
     "  each with the `run` it was made in, and `handed`, how many the climb",
     "  opened with (all under `retry_notes: climb`, else none).",
-    "- `replanned` — only on a `ladder_spent` result in a batch planned from a",
-    "  prompt with `max_replans` above 0: the `round`, the `max_replans` it was",
+    "- `redecomposed` — only on a `ladder_spent` result in a batch decomposed from a",
+    "  prompt with `max_redecompositions` above 0: the `round`, the",
+    "  `max_redecompositions` it was",
     "  held to, the ids of the `contracts` proposed in its place (empty when it",
-    "  was not re-planned; each of those contract files carries `replan`: the",
+    "  was not re-decomposed; each of those contract files carries `lineage`: the",
     "  id it `replaces` and its `round`) and a `detail` sentence, which",
     "  `detail` repeats.",
 )
@@ -1569,7 +1581,7 @@ def render_direct_skill() -> str:
         "to change, and runs the rest in dependency order. Use it when a change has "
         "one target and a way to judge it, or for work /mcgyvr refused or could not "
         "finish: write the contracts, validate them, run them, read the result "
-        "files, replan from the findings. It never loads itself; invoke it with "
+        "files, re-decompose from the findings. It never loads itself; invoke it with "
         "/mcgyvr-direct <files|dir>. The schema below is the only contract "
         'vocabulary."',
         "disable-model-invocation: true",
@@ -1585,7 +1597,7 @@ def render_direct_skill() -> str:
         "every answer deterministically, and leaves an accepted `code` change in the",
         "working tree. It never commits unless told to, and it never writes anything",
         "else into the repository. No proposer is asked: refusals and spent work come",
-        "back to you.",
+        "back to you. The session agent chooses direct or delegate; mcgyvr dispatches.",
         "",
         "## Step 1 — write the contracts",
         "",
@@ -1685,9 +1697,9 @@ def render_direct_skill() -> str:
         "or reply beside it. `--record DIR` adds a complete second copy for your",
         "own use. `--notes-from RESULT` starts a contract's climb with an earlier",
         "run's failure notes, under a banner naming that run: for a rerun on another",
-        "ladder or machine, never instead of replanning.",
+        "ladder or machine, never instead of re-decomposing.",
         "",
-        "## Step 5 — replan from the findings, never retry the same contract",
+        "## Step 5 — re-decompose from the findings, never retry the same contract",
         "",
         "A failed attempt already had its retries inside the run, and under",
         "`mcgyvr direct` a spent ladder is not handed to a proposer: the next",
@@ -1741,7 +1753,7 @@ def _notes_section() -> list[str]:
     """The skill's account of `attempts[].notes`, its records from `mcgyvr.notes`."""
     return [
         "`attempts[].notes` is the failure-notes record of a failed try, `null` on",
-        "a try that left none. It is built from what the gate, the reviewer or the",
+        "a try that left none. It is built from what the gate, the verifier or the",
         "reply parser observed — never from a model's account — so an optional",
         "field is `null` where the check reported nothing for it. Its JSON Schema",
         f"is `references/{NOTES_SCHEMA_PATH.name}`. The record:",

@@ -1,4 +1,4 @@
-"""A relief rung taking work the rider's own rung is too full for."""
+"""A hitchhike rung taking work the rider's own rung is too full for."""
 
 from __future__ import annotations
 
@@ -59,8 +59,8 @@ fanout: {fanout}
 """
 
 
-RELIEF = f"""
-relief:
+HITCHHIKE = f"""
+hitchhike:
   {RIDE}:
     address: https://hub.example.org/v1
     model: hitchhike@{RUNG_ID}
@@ -71,9 +71,9 @@ relief:
 
 
 def mapped(
-    fanout: str = "idle", *, relief: str = RELIEF, escalations: int = 1
+    fanout: str = "idle", *, hitchhike: str = HITCHHIKE, escalations: int = 1
 ) -> tuple[Config, UnitMap]:
-    config = parse(SETUP.format(fanout=fanout, escalations=escalations) + relief)
+    config = parse(SETUP.format(fanout=fanout, escalations=escalations) + hitchhike)
     return config, unit_map(config)
 
 

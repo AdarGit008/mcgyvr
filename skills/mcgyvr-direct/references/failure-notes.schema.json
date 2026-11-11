@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "mcgyvr failure notes",
-  "description": "mcgyvr.failure_notes/1: the record of one failed attempt, built from what the gate, the reviewer or the reply parser observed. Generated from src/mcgyvr/notes.py by `make docs`; do not edit.",
+  "description": "mcgyvr.failure_notes/1: the record of one failed attempt, built from what the gate, the verifier or the reply parser observed. Generated from src/mcgyvr/notes.py by `make docs`; do not edit.",
   "$ref": "#/$defs/FailureNotes",
   "$defs": {
     "FailureNotes": {
@@ -63,7 +63,7 @@
           "type": "string"
         },
         "kind": {
-          "description": "`finding`: the check rejected the change. `inconclusive`: the rung ran and could not decide. `refusal`: a reviewer refused a change the gate passed. `unreadable`: the reply could not be read, so nothing was gated.",
+          "description": "`finding`: the check rejected the change. `inconclusive`: the rung ran and could not decide. `refusal`: a verifier refused a change the gate passed. `unreadable`: the reply could not be read, so nothing was gated.",
           "enum": [
             "finding",
             "inconclusive",

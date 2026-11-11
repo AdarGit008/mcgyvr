@@ -1,6 +1,6 @@
 """The climb above the attempt seam: judge one attempt, plan it, spend it.
 
-`judge` turns an attempt's gate result and its reviewer into a `Judgement`;
+`judge` turns an attempt's gate result and its verifier into a `Judgement`;
 `ascent` says which families a contract may be carried through and what
 that may cost before anything is spent; `escalate` climbs them, charging
 every attempt to the configured ceilings, and returns a `Delivered` or the
@@ -60,7 +60,7 @@ MODEL = "model"
 
 # The two verification policies, cheapest first. `gate_only` accepts a
 # change on the deterministic gate alone; `model` adds a fresh-context
-# reviewer. A policy this build does not know ranks as `model`, so an
+# verifier. A policy this build does not know ranks as `model`, so an
 # unknown name can only raise the bar.
 _POLICY_RANK: dict[str, int] = {GATE_ONLY: 0, MODEL: 1}
 
@@ -87,8 +87,8 @@ class Assurance(StrEnum):
     """What accepting a change or a reply rests on.
 
     `deterministic` is a tool's output accepted on the gate alone,
-    `verified` a change a reviewer agreed with, `unverified` a change
-    accepted on the gate alone because no usable reviewer was there, and
+    `verified` a change a verifier agreed with, `unverified` a change
+    accepted on the gate alone because no usable verifier was there, and
     `unchecked` a reply, which nothing checks or reviews.
     """
 
@@ -98,9 +98,9 @@ class Assurance(StrEnum):
     UNCHECKED = "unchecked"
 
 
-#: Why a change was accepted without a reviewer, as a sentence rather than a
+#: Why a change was accepted without a verifier, as a sentence rather than a
 #: flag: it lands in a judgement's detail, where the user reads it.
-NO_REVIEWER = "no reviewer is configured — set `verifier.unit`"
+NO_REVIEWER = "no verifier is configured — set `verifier.unit`"
 
 
 def reply_judged(name: str) -> str:
@@ -116,7 +116,7 @@ def how_judged(kind: TaskType) -> str:
     """Say what acceptance of this task type rests on, and how sure it is.
 
     A tool's output is the deterministic gate; work that judges a change is
-    the gate and then a reviewer; a reply is served unchecked. Each
+    the gate and then a verifier; a reply is served unchecked. Each
     sentence names the `Assurance` the same path would report, so a printed
     bar and a recorded one cannot drift apart.
     """
@@ -127,7 +127,7 @@ def how_judged(kind: TaskType) -> str:
         )
     if kind.judges_a_change:
         return (
-            "the deterministic gate, then a fresh-context reviewer: assurance "
+            "the deterministic gate, then a fresh-context verifier: assurance "
             f"`{Assurance.VERIFIED}` when one agrees, `{Assurance.UNVERIFIED}` "
             "when none is configured (set `verifier.unit`) or it cannot be used."
         )
@@ -135,10 +135,10 @@ def how_judged(kind: TaskType) -> str:
 
 
 class Opinion(StrEnum):
-    """What a reviewer said about a change.
+    """What a verifier said about a change.
 
     `agreed` and `refused` are verdicts; `unusable` is the absence of one —
-    the reviewer could not be asked, or answered something that names no
+    the verifier could not be asked, or answered something that names no
     outcome.
     """
 
@@ -149,7 +149,7 @@ class Opinion(StrEnum):
 
 @dataclass(frozen=True)
 class Review:
-    """One reviewer's answer about a change, with the sentence it gave.
+    """One verifier's answer about a change, with the sentence it gave.
 
     The named constructors are the only way to build one, so a verdict is
     never a bare boolean where a `False` would have to mean either "refused"
@@ -181,7 +181,7 @@ class Judgement:
     `policy` is the verification policy it was judged under, with `upgraded`
     saying whether that was raised above the contract's own. `retry` is the
     failure-notes record of a failed try — what a later try must fix, naming
-    the rung and attempt it is about — `reviewer_failed` says a reviewer was asked
+    the rung and attempt it is about — `reviewer_failed` says a verifier was asked
     and answered nothing usable, and the draw fields are the breadth
     bookkeeping a `Result` carries into the history.
     """
@@ -251,7 +251,7 @@ def judge(
     rung: str = "",
     attempt: int = 0,
 ) -> Judgement:
-    """Judge one attempt: the gate first, then a reviewer only where one is owed.
+    """Judge one attempt: the gate first, then a verifier only where one is owed.
 
     A gate that rejected the change fails the attempt and carries what it
     observed as a failure-notes record, placed at `rung` and `attempt` — the
@@ -317,7 +317,7 @@ def judge(
             detail=(
                 f"unverified: {why}; accepted on the deterministic gate alone, "
                 f"where work in the {family.name!r} family is reviewed when a "
-                f"reviewer is available."
+                f"verifier is available."
             ),
         )
 
@@ -329,7 +329,7 @@ def judge(
             policy=policy,
             upgraded=upgraded,
             detail=(
-                f"verified by {reviewer or 'the reviewer'}: "
+                f"verified by {reviewer or 'the verifier'}: "
                 f"{review.detail or 'it agreed with the applied change.'}"
             ),
         )
@@ -339,21 +339,21 @@ def judge(
             policy=policy,
             upgraded=upgraded,
             # A refusal is the builder's failure, so the attempt fails and
-            # carries what to fix: the reviewer's sentence, then whatever
+            # carries what to fix: the verifier's sentence, then whatever
             # the non-blocking jev rung saw. The gate passed, so no gate
             # findings are here, and without the jev lines a retry would
             # hear the verifier and nothing else.
             retry=FailureNotes.of_refusal(
                 review.detail, gate, rung=rung, family=family.name, attempt=attempt
             ),
-            # The detail is the reviewer's own sentence: nothing here
+            # The detail is the verifier's own sentence: nothing here
             # invents a reason for a refusal that was stated.
             detail=f"refused by {reviewer or 'the verifier'}: {review.detail}",
         )
     # An unusable review is neither an approval nor the builder's fault:
     # the change is accepted on the gate alone, labelled unverified so a
     # result is never reported as more assured than it is, and flagged so a
-    # caller can see that a reviewer was asked and answered nothing usable.
+    # caller can see that a verifier was asked and answered nothing usable.
     return Judgement(
         verdict=Verdict.PASSED,
         assurance=Assurance.UNVERIFIED,
@@ -408,7 +408,7 @@ class Entry:
     """A rung claimed for the climb, with its slot already held.
 
     It names the family and rung the ascent enters at, the machine and
-    capacity the claim was taken against, and whether the rung is a relief
+    capacity the claim was taken against, and whether the rung is a hitchhike
     one.
     """
 
@@ -416,10 +416,10 @@ class Entry:
     rung: str
     machine: Machine = field(repr=False, compare=False)
     capacity: Capacity = field(repr=False, compare=False)
-    #: `relief` says the rung is a lent one, outside the ladder. Machine and
+    #: `hitchhike` says the rung is a lent one, outside the ladder. Machine and
     #: capacity are out of repr and equality: a printed entry names no
     #: machine, and two claims on the same rung compare equal.
-    relief: bool = False
+    hitchhike: bool = False
 
     def release(self) -> None:
         """Give the claim back, so the slot this entry held is free again."""
@@ -431,13 +431,13 @@ class _Found:
     """A free rung the entry scan found, before anything is claimed for it.
 
     It carries the family it was found in, so the ascent can be rebuilt at
-    that floor, and whether the rung is a relief one.
+    that floor, and whether the rung is a hitchhike one.
     """
 
     family: Family
     rung: str
     machine: Machine
-    relief: bool = False
+    hitchhike: bool = False
 
 
 @dataclass(frozen=True)
@@ -446,7 +446,7 @@ class Ascent:
 
     `plans` is one per catalog family from `floor` upward, so the climb is
     monotonic by shape. `ceiling` and `capacity` bound it, `fanout` and
-    `widths` are what the entry decision reads, and `relief` holds the lent
+    `widths` are what the entry decision reads, and `hitchhike` holds the lent
     rungs the ladder does not name, which are never a step of it.
     """
 
@@ -456,7 +456,7 @@ class Ascent:
     fanout: Fanout = Fanout.NONE
     capacity: Capacity | None = field(default=None, repr=False, compare=False)
     widths: Mapping[str, int] = field(default_factory=dict, repr=False, compare=False)
-    relief: tuple[Step, ...] = ()
+    hitchhike: tuple[Step, ...] = ()
 
     def __bool__(self) -> bool:
         """Whether any family in the ascent offers a rung."""
@@ -515,16 +515,16 @@ class Ascent:
         found = self._entry_rung(reserve=False)
         return None if found is None else found.rung
 
-    def reserve_entry(self, *, relief: bool = True) -> Entry | None:
+    def reserve_entry(self, *, hitchhike: bool = True) -> Entry | None:
         """Claim the entry rung's slot, or None when there is no entry to claim.
 
-        Only a rung that raises above the floor, or a relief rung, is worth a
-        claim. `relief=False` leaves the lent rungs out of the scan.
+        Only a rung that raises above the floor, or a hitchhike rung, is worth a
+        claim. `hitchhike=False` leaves the lent rungs out of the scan.
         """
-        found = self._entry_rung(reserve=True, relief=relief)
+        found = self._entry_rung(reserve=True, hitchhike=hitchhike)
         if found is None:
             return None
-        if not found.relief and not self._raises(found.family):
+        if not found.hitchhike and not self._raises(found.family):
             return None
         # Only a rung that raises above the floor is worth a claim, and the
         # scan returned something only because a capacity was there to claim
@@ -535,14 +535,14 @@ class Ascent:
             rung=found.rung,
             machine=found.machine,
             capacity=self.capacity,
-            relief=found.relief,
+            hitchhike=found.hitchhike,
         )
 
     def _raises(self, family: Family) -> bool:
         """Whether reaching this family is a move above where the climb starts."""
         return family.rank > self.floor.rank
 
-    def _entry_rung(self, *, reserve: bool, relief: bool = True) -> _Found | None:
+    def _entry_rung(self, *, reserve: bool, hitchhike: bool = True) -> _Found | None:
         """The scan behind `next_free_rung` and `reserve_entry`.
 
         Only `idle` fan-out with a known capacity can decide an entry: the
@@ -551,7 +551,7 @@ class Ascent:
         slot is returned; when `reserve` is set and its family raises above
         the floor, a slot is claimed for it. A free rung in the api family
         ends the walk with None instead: fan-out never sends a contract to a
-        priced api rung, escalation does. Relief rungs are
+        priced api rung, escalation does. Hitchhike rungs are
         offered once, and only after the first family with climbable rungs
         has none free.
         A fullness that cannot be read — no machine, or no declared width —
@@ -560,7 +560,7 @@ class Ascent:
         capacity = self.capacity
         if self.fanout is not Fanout.IDLE or capacity is None:
             return None
-        riding = self.relief if relief else ()
+        riding = self.hitchhike if hitchhike else ()
         # How busy each source is on the server side, read once under the rung
         # name the full check is asked with.
         servers = {
@@ -597,7 +597,7 @@ class Ascent:
                         return _Found(each.family, step.rung.name, step.machine)
                 if offered or not each.climbable:
                     continue
-                # Relief is offered once, and only here: the first family
+                # Hitchhike is offered once, and only here: the first family
                 # whose rungs are all busy hands the work to a lent rung.
                 offered = True
                 for step in riding:
@@ -608,7 +608,7 @@ class Ascent:
                         if reserve:
                             step.machine.claim(capacity, step.rung.name)
                         return _Found(
-                            each.family, step.rung.name, step.machine, relief=True
+                            each.family, step.rung.name, step.machine, hitchhike=True
                         )
         return None
 
@@ -631,7 +631,7 @@ def ascent(
 
     Every catalog family from `floor` — the contract's own starting family
     unless one is given — upward gets a plan, and the ceilings, fan-out
-    mode and relief rungs are read from the config and the pool. Raises
+    mode and hitchhike rungs are read from the config and the pool. Raises
     `RouteError` when the floor is not a family of the loaded catalog.
 
     `start` is the rung triage chose. The ascent then begins on it: every
@@ -660,9 +660,9 @@ def ascent(
         fanout=fanout_of(config),
         capacity=capacity,
         widths=_widths(config, capacity),
-        relief=tuple(
+        hitchhike=tuple(
             Step(rung=rung, attempts=1, machine=Machine(rung.name))
-            for rung in pool.relief
+            for rung in pool.hitchhike
         ),
     )
 
@@ -683,7 +683,7 @@ def _starting_at(plans: tuple[Plan, ...], start: str | None) -> tuple[Plan, ...]
 
 
 def _widths(config: Config, capacity: Capacity | None) -> Mapping[str, int]:
-    """How many slots each configured rung and relief rung has.
+    """How many slots each configured rung and hitchhike rung has.
 
     Read once from the capacity so the entry decision does not ask per
     step. A rung the capacity says nothing about is left out, and without a
@@ -694,7 +694,7 @@ def _widths(config: Config, capacity: Capacity | None) -> Mapping[str, int]:
     limits = capacity.limits
     return {
         name: capacity.limit(name)
-        for name in (*config.ladder.names, *config.relief)
+        for name in (*config.ladder.names, *config.hitchhike)
         if name in limits
     }
 
@@ -734,7 +734,7 @@ class Delivered:
 
     @property
     def verified(self) -> bool:
-        """Whether a reviewer agreed with the change, rather than the gate alone."""
+        """Whether a verifier agreed with the change, rather than the gate alone."""
         return self.assurance is Assurance.VERIFIED
 
 
@@ -830,7 +830,7 @@ def escalate(
     unset, every rung may be entered — while every attempt is charged to
     `max_attempts` or the ladder's own budget.
 
-    A relief rung claimed as the entry is ridden first, as a one-step plan
+    A hitchhike rung claimed as the entry is ridden first, as a one-step plan
     of its own, and the climb is then rebuilt at the family whose rung was
     claimed: the plans are walked in rank order, a family with no rung is
     passed over, and the first accepted judgement returns `Delivered`.
@@ -853,11 +853,11 @@ def escalate(
             config, pool, contract, floor=floor, capacity=capacity, start=start
         )
     entry = _idle_entry(route)
-    # A relief rung claimed as the entry is ridden on its own, before the
+    # A hitchhike rung claimed as the entry is ridden on its own, before the
     # ladder: it is not a step of the ascent, so it cannot be one of the
     # plans below.
     riding: Entry | None = None
-    if entry is not None and entry.relief:
+    if entry is not None and entry.hitchhike:
         riding, entry = entry, None
     claimed: str | None = None
     if entry is not None:
@@ -920,9 +920,9 @@ def escalate(
         return result
 
     def rode(this: Try) -> Result:
-        """Make one try on the relief rung the task rides.
+        """Make one try on the hitchhike rung the task rides.
 
-        A relief rung is not a step of the ladder: no budget counts it, so
+        A hitchhike rung is not a step of the ladder: no budget counts it, so
         only a pass charges an attempt, and it is never a move in the
         escalation arithmetic.
         """
@@ -937,31 +937,31 @@ def escalate(
         return judgement.as_result()
 
     def _unit_of(rung: str) -> tuple[str, str, bool, str]:
-        """The model, address, relief flag and `whose` of the unit `rung` names."""
-        unit = config.units.get(rung) or config.relief.get(rung)
+        """The model, address, hitchhike flag and `whose` of the unit `rung` names."""
+        unit = config.units.get(rung) or config.hitchhike.get(rung)
         if unit is None:
             return "", "", False, whose(None)
         return (
             unit.served_model or unit.model or "",
             unit.address or "",
-            unit.relief,
+            unit.hitchhike,
             unit.whose,
         )
 
     def recorded() -> tuple[Attempted, ...]:
         """The history, each try stamped with the unit that served it.
 
-        A relief rung is recorded like any other try, but `relief` is `True`
+        A hitchhike rung is recorded like any other try, but `hitchhike` is `True`
         and it charges the budget only when it passes: the record carries it,
         the spend does not.
         """
         rows: list[Attempted] = []
         for row in history:
-            model, address, relief, from_whom = _unit_of(row.rung)
+            model, address, hitchhike, from_whom = _unit_of(row.rung)
             rows.append(
                 replace(
                     row,
-                    relief=relief,
+                    hitchhike=hitchhike,
                     model=model,
                     address=address,
                     whose=from_whom,
@@ -1018,7 +1018,7 @@ def escalate(
                 )
             except _AttemptError as raised:
                 # The raise is recorded and the ladder is entered anyway: a
-                # relief rung that raises does not end the task.
+                # hitchhike rung that raises does not end the task.
                 history.append(_raised_attempt(raised))
             else:
                 history.extend(ridden.history)
@@ -1026,10 +1026,10 @@ def escalate(
                     return finish_accepted(ridden.family, ridden.rung)
             # Whatever the ride came to, the ladder is entered now. The
             # ascent is rebuilt at the family whose rung was claimed, so the
-            # ride is not re-entered, no relief rung is offered a second time,
+            # ride is not re-entered, no hitchhike rung is offered a second time,
             # and the ceilings and budget are read again from the ascent that
             # will actually be climbed.
-            entry = route.reserve_entry(relief=False)
+            entry = route.reserve_entry(hitchhike=False)
             if entry is not None:
                 route, claimed = _entered(
                     config, pool, contract, capacity, entry, start
@@ -1167,8 +1167,8 @@ def _entered(
 
 
 def _ride(config: Config, route: Ascent, riding: Entry) -> Plan:
-    """The one-step plan for a relief rung, in the family it is lent to."""
-    step = next(step for step in route.relief if step.rung.name == riding.rung)
+    """The one-step plan for a hitchhike rung, in the family it is lent to."""
+    step = next(step for step in route.hitchhike if step.rung.name == riding.rung)
     return Plan(family=family_of(config, riding.rung), steps=(step,))
 
 
@@ -1216,7 +1216,7 @@ def _spent_outcome(history: list[Attempted]) -> Outcome:
     """Classify a spent ladder from what happened, not from the budget.
 
     `attempts_spent` is a budget counter and deliberately leaves free tries
-    uncounted — a relief rung that failed or declined costs nothing — so it
+    uncounted — a hitchhike rung that failed or declined costs nothing — so it
     cannot say whether any rung actually tried. `history` can: a task whose
     only rows are declines stepped aside throughout, while any failed
     verdict means something tried and was rejected. A raised row is neither
@@ -1297,10 +1297,10 @@ def _halt_detail(
     )
 
 
-def redundant_relief(config: Config) -> tuple[str, ...]:
-    """Sentences naming relief rungs that duplicate a unit you already serve.
+def redundant_hitchhike(config: Config) -> tuple[str, ...]:
+    """Sentences naming hitchhike rungs that duplicate a unit you already serve.
 
-    A relief rung whose address and model are one of your own units', or whose
+    A hitchhike rung whose address and model are one of your own units', or whose
     `served_model` is a model your own ladder already serves, re-sends to
     what you already have: riding it cannot help, so a run says so instead
     of letting the user discover it from the journal. A unit of yours at the
@@ -1308,9 +1308,9 @@ def redundant_relief(config: Config) -> tuple[str, ...]:
     the same unit.
     """
     notes: list[str] = []
-    for name, unit in config.relief.items():
+    for name, unit in config.hitchhike.items():
         for own, other in config.units.items():
-            if other.relief:  # a relief rung a role binds is not one of yours
+            if other.hitchhike:  # a hitchhike rung a role binds is not one of yours
                 continue
             if (
                 unit.address
@@ -1318,14 +1318,14 @@ def redundant_relief(config: Config) -> tuple[str, ...]:
                 and unit.model == other.model
             ):
                 notes.append(
-                    f"relief rung {name!r} is the same unit as your own "
+                    f"hitchhike rung {name!r} is the same unit as your own "
                     f"{own!r} ({unit.address}) — riding it re-sends to the "
                     f"unit you already have, so it will not help."
                 )
                 break
             if unit.served_model and unit.served_model == other.model:
                 notes.append(
-                    f"relief rung {name!r} serves model {unit.served_model!r}, "
+                    f"hitchhike rung {name!r} serves model {unit.served_model!r}, "
                     f"which your own {own!r} already serves — riding it will "
                     f"not help."
                 )
@@ -1338,21 +1338,22 @@ def redundant_relief(config: Config) -> tuple[str, ...]:
 
 @dataclass(frozen=True)
 class Disposition:
-    """Whether a halted task's work may be handed to another orchestrator, and why."""
+    """Whether a halted task's work may be handed to another session agent, and why."""
 
     reassignable: bool
     detail: str
 
 
-def disposition(outcome: Outcome, *, replans: int = 0) -> Disposition:
+def disposition(outcome: Outcome, *, redecompositions: int = 0) -> Disposition:
     """The disposition for one outcome: whether to reassign, and why.
 
     Accepted work has no question left to answer, a spent or empty ladder
     and a ladder that declined throughout would give the same answer
     elsewhere, and the two ceilings and an error settled nothing about the
-    work — those are the ones worth handing on. `replans` is `max_replans`:
-    above zero, a spent ladder's remedy is the re-plan a batch makes of it
-    (`mcgyvr.replan`), not a hand-narrowed contract.
+    work — those are the ones worth handing on. `redecompositions` is
+    `max_redecompositions`: above zero, a spent ladder's remedy is the
+    re-decomposition a batch makes of it (`mcgyvr.redecompose`), not a
+    hand-narrowed contract.
 
     Not wired yet: no product command calls this; tests pin it until the run
     report or a hand-off reads it.
@@ -1389,15 +1390,16 @@ def disposition(outcome: Outcome, *, replans: int = 0) -> Disposition:
                     "that can pay for it."
                 ),
             )
-        case Outcome.LADDER_SPENT if replans > 0:
+        case Outcome.LADDER_SPENT if redecompositions > 0:
             return Disposition(
                 reassignable=False,
                 detail=(
                     "ladder_spent: every rung this install offers was tried "
                     "and none produced an acceptable change, so the same "
                     "contract would give the same answer anywhere. It goes "
-                    "back to the orchestrator with its failure notes to be "
-                    f"re-planned — `max_replans` is {replans}, and "
+                    "back to the proposer with its failure notes to be "
+                    f"re-decomposed — `max_redecompositions` is "
+                    f"{redecompositions}, and "
                     "`mcgyvr PROMPT` runs what comes back in its place "
                     "— rather than to another ladder; binding a dearer rung "
                     "remains the other remedy."
@@ -1449,7 +1451,7 @@ def disposition(outcome: Outcome, *, replans: int = 0) -> Disposition:
                     "was reached, so the ladder was never given a chance to "
                     "answer. The failure is in the attempt machinery, not in "
                     "the work — address the cause and retry, or hand it to "
-                    "another orchestrator."
+                    "another session agent."
                 ),
             )
         case _:  # pragma: no cover - unreachable while the match is exhaustive

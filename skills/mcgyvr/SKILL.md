@@ -1,6 +1,6 @@
 ---
 name: mcgyvr
-description: "Offload a coding request to mcgyvr, a CLI that plans a prompt into task contracts and runs them on deterministic tools, local models or API models, keeping only what its deterministic gate accepts. Pass the user's words as the prompt: mcgyvr surveys the repository, a proposer proposes contracts, every proposal is vetted, and the contracts that pass run in dependency order. It never loads itself; invoke it with /mcgyvr <prompt>. Contracts you write yourself, or ones it refused or could not finish, go to /mcgyvr-direct."
+description: "Offload a coding request to mcgyvr, a CLI that decomposes a prompt into task contracts and runs them on deterministic tools, local models or API models, keeping only what its deterministic gate accepts. Pass the user's words as the prompt: mcgyvr surveys the repository, a proposer proposes contracts, every proposal is vetted, and the contracts that pass run in dependency order. It never loads itself; invoke it with /mcgyvr <prompt>. Contracts you write yourself, or ones it refused or could not finish, go to /mcgyvr-direct."
 disable-model-invocation: true
 ---
 
@@ -8,11 +8,16 @@ disable-model-invocation: true
 
 # /mcgyvr
 
-Offload a coding request to mcgyvr in the user's own words. mcgyvr plans it
+Offload a coding request to mcgyvr in the user's own words. mcgyvr
+decomposes it
 into contracts (one target, one task, one way to judge it each), runs them,
 gates every answer deterministically, and leaves accepted `code` changes in
 the working tree. It never commits unless told to, and it never writes
 anything else into the repository.
+
+mcgyvr has two modes: delegate (`mcgyvr PROMPT`, this skill) and direct
+(`mcgyvr direct`, /mcgyvr-direct). The session agent chooses direct or
+delegate; mcgyvr dispatches.
 
 ## Run it
 
@@ -22,7 +27,7 @@ mcgyvr "<prompt>" [--repo PATH] [flags]
 
 The prompt is everything the user wrote after `/mcgyvr`, passed as one
 argument; one whose first word is a command name goes after `--`
-(`mcgyvr -- "<prompt>"`). The contracts planned are printed on stdout, and
+(`mcgyvr -- "<prompt>"`). The contracts decomposed are printed on stdout, and
 what happens to them on stderr.
 
 Every run works on the repository as committed at HEAD: uncommitted edits
@@ -35,13 +40,14 @@ sessions are detected from the environment, otherwise pass `--session ID`.
 ```
 prompt -survey-> evidence -scaffold-> proposals -(Jev fills, if opted in)->
        -vet-> contracts | refusals -(top rung fixes a refusal)-> vet again
-       -schedule-> tree -run-> settle -(spent)-> replan
+       -schedule-> tree -run-> settle -(spent)-> re-decompose
 ```
 
-Planning is survey, propose and vet. mcgyvr reads the repository for the
+Decomposing is survey, scaffold, fill and vet. mcgyvr reads the repository
+for the
 evidence the prompt points at, and the scaffold lays out each field's
 candidates from it, with no model asked. With Jev opted in, Jev picks from
-them; without it the scaffold's first candidates stand. `authoring: prose`
+them; without it the scaffold's first candidates stand. `authoring: draft`
 opts in to a model drafting the proposals instead. Every proposal is vetted:
 its target is a file the index holds, each dependency's signature is in the
 index or in a contract that creates it, what the worker is shown fits its
@@ -50,12 +56,13 @@ ladder with the reason, to be corrected and vetted again, up to
 `max_reproposals` times; one still refused is printed as `refused:` with a
 `change:` line saying what to change.
 
-Dispatch is schedule, run, settle and replan. The contracts that passed go on
+Dispatch is schedule, run, settle and re-decompose. The contracts that
+passed go on
 one dependency tree and run in the order it allows, each settled as it ends.
 One whose provider did not land is held, never sent (`blocked`). One whose
 ladder is spent goes back to the proposer with its failure notes (the top
-rung when no orchestrator model is bound), and what comes back runs in its
-place, up to `max_replans` times.
+rung when no proposer model is bound), and what comes back runs in its
+place, up to `max_redecompositions` times.
 
 ## Flags that matter
 
@@ -72,7 +79,7 @@ place, up to `max_replans` times.
   that typed this command, and a refusal, exit 2, when there is none); not needed with --output, which
   runs nothing.
 - `--record DIR` — also journal each run under DIR, as a complete second copy.
-- `--output DIR` — stop once the contracts are planned: write each one that passed vetting to
+- `--output DIR` — stop once the contracts are decomposed: write each one that passed vetting to
   DIR/<id>.json and run none of them, so `mcgyvr direct DIR` can run them later. Without it a prompt's
   contracts are printed on stdout and run from a temporary directory, and `direct` runs its files where
   they are.
@@ -81,7 +88,7 @@ place, up to `max_replans` times.
 
 ## How it ended
 
-- 0 — the contracts were planned (and, unless `--output`, every one that ran
+- 0 — the contracts were decomposed (and, unless `--output`, every one that ran
   ended well).
 - 1 — a failure: the config, the proposer or its reply, the repository, a
   run that did not land its change, or a crash; stderr says which.
@@ -104,8 +111,9 @@ file under the config's `journal.dir`, as `results/<id>-<stamp>.json`;
 ## Refused or spent: hand it to /mcgyvr-direct
 
 A refusal, a contract held `blocked` behind one, and a contract whose ladder
-is spent past `max_replans` are work this batch will not finish. Finish it
-with /mcgyvr-direct: write the contracts yourself, or plan again with
+is spent past `max_redecompositions` are work this batch will not finish.
+Finish it
+with /mcgyvr-direct: write the contracts yourself, or decompose again with
 `--output DIR`, which writes each contract that passed vetting to
 `DIR/<id>.json` and runs none, fix those files from the refusals and the
 findings, and run them with `/mcgyvr-direct DIR`.

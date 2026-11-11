@@ -3,7 +3,7 @@
 A contract run alone is read through ``--result PATH``: the caller names the
 file, so there is no pointer to print. Inside a batch (``direct`` of a set, the
 bare verb) each contract's result is read in process, by the Board that settles
-the tree and the re-planner, and the paths are in the Board's state file under
+the tree and the re-decompositionner, and the paths are in the Board's state file under
 ``<journal>/trees/``. Printing them on stdout handed the batch caller one
 pointer per contract into results it does not own, so a run prints none; the
 result file is written all the same.

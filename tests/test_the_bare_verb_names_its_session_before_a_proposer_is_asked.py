@@ -61,7 +61,7 @@ def test_no_session_is_refused_before_the_role_is_asked(
     err = capsys.readouterr().err
     assert "--session" in err, err
     assert "usage: mcgyvr PROMPT" in err, err  # refused by the bare verb's own parser
-    assert asked == [], "the orchestrator role was asked for a batch nobody typed"
+    assert asked == [], "the proposer role was asked for a batch nobody typed"
     assert not (tmp_path / "contracts").exists()
 
 

@@ -16,7 +16,7 @@ import argparse
 
 import pytest
 
-from mcgyvr.config import default_jobs, local_orchestrator, parse
+from mcgyvr.config import default_jobs, local_proposer, parse
 
 FLEET = """\
 units:
@@ -29,26 +29,26 @@ ladder: [fast]
 
 
 def test_the_classifier_authors_when_a_jev_unit_is_bound_and_on() -> None:
-    assert parse(FLEET + "jev:\n  unit: fast\n").authoring == "classifier"
+    assert parse(FLEET + "jev:\n  unit: fast\n").authoring == "fill"
 
 
 def test_the_scaffold_authors_with_no_jev_unit() -> None:
     """No Jev, no `authoring:`: the classifier path, which scaffolds alone."""
-    assert parse(FLEET).authoring == "classifier"
+    assert parse(FLEET).authoring == "fill"
     off = FLEET + "jev:\n  unit: fast\n  enabled: false\n"
-    assert parse(off).authoring == "classifier"
+    assert parse(off).authoring == "fill"
 
 
 def test_a_stated_authoring_wins() -> None:
-    stated = FLEET + "jev:\n  unit: fast\norchestrator:\n  authoring: prose\n"
+    stated = FLEET + "jev:\n  unit: fast\nproposer:\n  authoring: draft\n"
 
-    assert parse(stated).authoring == "prose"
+    assert parse(stated).authoring == "draft"
 
 
 def test_a_raw_use_case_authors_nothing_by_default() -> None:
     raw = FLEET + "use_case: code\njev:\n  unit: fast\n"
 
-    assert parse(raw).authoring == "prose"
+    assert parse(raw).authoring == "draft"
 
 
 def test_mcgyvr_code_dispatches_the_fleets_slots_by_default() -> None:
@@ -74,11 +74,9 @@ def test_delegate_jobs_is_unset_until_the_config_decides_it() -> None:
 
 
 def test_only_mcgyvr_code_provisions_a_local_proposer() -> None:
-    assert local_orchestrator(
-        use_case="mcgyvr-code", local_only=True, users=2
-    ).provision
+    assert local_proposer(use_case="mcgyvr-code", local_only=True, users=2).provision
     for raw in ("code", "chat", "agent"):
-        assert not local_orchestrator(use_case=raw, local_only=True, users=2).provision
+        assert not local_proposer(use_case=raw, local_only=True, users=2).provision
 
 
 # --- fan-out and triage follow the use case (F26, #807) ----------------------

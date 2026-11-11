@@ -1,4 +1,4 @@
-"""Per-field jev choice rendering for the classifier proposer (W3).
+"""Per-field jev choice rendering for the fill proposer (W3).
 
 Each W3 field is asked as one :class:`~mcgyvr.decision.Choice` whose option keys
 are the candidate ids of the W2 :class:`~mcgyvr.decompose.candidates.CandidateSet`

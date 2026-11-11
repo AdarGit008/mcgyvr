@@ -3,11 +3,11 @@
 `mcgyvr PROMPT` says how it ended in English on stderr, and its exit code folds
 a dozen failures into 1, so a script that called it could only tell them apart
 by matching prose — which broke the first time the prose was reworded. With
-`--log PATH` it writes one `mcgyvr.delegate_log/1` record there on every exit
+`--log PATH` it writes one `mcgyvr.delegate_log/2` record there on every exit
 once its arguments are read: the `kind` (one per exit path), the exit code
 the process returned, the contracts and refusals, and the facts behind a
 failure as data. Each test here drives `mcgyvr.cli.main` down one exit path,
-with the orchestrator's reply stood in for at `dispatch_role`, and reads the
+with the proposer's reply stood in for at `dispatch_role`, and reads the
 record back through the module's own `read`, checked against its own schema.
 
 What the module promises a reader is checked too: the exit-code table covers
@@ -53,13 +53,13 @@ units:
     width: 1
 ladder:
 - planner
-orchestrator:
+proposer:
   unit: planner
   model: planner-model
-  authoring: prose
+  authoring: draft
 """
 
-#: A config that loads and binds no orchestrator role.
+#: A config that loads and binds no proposer role.
 UNBOUND = """\
 units:
   planner:
@@ -122,7 +122,7 @@ def _answer(text: str, stop: StopReason = StopReason.COMPLETE) -> Completion:
 
 
 def _reply(monkeypatch: pytest.MonkeyPatch, answer: Any) -> None:
-    """The orchestrator answers `answer`: a reply, None, or an exception raised."""
+    """The proposer answers `answer`: a reply, None, or an exception raised."""
 
     def fake_dispatch_role(unit_map, role, request, *, capacity=None):  # type: ignore[no-untyped-def]
         if isinstance(answer, BaseException):
@@ -195,32 +195,32 @@ def test_a_named_setup_that_is_not_there_is_config_missing(
     assert record.detail["path"].endswith("nowhere")
 
 
-def test_a_bare_install_is_config_no_orchestrator(tmp_path: Path, root: Path) -> None:
+def test_a_bare_install_is_config_no_proposer(tmp_path: Path, root: Path) -> None:
     code, record = _delegate(tmp_path, root)
-    _ended(record, DelegateKind.CONFIG_NO_ORCHESTRATOR)
+    _ended(record, DelegateKind.CONFIG_NO_PROPOSER)
     assert code == 3
     assert record.detail["bare_install"] is True
     assert "no mcgyvr config was found" in record.message
     assert "mcgyvr setup" in record.message
 
 
-def test_prose_chosen_with_no_role_bound_is_config_no_orchestrator_too(
+def test_prose_chosen_with_no_role_bound_is_config_no_proposer_too(
     tmp_path: Path, root: Path
 ) -> None:
-    """Only `authoring: prose` needs the role: the default scaffolds without it."""
-    chosen = UNBOUND + "orchestrator:\n  authoring: prose\n"
+    """Only `authoring: draft` needs the role: the default scaffolds without it."""
+    chosen = UNBOUND + "proposer:\n  authoring: draft\n"
     code, record = _delegate(tmp_path, root, config=_config(tmp_path, chosen))
     assert code == 3
-    _ended(record, DelegateKind.CONFIG_NO_ORCHESTRATOR)
+    _ended(record, DelegateKind.CONFIG_NO_PROPOSER)
     assert record.detail["bare_install"] is False
-    assert "orchestrator role is not configured" in record.message
-    assert "drop `authoring: prose`" in record.message
+    assert "proposer role is not configured" in record.message
+    assert "drop `authoring: draft`" in record.message
 
 
-# --- the orchestrator role -----------------------------------------------------
+# --- the proposer role -----------------------------------------------------
 
 
-def test_a_role_declared_but_not_runnable_is_orchestrator_unrunnable(
+def test_a_role_declared_but_not_runnable_is_proposer_unrunnable(
     tmp_path: Path, root: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     def unrunnable(config: Any, pool: Any, **kwargs: Any) -> None:
@@ -228,24 +228,24 @@ def test_a_role_declared_but_not_runnable_is_orchestrator_unrunnable(
 
     monkeypatch.setattr(command, "_proposer_for_delegate", unrunnable)
     _code, record = _delegate(tmp_path, root, config=_config(tmp_path))
-    _ended(record, DelegateKind.ORCHESTRATOR_UNRUNNABLE)
+    _ended(record, DelegateKind.PROPOSER_UNRUNNABLE)
     assert record.detail["error_class"] == "UnitUnavailableError"
 
 
-def test_a_role_with_no_unit_is_orchestrator_unavailable(
+def test_a_role_with_no_unit_is_proposer_unavailable(
     tmp_path: Path, root: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     _reply(monkeypatch, None)
     _code, record = _delegate(tmp_path, root, config=_config(tmp_path))
-    _ended(record, DelegateKind.ORCHESTRATOR_UNAVAILABLE)
+    _ended(record, DelegateKind.PROPOSER_UNAVAILABLE)
 
 
-def test_a_dispatch_that_failed_is_orchestrator_dispatch_failed(
+def test_a_dispatch_that_failed_is_proposer_dispatch_failed(
     tmp_path: Path, root: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     _reply(monkeypatch, RunnerError("planner was reached but did not reply"))
     _code, record = _delegate(tmp_path, root, config=_config(tmp_path))
-    _ended(record, DelegateKind.ORCHESTRATOR_DISPATCH_FAILED)
+    _ended(record, DelegateKind.PROPOSER_DISPATCH_FAILED)
     assert record.message == "planner was reached but did not reply"
     assert record.detail["error_class"] == "RunnerError"
 
@@ -363,7 +363,7 @@ def test_an_entry_with_a_field_of_the_wrong_shape_is_proposal_field_invalid(
 def test_the_bare_verb_with_no_session_is_session_unresolved_and_asks_nobody(
     tmp_path: Path, root: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    _reply(monkeypatch, AssertionError("the orchestrator was asked"))
+    _reply(monkeypatch, AssertionError("the proposer was asked"))
     code, record = _delegate(tmp_path, root, "--run", config=_config(tmp_path))
     _ended(record, DelegateKind.SESSION_UNRESOLVED)
     assert code == 2
@@ -506,7 +506,7 @@ def test_every_kind_has_an_exit_code_and_the_schema_lists_them() -> None:
 def test_a_kind_from_a_newer_writer_still_reads(tmp_path: Path) -> None:
     newer = {
         "schema": SCHEMA_ID,
-        "kind": "orchestrator_on_fire",
+        "kind": "proposer_on_fire",
         "message": "a kind added later under /1",
         "exit_code": 1,
         "raw_reply_present": False,
@@ -520,7 +520,7 @@ def test_a_kind_from_a_newer_writer_still_reads(tmp_path: Path) -> None:
 
     record = read(path)
 
-    assert record.kind == "orchestrator_on_fire"
+    assert record.kind == "proposer_on_fire"
     assert not record.known
 
 

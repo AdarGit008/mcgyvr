@@ -219,6 +219,8 @@ def test_the_head_runs_with_its_cards_its_models_read_only_and_its_tunnel() -> N
         "q8_0",
         "-ctv",
         "q8_0",
+        "-ub",
+        "512",
         "--host",
         BRIDGE,
         "--port",
