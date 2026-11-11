@@ -145,13 +145,13 @@ names — a directory holding fleet.yaml and policy.yaml.
 - `mcgyvr rig peers` — the peers whose identity keys this rig pinned, with their fingerprints.
   - `--forget RIG_ID` — forget one peer's pinned key, after its owner rotated it and you compared the new
     fingerprint with them.
-- `mcgyvr rig rungs` — the relief rungs the hub matched you to (hitchhike).
-- `mcgyvr rig rungs sync` — keep the hub's relief rungs in the setup's relief.yaml, replacing the ones
-  kept.
+- `mcgyvr rig rungs` — the hitchhike rungs the hub matched you to.
+- `mcgyvr rig rungs sync` — keep the hub's hitchhike rungs in the setup's hitchhike.yaml, replacing the
+  ones kept.
   - `--hub HUB_URL` — the hub to ask (default: the one this machine joined).
   - `--key-env NAME` — the NAME of the variable holding your personal hub key (default:
     MCGYVR_HUB_API_KEY).
-  - `--config PATH` — setup whose relief.yaml is written (default: the usual setup).
+  - `--config PATH` — setup whose hitchhike.yaml is written (default: the usual setup).
   - `--ride-scope SCOPE` — set the setup's ride_scope first: whose rigs may read its rides, own, crew
     (the default) or anyone, an opt-in that shows the hub's privacy text.
 - `mcgyvr rig crew` — the units your crews lend you through the hub.

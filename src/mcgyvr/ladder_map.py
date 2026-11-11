@@ -45,7 +45,7 @@ class UnitProbe(TypingProtocol):
     # hold other weights: llama.cpp answers a request naming weights it is
     # not serving from the weights it is, so such a reply is another
     # model's and nothing in it says so.
-    # A probe is asked about ladder rungs and role endpoints, never relief
+    # A probe is asked about ladder rungs and role endpoints, never hitchhike
     # rungs: a lent rung is reached through a hub, not probed here.
 
 
@@ -109,7 +109,7 @@ class Endpoint:
     #: given and the other is room the whole request is served in, and where
     #: both are stated the smaller one holds.
     output_ceiling: int | None = None
-    #: The reply room of the rung this one stands in for, set on relief
+    #: The reply room of the rung this one stands in for, set on hitchhike
     #: rungs alone by `unit_map`: a lent rung answers as one of yours
     #: would, so its reply cap is held to this ceiling too.
     request_timeout_s: float | None = None
@@ -123,18 +123,18 @@ class Endpoint:
     #: The server program behind the address, as the unit declares it;
     #: `None` means llama.cpp. Read where a request or a status poll has to
     #: speak the engine's own API rather than the one path they share.
-    relief: bool = False
+    hitchhike: bool = False
     #: Whether this endpoint is a rung lent through a hub rather than one
-    #: of your own. A relief rung is a step of the ladder only where the
+    #: of your own. A hitchhike rung is a step of the ladder only where the
     #: ladder names it.
     served_model: str | None = None
     #: What the host says its unit runs, for people to read; it is not what
-    #: is asked for. On a relief rung it is what a reply's own model is
+    #: is asked for. On a hitchhike rung it is what a reply's own model is
     #: checked against, and a mismatch passes the rung over as full.
     busy_answers: frozenset[tuple[int, str]] | None = None
     #: The (status, code) answers that say this endpoint cannot take a
-    #: request now. On a relief rung one of them raises
-    #: `ReliefUnavailableError`, which is what makes a full lent rung cost
+    #: request now. On a hitchhike rung one of them raises
+    #: `HitchhikeUnavailableError`, which is what makes a full lent rung cost
     #: nothing to pass over; elsewhere an answer is read as any other.
     sampling: str = "request"
     use_case: str | None = None
@@ -147,11 +147,11 @@ class Endpoint:
     #: hub serves it from that scope's pool; `None` sends no header.
     seal: SealKey | None = None
     #: The key every request to this endpoint is sealed to (`mcgyvr.seal`), the
-    #: relief rung's `seal`; `None` sends requests in clear.
+    #: hitchhike rung's `seal`; `None` sends requests in clear.
     own_key: bool = False
     #: Whether the address is one of your own units, whose server may ask for
     #: the key mcgyvr made for it (`expose: lan`, :mod:`mcgyvr.unitkey`): such
-    #: an endpoint sends that key when one is kept for its address. A relief
+    #: an endpoint sends that key when one is kept for its address. A hitchhike
     #: rung, a crew unit and a hosted unit are never sent it.
 
     @property
@@ -163,7 +163,7 @@ class Endpoint:
     def whose(self) -> str:
         """Whose machines this endpoint's code may come from
         (:func:`mcgyvr.config.whose`)."""
-        return whose(self.scope, relief=self.relief)
+        return whose(self.scope, hitchhike=self.hitchhike)
 
     def credential(self) -> str | None:
         """The key read from the environment variable `credential_env` names.
@@ -231,8 +231,8 @@ class RoleBinding:
 class UnitMap:
     """A config resolved into what can be dispatched, and what cannot.
 
-    `rungs` are the ladder's usable steps in the ladder's own order, `relief`
-    the usable lent rungs, and `skipped` and `relief_skipped` the rest with
+    `rungs` are the ladder's usable steps in the ladder's own order, `hitchhike`
+    the usable lent rungs, and `skipped` and `hitchhike_skipped` the rest with
     their reasons. `bind` turns a rung name into the `Endpoint` to call and
     `role` a role into its `RoleBinding`. `unit_map` builds it.
     """
@@ -244,16 +244,16 @@ class UnitMap:
         endpoints: dict[str, Endpoint],
         roles: dict[str, RoleBinding],
         role_skips: dict[str, str],
-        relief: tuple[Rung, ...] = (),
-        relief_skipped: tuple[Skipped, ...] = (),
+        hitchhike: tuple[Rung, ...] = (),
+        hitchhike_skipped: tuple[Skipped, ...] = (),
     ) -> None:
         self._rungs = rungs
         self._skipped = skipped
         self._endpoints = endpoints
         self._roles = roles
         self._role_skips = role_skips
-        self._relief = relief
-        self._relief_skipped = relief_skipped
+        self._hitchhike = hitchhike
+        self._hitchhike_skipped = hitchhike_skipped
 
     @property
     def rungs(self) -> tuple[Rung, ...]:
@@ -266,26 +266,26 @@ class UnitMap:
         return self._skipped
 
     @property
-    def relief(self) -> tuple[Rung, ...]:
-        """The usable relief rungs: lent units, never a step of the ladder."""
-        return self._relief
+    def hitchhike(self) -> tuple[Rung, ...]:
+        """The usable hitchhike rungs: lent units, never a step of the ladder."""
+        return self._hitchhike
 
     @property
-    def relief_skipped(self) -> tuple[Skipped, ...]:
-        """The relief rungs that cannot be dispatched, each with its reason."""
-        return self._relief_skipped
+    def hitchhike_skipped(self) -> tuple[Skipped, ...]:
+        """The hitchhike rungs that cannot be dispatched, each with its reason."""
+        return self._hitchhike_skipped
 
     def __bool__(self) -> bool:
-        """Whether any ladder rung is usable. Relief rungs alone are not."""
+        """Whether any ladder rung is usable. Hitchhike rungs alone are not."""
         return bool(self._rungs)
 
     def __len__(self) -> int:
         return len(self._rungs)
 
     def get(self, name: str) -> Rung | None:
-        """The rung of that name on the ladder, else among the relief, or `None`."""
+        """The rung of that name on the ladder, else among the hitchhike, or `None`."""
         return next(
-            (rung for rung in (*self._rungs, *self._relief) if rung.name == name),
+            (rung for rung in (*self._rungs, *self._hitchhike) if rung.name == name),
             None,
         )
 
@@ -293,13 +293,13 @@ class UnitMap:
         """The endpoint to dispatch at for the rung of that name.
 
         Raises `UnitUnavailableError` when the rung was skipped, carrying the
-        reason, and `UnknownRungError` when no rung or relief rung is named so.
+        reason, and `UnknownRungError` when no rung or hitchhike rung is named so.
         """
         endpoint = self._endpoints.get(name)
         if endpoint is not None:
             return endpoint
         skipped = next(
-            (s for s in (*self._skipped, *self._relief_skipped) if s.name == name),
+            (s for s in (*self._skipped, *self._hitchhike_skipped) if s.name == name),
             None,
         )
         if skipped is not None:
@@ -339,11 +339,11 @@ def unit_map(config: Config, probe: UnitProbe | None = None) -> UnitMap:
     """Resolve `config` into the `UnitMap` work is dispatched from.
 
     Each ladder unit is checked for the key it names and, when it passes, given
-    an endpoint; relief rungs are taken the same way and kept off the ladder.
+    an endpoint; hitchhike rungs are taken the same way and kept off the ladder.
     Each role bound in the config becomes a `RoleBinding`, its model defaulting
     to its unit's own. With a `probe`, units it reports unreachable are
     dropped, and so are rungs whose unit is up but not holding their model.
-    A relief rung ends up with `output_ceiling` set to the reply room of the
+    A hitchhike rung ends up with `output_ceiling` set to the reply room of the
     cheapest usable rung, so a lent rung is held to what it stands in for.
     """
     usable: list[Rung] = []
@@ -375,14 +375,16 @@ def unit_map(config: Config, probe: UnitProbe | None = None) -> UnitMap:
             unit, width=_served(unit, name), use_case=config.use_case
         )
 
-    relief: list[Rung] = []
-    relief_skipped: list[Skipped] = []
-    for name, unit in config.relief.items():
+    hitchhike: list[Rung] = []
+    hitchhike_skipped: list[Skipped] = []
+    for name, unit in config.hitchhike.items():
         reason = _unusable(unit)
         if reason is not None:
-            relief_skipped.append(Skipped(name=name, model=unit.model, reason=reason))
+            hitchhike_skipped.append(
+                Skipped(name=name, model=unit.model, reason=reason)
+            )
             continue
-        relief.append(Rung(name=name, model=unit.model))
+        hitchhike.append(Rung(name=name, model=unit.model))
         endpoints[name] = _endpoint(unit, use_case=config.use_case)
 
     roles: dict[str, RoleBinding] = {}
@@ -416,11 +418,11 @@ def unit_map(config: Config, probe: UnitProbe | None = None) -> UnitMap:
 
     if probe is not None:
         # One endpoint per unit, so each unit is asked about once however
-        # many rungs and roles sit on it. Relief rungs are left out, being
+        # many rungs and roles sit on it. Hitchhike rungs are left out, being
         # another person's machine reached through a hub.
         asking: dict[str, Endpoint] = {}
         for endpoint in (*endpoints.values(), *(b.endpoint for b in roles.values())):
-            if endpoint.relief:
+            if endpoint.hitchhike:
                 continue
             asking.setdefault(endpoint.source, endpoint)
         down = probe.unavailable(tuple(asking.values()))
@@ -458,9 +460,9 @@ def unit_map(config: Config, probe: UnitProbe | None = None) -> UnitMap:
     # of yours: `output_ceiling` is the reply room of the cheapest usable
     # rung, and a reply on it is capped there as it would be on the rung the
     # lent one stands in for.
-    if usable and relief:
+    if usable and hitchhike:
         local = endpoints[usable[0].name].output_tokens
-        for rung in relief:
+        for rung in hitchhike:
             endpoints[rung.name] = replace(endpoints[rung.name], output_ceiling=local)
 
     return UnitMap(
@@ -469,8 +471,8 @@ def unit_map(config: Config, probe: UnitProbe | None = None) -> UnitMap:
         endpoints=endpoints,
         roles=roles,
         role_skips=role_skips,
-        relief=tuple(relief),
-        relief_skipped=tuple(relief_skipped),
+        hitchhike=tuple(hitchhike),
+        hitchhike_skipped=tuple(hitchhike_skipped),
     )
 
 
@@ -571,7 +573,7 @@ def _endpoint(
         output_tokens=unit.output_tokens,
         request_timeout_s=unit.request_timeout_s,
         engine=unit.engine,
-        relief=unit.relief,
+        hitchhike=unit.hitchhike,
         served_model=unit.served_model,
         busy_answers=(
             None if unit.busy_answers is None else frozenset(unit.busy_answers)
@@ -580,7 +582,7 @@ def _endpoint(
         use_case=use_case,
         scope=unit.scope,
         seal=unit.seal,
-        own_key=not unit.relief and not unit.crew and unit.api_key_env is None,
+        own_key=not unit.hitchhike and not unit.crew and unit.api_key_env is None,
     )
 
 

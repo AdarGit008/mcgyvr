@@ -120,7 +120,7 @@ def _ladder_show(args: argparse.Namespace) -> int:
 
     # What follows is read off `pool`: the config resolved into the rungs work
     # may be dispatched to. A ladder unit that names the key it needs and an
-    # address is usable; one that does not is skipped with its reason. Relief
+    # address is usable; one that does not is skipped with its reason. Hitchhike
     # rungs are resolved the same way but kept off the ladder.
     # The header counts the usable ladder rungs; each row states the rung's
     # name, the catalog family it is served from (`api` when its unit names
@@ -131,7 +131,7 @@ def _ladder_show(args: argparse.Namespace) -> int:
     # The order is the ladder's own, because that is the order escalation
     # climbs; a unit the ladder does not name is not a rung and is not printed.
     # Everything left out is stated below: the ceiling, the skipped rungs, the
-    # relief rungs, and the model each role is bound to.
+    # hitchhike rungs, and the model each role is bound to.
     print(f"{config.path}: {len(pool)} usable rung(s), in ladder order:\n")
     # What a task can spend is each rung's budget as a climb enforces it: capped
     # by the contract's `limits.attempts`, here at a contract's default, so the
@@ -181,23 +181,23 @@ def _ladder_show(args: argparse.Namespace) -> int:
         for skip in pool.skipped:
             print(f"  {skip.name:<20} {skip.model}\n      ↳ {skip.reason}")
 
-    # Relief rungs are lent units, never steps of the ladder: work rides one
+    # Hitchhike rungs are lent units, never steps of the ladder: work rides one
     # only under `fanout: idle` when your own rung is full, so each row states
     # its position, its width, the model actually served, and who hosts it.
-    if pool.relief or pool.relief_skipped:
+    if pool.hitchhike or pool.hitchhike_skipped:
         print(
-            f"\nRelief rungs (hitchhike), {len(pool.relief)} usable: taken under "
+            f"\nHitchhike rungs, {len(pool.hitchhike)} usable: taken under "
             f"`fanout: idle` only when your own rung is full, never climbed to. "
             f"Each host can read the prompts sent to it."
         )
-        for rung in pool.relief:
-            lent = config.relief[rung.name]
+        for rung in pool.hitchhike:
+            lent = config.hitchhike[rung.name]
             host = f", hosted by {lent.hosted_by}" if lent.hosted_by else ""
             print(
                 f"  {rung.name:<20} {lent.position or '':<14} "
                 f"x{lent.width or 1}  {lent.served_model or rung.model}{host}"
             )
-        for skip in pool.relief_skipped:
+        for skip in pool.hitchhike_skipped:
             print(f"  {skip.name:<20} skipped\n      ↳ {skip.reason}")
 
     for role in ("orchestrator", "verifier", JEV_ROLE):

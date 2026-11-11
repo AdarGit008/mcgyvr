@@ -580,12 +580,12 @@ def test_an_advert_lends_the_hosts_memory_once_and_its_cores_once() -> None:
 
 
 def test_the_kinds_a_rig_names_once_are_its_unified_device_memory_and_cores() -> None:
-    assert hubwire.ONE_PER_RIG == (
+    assert hubwire._ONE_PER_RIG == (
         hubwire.RESOURCE_UNIFIED,
         hubwire.RESOURCE_RAM,
         hubwire.RESOURCE_CPU,
     )
-    assert hubwire.RESOURCE_GPU not in hubwire.ONE_PER_RIG
+    assert hubwire.RESOURCE_GPU not in hubwire._ONE_PER_RIG
 
 
 def test_an_advert_names_at_most_one_unified_device() -> None:

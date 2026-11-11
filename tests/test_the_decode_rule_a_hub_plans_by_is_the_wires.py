@@ -29,7 +29,7 @@ def test_the_fitted_values_are_the_rules() -> None:
     assert dict(hubwire.HIGH_BANDWIDTH_EFFICIENCY) == {"8bit": 0.50, "4bit": 0.40}
     assert hubwire.HIGH_BANDWIDTH_GBPS == 800.0
     assert hubwire.FITTED_ON == "apple"
-    assert set(hubwire.QUANT_CLASSES) == set(hubwire.DECODE_EFFICIENCY)
+    assert set(hubwire._QUANT_CLASSES) == set(hubwire.DECODE_EFFICIENCY)
     assert set(hubwire.HIGH_BANDWIDTH_EFFICIENCY) == set(hubwire.DECODE_EFFICIENCY)
     assert (hubwire.BYTES_PER_DECIMAL_GB, hubwire.BYTES_PER_GIB) == (1e9, 1 << 30)
     with pytest.raises(TypeError):

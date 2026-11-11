@@ -22,7 +22,7 @@ from mcgyvr.config import (
     ROLE_SLEEPER,
     Config,
 )
-from mcgyvr.hubwire import shares_ram
+from mcgyvr.hubwire import BYTES_PER_GIB, shares_ram
 from mcgyvr.knowledge.record import MOE, architecture_of
 from mcgyvr.ladder_proposal import DEFAULT_HEADROOM_GB
 from mcgyvr.scan import Gpu, Scan, default_weights_dir
@@ -169,7 +169,6 @@ SPECULATIVE_CHOICES = (SPECULATIVE_NONE, SPECULATIVE_MTP)
 #: how many tokens the grafted MTP head drafts per step.
 DEFAULT_SPEC_DRAFT_N_MAX = 2
 
-_BYTES_PER_GIB = 1024**3
 
 #: The process roles a unit's parts can carry: the process that answers and
 #: llama.cpp's rpc-server workers. emit.py checks that an engine has the
@@ -249,7 +248,7 @@ class ModelSpec:
                 f"{self.name}: its geometry states no size_bytes, so it is not a "
                 f"ggufscan row; re-scan: python -m mcgyvr.serving.ggufscan <gguf>"
             )
-        measured = size_bytes / _BYTES_PER_GIB
+        measured = size_bytes / BYTES_PER_GIB
         if self.disk_gb and abs(self.disk_gb - measured) > SIZE_TOLERANCE_GB:
             raise UnitError(
                 f"{self.name}: disk_gb says {self.disk_gb!r} GiB and the geometry "
@@ -477,7 +476,7 @@ def _sized(
     """Size a llama.cpp or vLLM unit: refuse the cases that cannot be sized at all,
     place it on the freest card, pick a loading mode, and return the Fit."""
     free_bytes = _free_vram_bytes(scan)
-    free_vram = free_bytes / _BYTES_PER_GIB
+    free_vram = free_bytes / BYTES_PER_GIB
     # Memory read as a total alone promises nothing free, as no memory does.
     available_ram = (scan.memory.available_gb if scan.memory else None) or 0.0
 
@@ -1157,7 +1156,7 @@ def _sharded_units(
     except (sharding.ShardingError, shardlaunch.LaunchError) as exc:
         raise UnitError(str(exc)) from exc
     notes = _host_figure_notes(engine)
-    allowance = plan.shards[0].allowance_bytes / _BYTES_PER_GIB
+    allowance = plan.shards[0].allowance_bytes / BYTES_PER_GIB
     units: list[Unit] = []
     for process in launched:
         held = process.shards
@@ -1178,9 +1177,8 @@ def _sharded_units(
                     fits=True,
                     headroom_gb=allowance,
                     why=" ".join((said, *notes)),
-                    vram_gb=max(s.required_bytes for s in held) / _BYTES_PER_GIB,
-                    card_free_gb=min(s.target.free_bytes for s in held)
-                    / _BYTES_PER_GIB,
+                    vram_gb=max(s.required_bytes for s in held) / BYTES_PER_GIB,
+                    card_free_gb=min(s.target.free_bytes for s in held) / BYTES_PER_GIB,
                     notes=notes,
                 ),
                 port=process.port,
@@ -1469,7 +1467,7 @@ def hold_together(units: Iterable[Unit], scans: Mapping[str, Scan]) -> tuple[str
         if len(spec.units) < 2 or spec.host not in scans:
             continue
         scan = scans[spec.host]
-        free = _free_vram_bytes(scan) / _BYTES_PER_GIB
+        free = _free_vram_bytes(scan) / BYTES_PER_GIB
         on_card: dict[int, list[Unit]] = {}
         # Only the units that are up hold memory: a sleeper's figures were
         # charged for the file it would occupy, not for a running server.
@@ -1922,7 +1920,7 @@ def _allowance_gb(
     (`vramfit.allowance`), the default headroom otherwise."""
     if spec.geometry is None:
         return DEFAULT_HEADROOM_GB
-    return _allowance_bytes(spec.geometry, gpu, ctx_per_slot, slots) / _BYTES_PER_GIB
+    return _allowance_bytes(spec.geometry, gpu, ctx_per_slot, slots) / BYTES_PER_GIB
 
 
 def _allowance_bytes(
@@ -2091,12 +2089,12 @@ def _placement(
     return _Placement(
         n_cpu_moe=n_cpu_moe,
         width=slots,
-        vram_gb=card / _BYTES_PER_GIB,
+        vram_gb=card / BYTES_PER_GIB,
         ram_gb=max(
             spec.ram_gb, _host_gb(geometry, n_cpu_moe, engine=engine, host=host)
         ),
         headroom_gb=_allowance_bytes(geometry, gpu, ctx_per_slot, slots, n_ubatch)
-        / _BYTES_PER_GIB,
+        / BYTES_PER_GIB,
         head_bytes=head_bytes,
     )
 
@@ -2112,12 +2110,12 @@ def _host_gb(
     if offloaded <= 0:
         return 0.0
     if engine in derived.RUNTIME_RESIDENT_READ:
-        return offloaded / _BYTES_PER_GIB
+        return offloaded / BYTES_PER_GIB
     try:
         resident = derived.runtime_resident_gb(host)
     except derived.DerivedNumbersError as exc:
         raise UnitError(str(exc)) from exc
-    return offloaded / _BYTES_PER_GIB + resident
+    return offloaded / BYTES_PER_GIB + resident
 
 
 def _window_for(

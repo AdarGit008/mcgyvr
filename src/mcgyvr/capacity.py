@@ -388,7 +388,7 @@ class Capacity:
     ) -> Capacity:
         """Build a capacity from a config.
 
-        Every unit the ladder and the relief set name is bounded, whether or not
+        Every unit the ladder names and every hitchhike rung is bounded, whether or not
         a ladder rung reaches it, and each starts from the width the config
         declares. A local orchestrator that mcgyvr provisions itself keeps one
         slot back for the role, so the ladder is offered one fewer than the unit
@@ -421,10 +421,10 @@ class Capacity:
             else None
         )
         users = int(config.get("users", 1))
-        # The ladder's units and the relief rungs together: a role may dispatch
+        # The ladder's units and the hitchhike rungs together: a role may dispatch
         # against a unit no ladder rung names, and a unit with no counter here is
         # a unit whose width is not enforced.
-        bounded = {**config.units, **config.relief}
+        bounded = {**config.units, **config.hitchhike}
         for name, unit in bounded.items():
             declared = unit.width or 1
             if name == role_orchestrator:

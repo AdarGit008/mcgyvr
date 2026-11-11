@@ -1,6 +1,6 @@
 """Seal a ride end to end: the rider's request for one unit, its answer for the rider.
 
-A relief rung's host advertises a key for its unit (:class:`HostKey`, one per run of
+A hitchhike rung's host advertises a key for its unit (:class:`HostKey`, one per run of
 its agent); the hub lists it with the rung, and the rider seals every request to it
 (:func:`seal_request`). The hub carries the envelope without opening it, and the
 host's agent opens it (:meth:`HostKey.open`), posts the request to the unit

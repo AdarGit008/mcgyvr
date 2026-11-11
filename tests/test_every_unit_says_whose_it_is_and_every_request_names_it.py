@@ -7,7 +7,7 @@ a general-pool unit of the same model by the scope header
 request to it, the runner's and Jev's alike, names it beside the use case.
 
 * A unit of your fleet is ``own`` unless it says otherwise.
-* A relief rung's requests name the narrower of the scope ``mcgyvr rig rungs
+* A hitchhike rung's requests name the narrower of the scope ``mcgyvr rig rungs
   sync`` writes and the setup's ``ride_scope`` (unset ``crew``); the sync
   writes ``ride_scope`` itself, so the hub refuses a host outside it.
 * The header goes out through ``runner.request_headers`` alone.
@@ -46,8 +46,8 @@ units:
     api_key_env: {KEY_ENV}
     scope: crew
 """
-RELIEF = f"""\
-relief:
+HITCHHIKE = f"""\
+hitchhike:
   {RIDE}:
     address: {HUB}/v1
     model: hitchhike@{FIRST}
@@ -79,18 +79,22 @@ def test_a_scope_the_wire_does_not_name_is_refused() -> None:
         parse(_unit("everyone"))
 
 
-def test_a_relief_rung_takes_the_setups_ride_scope_when_its_block_names_none() -> None:
-    config = parse(f"{FLEET}ladder: [local]\n", relief_text=RELIEF)
-    opted = parse(f"{FLEET}ladder: [local]\nride_scope: anyone\n", relief_text=RELIEF)
+def test_a_hitchhike_rung_takes_the_setups_ride_scope_when_its_block_names_none() -> (
+    None
+):
+    config = parse(f"{FLEET}ladder: [local]\n", hitchhike_text=HITCHHIKE)
+    opted = parse(
+        f"{FLEET}ladder: [local]\nride_scope: anyone\n", hitchhike_text=HITCHHIKE
+    )
 
-    assert config.relief[RIDE].scope == hubwire.SCOPE_CREW
-    assert opted.relief[RIDE].scope == hubwire.SCOPE_ANYONE
+    assert config.hitchhike[RIDE].scope == hubwire.SCOPE_CREW
+    assert opted.hitchhike[RIDE].scope == hubwire.SCOPE_ANYONE
 
 
-def test_a_relief_rung_keeps_the_scope_its_block_names() -> None:
-    stated = RELIEF + "    scope: crew\n"
+def test_a_hitchhike_rung_keeps_the_scope_its_block_names() -> None:
+    stated = HITCHHIKE + "    scope: crew\n"
 
-    assert parse(f"{FLEET}ladder: [local]\n", relief_text=stated).relief[
+    assert parse(f"{FLEET}ladder: [local]\n", hitchhike_text=stated).hitchhike[
         RIDE
     ].scope == (hubwire.SCOPE_CREW)
 
@@ -133,7 +137,7 @@ def test_every_request_names_its_units_scope_beside_the_use_case(
 
     monkeypatch.setenv(KEY_ENV, "mhu_" + "k" * 40)
     setup = f"{FLEET}ladder: [local, crew_coder]\nfanout: idle\nuse_case: {use_case}\n"
-    pool = unit_map(parse(setup, relief_text=RELIEF))
+    pool = unit_map(parse(setup, hitchhike_text=HITCHHIKE))
     sent: list[tuple[str, dict[str, str]]] = []
     _capture(monkeypatch, runner, sent)
     _capture(monkeypatch, decision, sent)
@@ -185,16 +189,16 @@ def test_a_sync_writes_each_rungs_scope_and_the_file_reads_it_back() -> None:
 
     text = rungs.render(_rides(), KEY_ENV)
 
-    written = yaml.safe_load(text)["relief"][RIDE]
+    written = yaml.safe_load(text)["hitchhike"][RIDE]
     assert written["scope"] == hubwire.SCOPE_CREW
-    config = parse(f"{FLEET}ladder: [local]\n", relief_text=text)
-    assert config.relief[RIDE].scope == written["scope"]
+    config = parse(f"{FLEET}ladder: [local]\n", hitchhike_text=text)
+    assert config.hitchhike[RIDE].scope == written["scope"]
 
 
-def test_a_sync_whose_ladder_steps_on_a_relief_rung_reports_only_your_own_rungs(
+def test_a_sync_whose_ladder_steps_on_a_hitchhike_rung_reports_only_your_own_rungs(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """A ladder step may name a relief rung, so the setup is read with the rungs
+    """A ladder step may name a hitchhike rung, so the setup is read with the rungs
     already kept; the hub is told only the rungs of your own fleet."""
     from mcgyvr.rig import rungs
 
@@ -202,7 +206,7 @@ def test_a_sync_whose_ladder_steps_on_a_relief_rung_reports_only_your_own_rungs(
     (tmp_path / "policy.yaml").write_text(
         f"ladder: [local, {RIDE}]\nuse_case: code\n", encoding="utf-8"
     )
-    (tmp_path / "relief.yaml").write_text(RELIEF, encoding="utf-8")
+    (tmp_path / "hitchhike.yaml").write_text(HITCHHIKE, encoding="utf-8")
     reported: list[dict[str, Any]] = []
 
     def fetch(hub: str, key: str, report: dict[str, Any]) -> Any:
@@ -214,11 +218,11 @@ def test_a_sync_whose_ladder_steps_on_a_relief_rung_reports_only_your_own_rungs(
 
     (report,) = reported
     assert [r["model"] for r in report["ladder"]["rungs"]] == ["coder-7b"]
-    kept = yaml.safe_load((tmp_path / "relief.yaml").read_text(encoding="utf-8"))
-    assert kept["relief"][RIDE]["scope"] == hubwire.SCOPE_CREW
+    kept = yaml.safe_load((tmp_path / "hitchhike.yaml").read_text(encoding="utf-8"))
+    assert kept["hitchhike"][RIDE]["scope"] == hubwire.SCOPE_CREW
 
 
-def test_a_sync_that_drops_a_bound_relief_rung_names_it_and_writes_nothing(
+def test_a_sync_that_drops_a_bound_hitchhike_rung_names_it_and_writes_nothing(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     from mcgyvr.rig import rungs
@@ -227,7 +231,7 @@ def test_a_sync_that_drops_a_bound_relief_rung_names_it_and_writes_nothing(
     (tmp_path / "policy.yaml").write_text(
         f"ladder: [local, {RIDE}]\nuse_case: code\n", encoding="utf-8"
     )
-    (tmp_path / "relief.yaml").write_text(RELIEF, encoding="utf-8")
+    (tmp_path / "hitchhike.yaml").write_text(HITCHHIKE, encoding="utf-8")
 
     def fetch(hub: str, key: str, report: dict[str, Any]) -> Any:
         return rungs.read(
@@ -238,4 +242,4 @@ def test_a_sync_that_drops_a_bound_relief_rung_names_it_and_writes_nothing(
     with pytest.raises(rungs.SyncError, match=f"no longer lends {RIDE}.*unbind"):
         rungs.sync(tmp_path, HUB, "mhu_" + "k" * 40, KEY_ENV)
 
-    assert (tmp_path / "relief.yaml").read_text(encoding="utf-8") == RELIEF
+    assert (tmp_path / "hitchhike.yaml").read_text(encoding="utf-8") == HITCHHIKE

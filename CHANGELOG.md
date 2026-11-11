@@ -14,6 +14,28 @@ entries name development tooling, flags and records outside this repository.
 
 ### Changed
 
+- **`relief.yaml` is `hitchhike.yaml`, and nothing says relief rung any
+  more.** A rung a hub lends you is a hitchhike rung (slot sharing; the owner:
+  relief rung is not a concept). `mcgyvr rig rungs sync` writes
+  `hitchhike.yaml` with its one key `hitchhike` and removes an old
+  `relief.yaml` beside it. Migration: none needed; a setup holding only
+  `relief.yaml` is read from it, under its key `relief`, for one release, and
+  the rig agent's next refresh (or `mcgyvr rig rungs sync`) rewrites it. A
+  `relief` block in fleet.yaml, policy.yaml or a setup written as one document
+  is refused, naming `hitchhike`. The config reference's `relief.*` fields are
+  `hitchhike.*`; a result file's per-attempt `relief` is `hitchhike`; `mcgyvr
+  ladder show` lists *Hitchhike rungs*. On the wire, the rider no longer
+  requires the hub's constant `relief: true` on each rung, and the published
+  rider schema marks it deprecated: rigs up to 0.5.1 require it, rigs from
+  0.5.2 ignore it, and a hub sends it from one compat shim until it stops in
+  0.5.3. Deprecated: from 0.5.3 the hub no longer sends it, and a rig up to
+  0.5.1 then refuses every rung listing until it is upgraded. For Python
+  callers: `Config.relief`, `Unit.relief`, `RELIEF_FILENAME`, `load_relief`,
+  `ReliefUnavailableError` and the rest are their `hitchhike` names. Also:
+  hubwire's `ONE_PER_RIG`, `SESSION_KEY_CONTEXT`, `HEAD_DEVICE_RPC` and
+  `QUANT_CLASSES`, read nowhere else, are private (`_ONE_PER_RIG` and so on),
+  and `scan.BYTES_PER_GB` is `BYTES_PER_GIB` (1024**3 bytes).
+
 - **Journal rows are layout version 2: the writer is `session` and the catalog
   family `family`.** An attempt row wrote the chat that drove it as
   `orchestrator` and its family as `tier`; version 2 writes `session` and

@@ -2,17 +2,17 @@
 
 ``mcgyvr rig rungs sync --key-env NAME`` reads the rider's personal hub key from
 the variable ``NAME`` (``MCGYVR_HUB_API_KEY`` when it is told none), and records
-that NAME — never the key — in ``relief.yaml`` as its top-level
+that NAME — never the key — in ``hitchhike.yaml`` as its top-level
 ``api_key_env``, whether the hub lists rungs or none. The running agent's
 refresh and ``rig status`` read the name back from there:
 
 * a refresher is made when the recorded variable holds a key, and each of its
   syncs asks with that key and writes the same name back, so a refresh never
   resets it to the default, even with ``MCGYVR_HUB_API_KEY`` set too;
-* a ``relief.yaml`` written before the name was recorded there is read by the
+* a ``hitchhike.yaml`` written before the name was recorded there is read by the
   ``api_key_env`` its rungs name; with none recorded there, the name the
   ``crew.yaml`` units carry (``rig crew sync --key-env``); else the default;
-* a ``relief.yaml`` that does not load is rewritten by the next refresh, as it
+* a ``hitchhike.yaml`` that does not load is rewritten by the next refresh, as it
   always was, under the name read when the refresher was made;
 * ``rig status`` asks for the credits with the key in the recorded variable.
 
@@ -27,7 +27,7 @@ from pathlib import Path
 
 import pytest
 
-from mcgyvr.fleet.files import FleetFileError, load_relief, recorded_key_env
+from mcgyvr.fleet.files import FleetFileError, load_hitchhike, recorded_key_env
 from mcgyvr.rig import rungs
 from tests.rigsyncs import (
     FIRST,
@@ -55,7 +55,7 @@ def hub(setup: Path) -> Iterator[Hub]:
 
 
 def _rides_file(setup: Path) -> str:
-    return (setup / "relief.yaml").read_text(encoding="utf-8")
+    return (setup / "hitchhike.yaml").read_text(encoding="utf-8")
 
 
 def _synced_by_hand_with_the_custom_name(
@@ -71,7 +71,7 @@ def _refresh(made: rungs.Refresher) -> None:
     """Run one refresh to its end: it runs on its own thread."""
     made.tick()
     for running in threading.enumerate():
-        if running.name == "relief-rungs":
+        if running.name == "hitchhike-rungs":
             running.join(timeout=10)
 
 
@@ -83,7 +83,7 @@ def test_a_sync_records_the_variables_name_beside_the_rungs(
 ) -> None:
     _synced_by_hand_with_the_custom_name(setup, hub, monkeypatch, FIRST)
 
-    assert f"api_key_env: {CUSTOM}\nrelief:\n" in _rides_file(setup)
+    assert f"api_key_env: {CUSTOM}\nhitchhike:\n" in _rides_file(setup)
     assert recorded_key_env(_rides_file(setup)) == CUSTOM
     assert rungs.key_env(setup) == CUSTOM
     assert KEY not in _rides_file(setup)
@@ -94,7 +94,7 @@ def test_the_name_is_recorded_when_the_hub_lists_no_rung(
 ) -> None:
     _synced_by_hand_with_the_custom_name(setup, hub, monkeypatch)
 
-    assert "relief: {}" in _rides_file(setup)
+    assert "hitchhike: {}" in _rides_file(setup)
     assert rungs.key_env(setup) == CUSTOM
 
 
@@ -116,7 +116,7 @@ def test_a_sync_told_a_name_that_is_not_a_variables_refuses_it(
 
     assert "NAME of the variable" in capsys.readouterr().err
     assert hub.asked == []
-    assert not (setup / "relief.yaml").exists()
+    assert not (setup / "hitchhike.yaml").exists()
 
 
 # --- what the agent's refresh reads ------------------------------------------------
@@ -148,7 +148,7 @@ def test_a_refresh_writes_the_recorded_name_back_not_the_default(
 
     assert hub.asked[-1]["authorization"] == f"Bearer {KEY}"
     assert rungs.key_env(setup) == CUSTOM
-    (only,) = load_relief(_rides_file(setup))["relief"].values()
+    (only,) = load_hitchhike(_rides_file(setup))["hitchhike"].values()
     assert only["api_key_env"] == CUSTOM
 
 
@@ -176,7 +176,9 @@ def test_with_no_rides_file_the_refresher_reads_the_default(
 
 
 @pytest.mark.parametrize(
-    "broken", ["relief: [\n", "something_new: 1\nrelief: {}\n"], ids=["yaml", "key"]
+    "broken",
+    ["hitchhike: [\n", "something_new: 1\nhitchhike: {}\n"],
+    ids=["yaml", "key"],
 )
 def test_a_refresh_rewrites_a_file_that_does_not_load(
     setup: Path, hub: Hub, monkeypatch: pytest.MonkeyPatch, broken: str
@@ -184,7 +186,7 @@ def test_a_refresh_rewrites_a_file_that_does_not_load(
     _synced_by_hand_with_the_custom_name(setup, hub, monkeypatch, FIRST)
     made = rungs.refresher_for(hub.address, environ={CUSTOM: KEY}, folder=setup)
     assert made is not None
-    (setup / "relief.yaml").write_text(broken, encoding="utf-8")
+    (setup / "hitchhike.yaml").write_text(broken, encoding="utf-8")
 
     _refresh(made)
 
@@ -196,7 +198,7 @@ def test_a_refresh_rewrites_a_file_that_does_not_load(
 def test_a_refresher_made_beside_a_file_that_does_not_load_still_rewrites_it(
     setup: Path, hub: Hub
 ) -> None:
-    (setup / "relief.yaml").write_text("relief: [\n", encoding="utf-8")
+    (setup / "hitchhike.yaml").write_text("hitchhike: [\n", encoding="utf-8")
     hub.answer(hub.listing(FIRST))
 
     made = rungs.refresher_for(hub.address, environ={rungs.KEY_ENV: KEY}, folder=setup)
@@ -207,12 +209,12 @@ def test_a_refresher_made_beside_a_file_that_does_not_load_still_rewrites_it(
     assert rungs.key_env(setup) == rungs.KEY_ENV
 
 
-# --- a relief.yaml written before the name was recorded -----------------------------
+# --- a hitchhike.yaml written before the name was recorded -------------------------
 
 
 def _older(api_key_env: str) -> str:
     return (
-        "relief:\n"
+        "hitchhike:\n"
         f"  hitchhike-{FIRST}:\n"
         "    address: https://hub.example.org/v1\n"
         f"    model: hitchhike@{FIRST}\n"
@@ -222,16 +224,16 @@ def _older(api_key_env: str) -> str:
 
 
 def test_an_older_file_is_read_by_the_name_its_rungs_carry(tmp_path: Path) -> None:
-    (tmp_path / "relief.yaml").write_text(_older(CUSTOM), encoding="utf-8")
+    (tmp_path / "hitchhike.yaml").write_text(_older(CUSTOM), encoding="utf-8")
 
     assert rungs.key_env(tmp_path) == CUSTOM
 
 
-@pytest.mark.parametrize("text", ["relief: {}\n", _older("MCGYVR_HUB_API_KEY"), ""])
+@pytest.mark.parametrize("text", ["hitchhike: {}\n", _older("MCGYVR_HUB_API_KEY"), ""])
 def test_an_older_file_naming_no_other_variable_keeps_the_default(
     tmp_path: Path, text: str
 ) -> None:
-    (tmp_path / "relief.yaml").write_text(text, encoding="utf-8")
+    (tmp_path / "hitchhike.yaml").write_text(text, encoding="utf-8")
 
     assert rungs.key_env(tmp_path) == rungs.KEY_ENV
 
@@ -265,8 +267,8 @@ def test_the_name_recorded_beside_the_rungs_comes_before_the_crew_units(
     tmp_path: Path,
 ) -> None:
     (tmp_path / "crew.yaml").write_text(_crew("CREW_ONLY_KEY"), encoding="utf-8")
-    (tmp_path / "relief.yaml").write_text(
-        f"api_key_env: {CUSTOM}\nrelief: {{}}\n", encoding="utf-8"
+    (tmp_path / "hitchhike.yaml").write_text(
+        f"api_key_env: {CUSTOM}\nhitchhike: {{}}\n", encoding="utf-8"
     )
 
     assert rungs.key_env(tmp_path) == CUSTOM
@@ -290,11 +292,11 @@ def test_status_reads_the_crew_units_name_for_a_rider_with_no_rungs_file(
 def test_a_recorded_name_that_is_not_a_variables_is_refused(
     tmp_path: Path, value: str
 ) -> None:
-    text = f"api_key_env: {value}\nrelief: {{}}\n"
-    (tmp_path / "relief.yaml").write_text(text, encoding="utf-8")
+    text = f"api_key_env: {value}\nhitchhike: {{}}\n"
+    (tmp_path / "hitchhike.yaml").write_text(text, encoding="utf-8")
 
     with pytest.raises(FleetFileError, match="NAME of the variable"):
-        load_relief(text)
+        load_hitchhike(text)
     with pytest.raises(rungs.SyncError, match="NAME of the variable"):
         rungs.key_env(tmp_path)
 

@@ -35,11 +35,11 @@ from . import notes as failure_notes
 from .config import (
     CREW_FILENAME,
     FLEET_FILENAME,
+    HITCHHIKE_FILENAME,
     JOURNAL_DIR_DEFAULT,
     KNOBS,
     LAUNCHER_NATIVE,
     POLICY_FILENAME,
-    RELIEF_FILENAME,
     SCHEMA,
     SWITCHES,
     USE_CASES,
@@ -259,7 +259,7 @@ def render_reference() -> str:
         "# Configuration reference",
         "",
         f"Every key `{FLEET_FILENAME}`, `{POLICY_FILENAME}` and "
-        f"`{RELIEF_FILENAME}` accept.",
+        f"`{HITCHHIKE_FILENAME}` accept.",
         "",
         "This page is generated from `SCHEMA` in `src/mcgyvr/config.py` — the same",
         "declaration the loader validates against. It is not a description of the",
@@ -477,7 +477,8 @@ GLOSSARY: tuple[tuple[str, str], ...] = (
         "slot sharing: a host offers open slots of their own units, and a "
         "rider's task takes one only when the rider's own rung is full "
         "(`fanout: idle`), never as a step to climb. A host can read the "
-        "prompts sent to it.",
+        "prompts sent to it. The rungs a hub lends a rider this way are "
+        "hitchhike rungs, kept in `hitchhike.yaml` by `mcgyvr rig rungs sync`.",
     ),
     (
         "general pool",
@@ -885,12 +886,12 @@ def render_setup() -> str:
         "",
         f"- `{FLEET_FILENAME}` — what runs where: `units`, `rigs` and `fleets`.",
         f"- `{POLICY_FILENAME}` — how work moves over those units: `ladder` and "
-        "every other top-level key below but `relief`.",
+        "every other top-level key below but `hitchhike`.",
         "",
-        f"A third file, `{RELIEF_FILENAME}`, holds `relief`: the units other",
+        f"A third file, `{HITCHHIKE_FILENAME}`, holds `hitchhike`: the units other",
         "people lend you through a hub. `mcgyvr rig rungs sync` writes it whole",
         "and nothing else does, so it is neither locked nor edited by hand.",
-        "Beside `relief` it records `api_key_env`: the NAME of the variable the",
+        "Beside `hitchhike` it records `api_key_env`: the NAME of the variable the",
         "sync read your personal hub key from (`--key-env`), which the rig",
         "agent's refresh and `mcgyvr rig status` read the key from too (where",
         f"it records none, the one the units of `{CREW_FILENAME}` name).",
@@ -1463,7 +1464,7 @@ _RESULT_KEYS: tuple[str, ...] = (
     "- `attempts[]` — every try: `rung`, `attempt`, `verdict` (`passed`,",
     "  `failed`, `declined`, `error`), `detail`, `findings` (the gate's lines",
     "  behind a failure), `notes` (the record those lines are rendered from;",
-    "  below), `attempt_id`, `draw`, `draws`, `rows`, `relief`,",
+    "  below), `attempt_id`, `draw`, `draws`, `rows`, `hitchhike`,",
     "  `model`, `address`. `draws` is the",
     "  breadth the attempt asked for (`breadth.draws`), whatever the verdict;",
     "  `rows` is how many of those draws left a journal row, which is `draws`",
@@ -1471,10 +1472,10 @@ _RESULT_KEYS: tuple[str, ...] = (
     "  raised before dispatching. `draw` is the draw the entry is about, and is",
     "  `null` — with `attempt_id` `null` beside it — on an `error` no single",
     "  dispatch caused: `rows: 0` means it raised before dispatching at all,",
-    "  and anything more means it raised past draw `rows - 1`. `relief` is",
+    "  and anything more means it raised past draw `rows - 1`. `hitchhike` is",
     "  `true` for a rung lent through a hub — recorded like any try, but",
     "  charged against the budget only when it passes — and `model`/`address`",
-    "  name the unit that served it, so a relief try shows which borrowed",
+    "  name the unit that served it, so a hitchhike try shows which borrowed",
     "  machine answered.",
     "- `assurance` — what an `accepted` result rests on, and `detail` says it",
     "  in a sentence: `deterministic` (a tool's change, on the gate),",
@@ -1498,7 +1499,7 @@ _RESULT_KEYS: tuple[str, ...] = (
     "- `notes` — what the run said in passing (not failure notes): the",
     "  uncommitted and untracked paths the sandbox of HEAD left out, what a",
     "  tool printed as it worked (what a rename renamed), what the baseline",
-    "  left behind (now cleaned up), and a relief rung that duplicates a unit",
+    "  left behind (now cleaned up), and a hitchhike rung that duplicates a unit",
     "  this install serves.",
     "- `triage` — only under `triage: jev` or a contract's `start_rung`: the",
     "  `rung` the climb started on and its `source` (`jev`, asked for this",

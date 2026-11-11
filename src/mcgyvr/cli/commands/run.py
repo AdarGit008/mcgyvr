@@ -581,7 +581,7 @@ def _climb(
     from mcgyvr.capacity import Capacity, CapacityError
     from mcgyvr.cooldown import Cooldown
     from mcgyvr.drive import DriveError, acceptance_for, worker_attempt
-    from mcgyvr.escalate import Outcome, ascent, escalate, redundant_relief
+    from mcgyvr.escalate import Outcome, ascent, escalate, redundant_hitchhike
     from mcgyvr.ladder_map import UnitUnavailableError, unit_map
     from mcgyvr.replan import max_replans
     from mcgyvr.route import RouteError
@@ -602,17 +602,17 @@ def _climb(
             report.detail = refused
             return Exit.REFUSED
 
-    # The pool: every ladder unit and relief rung that can actually run, with its
+    # The pool: every ladder unit and hitchhike rung that can actually run, with its
     # model, its endpoint and the role bindings, plus the rungs skipped and why.
     # It is built once and handed to everything below, the route, the capacity,
     # the reviewers, the driver and the climb itself, so they all agree on which
     # sources exist.
     pool = unit_map(config)
 
-    # Relief rungs that duplicate a unit this install already serves are said
+    # Hitchhike rungs that duplicate a unit this install already serves are said
     # once, before any dispatch: riding them re-sends to what the user has, so
     # the note spares a journal read to discover it after the fact.
-    for note in redundant_relief(config):
+    for note in redundant_hitchhike(config):
         print(f"note: {note}", file=sys.stderr)
         report.notes.append(note)
 
@@ -897,7 +897,7 @@ def _report_climb(
                 draw=step.draw,
                 draws=step.draws,
                 rows=step.rows,
-                relief=step.relief,
+                hitchhike=step.hitchhike,
                 model=step.model,
                 address=step.address,
                 whose=step.whose,
