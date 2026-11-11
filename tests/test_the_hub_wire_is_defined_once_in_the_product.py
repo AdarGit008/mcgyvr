@@ -628,14 +628,19 @@ def test_the_feature_names_are_the_schemas_and_the_rig_names_its_own(
 ) -> None:
     """The hub builds its ``Feature`` names from :data:`hubwire.FEATURES`, so
     the published ``x-features`` are these, sorted; the rig names all of them
-    but ``backend_select`` (its worker starts the same on every backend)."""
+    but ``backend_select`` (its worker starts the same on every backend) in
+    :data:`session.FEATURES`, and ``ring_peers`` and ``runtime_select`` only
+    beside them, when the owner turned the ring links on and when it offers a
+    ring build (``session.offer``, held by those features' own tests)."""
     from mcgyvr.rig import session
 
     assert len(set(hubwire.FEATURES)) == len(hubwire.FEATURES)
     assert len(hubwire.FEATURES) <= hubwire.MAX_FEATURES
     assert protocol["x-features"] == sorted(hubwire.FEATURES)
     assert set(session.FEATURES) == set(hubwire.FEATURES) - {
-        hubwire.FEATURE_BACKEND_SELECT
+        hubwire.FEATURE_BACKEND_SELECT,
+        hubwire.FEATURE_RING_PEERS,
+        hubwire.FEATURE_RUNTIME_SELECT,
     }
 
 

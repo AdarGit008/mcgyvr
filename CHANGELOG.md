@@ -1082,6 +1082,81 @@ entries name development tooling, flags and records outside this repository.
   tag does, the version and notes rule, both rehearsals, the secrets (none
   stored; the PyPI trusted publisher and the `pypi` environment), and how a
   fork releases.
+
+- **A rig starts the build a session names, and a ring build's head runs star
+  only when the hub says so; the ring pin ships empty, so nothing changes until
+  it is filled in.** `serving.llamacpp` gains `Pin` (`UPSTREAM`, the build
+  every rig runs, and `RING = None`: the fork's ring build, which its owner
+  fills in with the release's archives, their sizes and sha256, and its
+  digest-pinned image with its two programs). With the pin empty no rig
+  offers builds, fetches anything new or names anything new in its hello.
+  Filled in: a native rig offers it when the pin has an archive for its
+  system, architecture and the backend the upstream build picks
+  (`native.pick(pin)`), and fetches it the first time a session runs it, into
+  its own folder (`native.pin_root`); a container rig offers it when its
+  owner names its image by the pin's digest (`ring_image`, `mcgyvr rig share
+  --ring-image`; a mirror of it counts), and an image that is the pin's runs
+  the ring build alone. Any other `ring_image` names no build, and a start of
+  the ring build is refused `not_capable` with the reason. A rig names
+  `runtime_select` only when it offers a ring build. `worker_start` /
+  `head_start` `runtime_id` start that build (its image and programs, or its
+  archives); an id the rig does not offer is refused `not_capable`.
+  `head_start.ring` false on a ring build sets `GGML_RPC_STAR_ONLY=1` on the
+  head (container and native); on another build it changes nothing. A native
+  ring head gets `GGML_RPC_NO_RDMA=1` (no `GGML_RPC_NO_COMM`: the fork has
+  no comm_init) and, with its ring on, `GGML_RPC_PEER_ENDPOINTS` naming for
+  each loopback forward the worker's tunnel `host:port`, the address the
+  other workers dial (`userwg.peer_endpoints`), held to the fork's bounds: a
+  head with more than 16 rpc devices, or forwards the value cannot name,
+  runs star only rather than abort. `mcgyvr rig share` gains
+  `--ring-links` / `--no-ring-links`. Local serving, units, `emit` and
+  `docgen` keep the upstream build.
+
+- **The wire can name the llama.cpp builds a rig can start, and which one a
+  session runs (the rig's side is the entry above).** The fork's
+  ring build and upstream llama.cpp cannot run in one session, so a hub must
+  know every build a rig can start and name the one to run. `hubwire` gains
+  `Runtime` (`id`, shape `RUNTIME_ID`; `runtime`, the build's name, a pinned
+  release as `<repo>@<tag>` whether from an image or an archive;
+  `rpc_proto`; `ring`), the hello field `capabilities.runtimes`
+  (`RUNTIMES_FIELD`, default build first, at most `MAX_RUNTIMES`,
+  `runtimes_fit`), the feature `runtime_select` (`FEATURE_RUNTIME_SELECT`),
+  the optional start fields `worker_start.runtime_id` / `head_start.runtime_id`
+  (`RUNTIME_ID_FIELD`) and `head_start.ring` (`HEAD_RING_FIELD`: false runs
+  a ring build's head star only), and one pairing rule, `runtimes_pair`: a
+  ring build pairs only with the same ring build (same `runtime`, same
+  protocol), any other build by `rpc_compatible` as before, and a rig that
+  names no build stands for the one its `runtime` and `rpc_proto` describe
+  (`implied_runtime`, `rig_runtimes`), so two rigs from before it pair as they
+  always did. `protocol.Offer` takes `runtimes` and a hello names them only
+  when there are some: every hello today's rigs send is unchanged. The
+  agent reads `runtime_id` and `ring` from a start, refusing an id not of its
+  shape (`bad_message`). The protocol schema
+  gains `Runtime`, `Capabilities.runtimes`, the start fields and the feature.
+
+- **A worker may take its ring neighbours as optional tunnel peers, off until
+  the owner turns it on (`ring_links`).** A pooled session's tunnel was a star:
+  a worker's only peer was the head, so a worker -> worker ring link could
+  never form. With `"ring_links": true` in its lending settings (off, and
+  unwritten, by default; a native rig never) a rig names the new feature
+  `ring_peers` (`hubwire.FEATURE_RING_PEERS`), and a `tunnel_up` peer may
+  carry `ring` (`hubwire.RING_FIELD`: `dial_ports`, `accept_ports`). Such a peer is
+  optional: it is walked beside the head under the same deadline, given up
+  the moment the head has settled, never relayed, left out of the tunnel when
+  it has nothing the rig may aim at, and reported `none` without failing the
+  session. Once the worker starts, a ring peer that came up may dial the
+  rig's `accept_ports` and the rig may dial the peer's `dial_ports` (a new
+  `OPEN_RING_SCRIPT`: TCP on wg0 only, replies to the ephemeral range, the
+  head's own dial rules); on eth0 a ring peer gets only the WireGuard UDP
+  rule any tunnel peer gets, while it is aimed at. A ring peer is checked
+  against the identity pins but never writes one, and a ring peer under
+  another peer's WireGuard key is refused (`bad_message`). A session's head
+  refuses any ring peer (`bad_message`). A rig without the switch refuses a
+  ring peer (`not_capable`) and makes exactly the calls it made.
+  The pinned build (upstream llama.cpp) never dials a ring link and the head
+  still runs with `GGML_RPC_NO_COMM=1`: this builds the tunnel and firewall
+  only. The protocol schema gains `RingLink` and `TunnelPeer.ring`.
+
 - **A rig's hello names each model's quantisation (`quant`), so a hub can plan
   by the wire's decode rule.** The hub's planner bounded a device's decode
   speed by its memory bandwidth alone, because the rig never said a model's

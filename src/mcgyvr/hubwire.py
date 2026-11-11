@@ -107,6 +107,18 @@ is here:
 * the llama.cpp RPC protocol version a rig speaks (:class:`RpcProto`, carried
   as :data:`RPC_PROTO_FIELD`) and which workers a head may take
   (:func:`rpc_compatible`);
+* a session's optional worker <-> worker ring links: the feature a rig names
+  for them (:data:`FEATURE_RING_PEERS`),
+  the ``tunnel_up`` peer field carrying one (:data:`RING_FIELD`) and its bound
+  (:data:`MAX_RING_PORTS`);
+* the llama.cpp builds a rig can start for a session (:class:`Runtime`, its
+  id's shape :data:`RUNTIME_ID`, listed as :data:`RUNTIMES_FIELD`, at most
+  :data:`MAX_RUNTIMES`: :func:`runtimes_fit`), the build a rig that lists none
+  stands for (:func:`implied_runtime`, :func:`rig_runtimes`), the feature a rig
+  names when it starts the one a start names (:data:`FEATURE_RUNTIME_SELECT`,
+  by :data:`RUNTIME_ID_FIELD`; a head star only by :data:`HEAD_RING_FIELD`),
+  and which builds a head and a worker may run together
+  (:func:`runtimes_pair`);
 * a rig's identity key and the signature it puts on each session's tunnel
   key (:data:`IDENTITY_KEY_FIELD`, :data:`SESSION_KEY_SIG_FIELD`, their shapes
   :data:`IDENTITY_KEY` and :data:`IDENTITY_SIG`, the bytes signed
@@ -302,7 +314,9 @@ MAX_FEATURES = 16
 #: and serves rides, runs several sessions at once one per card, honors a
 #: worker card's backend name, and forwards its tunnel ports on its router.
 #: An agent lists the ones it does; this product's rig names every one but
-#: ``backend_select`` (``mcgyvr.rig.session.FEATURES``).
+#: ``backend_select``, ``ring_peers`` and ``runtime_select``
+#: (``mcgyvr.rig.session.FEATURES``), the last two only beside them: when its
+#: owner turned the ring links on, and when it offers a ring build.
 FEATURE_PROBE = "probe"
 FEATURE_TRAVERSAL = "traversal"
 FEATURE_HEAD_SLOTS = "head_slots"
@@ -310,6 +324,20 @@ FEATURE_HITCHHIKE_UNITS = "hitchhike_units"
 FEATURE_MULTI_SESSION = "multi_session"
 FEATURE_BACKEND_SELECT = "backend_select"
 FEATURE_PORT_MAP = "port_map"
+#: The feature a rig names when it takes a session's worker <-> worker tunnel
+#: peers (a ``tunnel_up`` peer carrying :data:`RING_FIELD`): it walks such a peer
+#: beside the ones it must reach, never fails or waits on it, and opens only the
+#: TCP that peer's ring link needs inside the tunnel. A rig names it only when its
+#: owner turned it on; the hub names such peers only when every rig of the session
+#: names it.
+FEATURE_RING_PEERS = "ring_peers"
+#: The feature a rig names when it offers the builds it can start
+#: (:data:`RUNTIMES_FIELD`) and starts the one a ``worker_start`` or
+#: ``head_start`` names (:data:`RUNTIME_ID_FIELD`), running a ring build's head
+#: star only when ``head_start`` says so (:data:`HEAD_RING_FIELD`). A rig names
+#: it together with its builds, never without; the hub names either start
+#: field only to a rig that names it.
+FEATURE_RUNTIME_SELECT = "runtime_select"
 FEATURES: tuple[str, ...] = (
     FEATURE_PROBE,
     FEATURE_TRAVERSAL,
@@ -318,6 +346,8 @@ FEATURES: tuple[str, ...] = (
     FEATURE_MULTI_SESSION,
     FEATURE_BACKEND_SELECT,
     FEATURE_PORT_MAP,
+    FEATURE_RING_PEERS,
+    FEATURE_RUNTIME_SELECT,
 )
 #: The roles a rig may offer in a session: at most both.
 RigRole = Literal["head", "worker"]
@@ -1597,6 +1627,137 @@ def rpc_compatible(head: RpcProto, worker: RpcProto) -> bool:
     A major changes on a break; a newer head speaks an older minor.
     """
     return worker.major == head.major and worker.minor <= head.minor
+
+
+# --- worker <-> worker ring links ----------------------------------------------------
+
+#: The ``tunnel_up`` peer field that makes the peer an optional ring link: the
+#: peer's rpc ports this rig may open TCP to (``dial_ports``) and this rig's own
+#: rpc ports the peer may open TCP to (``accept_ports``), each list at most
+#: :data:`MAX_RING_PORTS` long, not both empty.
+RING_FIELD = "ring"
+#: Most ports one side of a ring link names: one per card.
+MAX_RING_PORTS = MAX_CARDS
+
+
+# --- the llama.cpp builds a rig can start for a session ---------------------------
+
+#: The capabilities field listing every build a rig can start for a session
+#: (:class:`Runtime`), its default build first. Left out: the rig names no
+#: build, and stands for the one its ``runtime`` and :data:`RPC_PROTO_FIELD`
+#: describe (:func:`implied_runtime`).
+RUNTIMES_FIELD = "runtimes"
+#: The ``worker_start`` and ``head_start`` field naming the build to start: an
+#: id from that rig's own :data:`RUNTIMES_FIELD`. Left out: its default build.
+RUNTIME_ID_FIELD = "runtime_id"
+#: The ``head_start`` field saying whether a ring build's workers may pass
+#: tensors worker to worker: false runs the head star only; true or left out
+#: is the build's own default. It changes nothing on a build that is no ring
+#: build. (Not :data:`RING_FIELD`: that is a ``tunnel_up`` peer's object.)
+HEAD_RING_FIELD = "ring"
+#: The shape of a build's id: what a rig names it by and a start echoes back.
+RUNTIME_ID = re.compile(r"[a-z][a-z0-9_]{0,31}")
+#: Most builds one rig offers.
+MAX_RUNTIMES = 4
+
+
+@dataclass(frozen=True, kw_only=True)
+class Runtime:
+    """A llama.cpp build a rig can start for a session.
+
+    ``id`` is what the rig names it by (:data:`RUNTIME_ID`), and a start
+    names it back. ``runtime`` names the build itself, not where the rig gets
+    it: a pinned release as ``<repo>@<tag>``, the same for its image and its
+    archives, so two rigs running one release name it alike (:data:`RUNTIME`).
+    ``rpc_proto`` is the RPC protocol it speaks, None when the rig does not
+    know it. ``ring`` says it is a ring build: its workers pass tensors worker
+    to worker, and it speaks RPC only with itself (:func:`runtimes_pair`); a
+    ring build names its ``rpc_proto``.
+
+    ``id`` is None only for the build a rig that names no builds stands for
+    (:func:`implied_runtime`), whose starts name none; every build on the wire
+    names one, and :meth:`validate` holds it to that.
+    """
+
+    id: str | None
+    runtime: str | None
+    rpc_proto: RpcProto | None = None
+    ring: bool = False
+
+    def validate(self) -> None:
+        """Raise ValueError, naming the field at fault, unless this is a build
+        the wire may carry: an id and a runtime each of its shape, a valid
+        protocol or None, ``ring`` true or false, and a ring build's protocol
+        named."""
+        _need(
+            type(self.id) is str and bool(RUNTIME_ID.fullmatch(self.id)),
+            "id",
+            "not of its shape",
+        )
+        _need(
+            type(self.runtime) is str and bool(RUNTIME.fullmatch(self.runtime)),
+            "runtime",
+            "not of its shape",
+        )
+        if self.rpc_proto is not None:
+            _need(isinstance(self.rpc_proto, RpcProto), RPC_PROTO_FIELD, "not one")
+            self.rpc_proto.validate()
+        _need(type(self.ring) is bool, "ring", "not true or false")
+        _need(
+            not self.ring or self.rpc_proto is not None,
+            RPC_PROTO_FIELD,
+            "a ring build names its protocol",
+        )
+
+
+def runtimes_fit(runtimes: Sequence[Runtime]) -> None:
+    """Raise ValueError unless one hello may name ``runtimes``: at most
+    :data:`MAX_RUNTIMES`, each valid (:meth:`Runtime.validate`), each id once."""
+    _need(len(runtimes) <= MAX_RUNTIMES, RUNTIMES_FIELD, f"more than {MAX_RUNTIMES}")
+    for runtime in runtimes:
+        runtime.validate()
+    ids = [runtime.id for runtime in runtimes]
+    _need(len(set(ids)) == len(ids), RUNTIMES_FIELD, "an id twice")
+
+
+def implied_runtime(runtime: str | None, rpc_proto: RpcProto | None) -> Runtime:
+    """The one build a rig that names no :data:`RUNTIMES_FIELD` stands for: the
+    one its ``runtime`` and :data:`RPC_PROTO_FIELD` describe, no ring build, with
+    no id, so its starts name none."""
+    return Runtime(id=None, runtime=runtime, rpc_proto=rpc_proto)
+
+
+def rig_runtimes(
+    runtimes: Sequence[Runtime], *, runtime: str | None, rpc_proto: RpcProto | None
+) -> tuple[Runtime, ...]:
+    """The builds a rig can start: the ones it names, else the one it stands
+    for (:func:`implied_runtime`)."""
+    return tuple(runtimes) or (implied_runtime(runtime, rpc_proto),)
+
+
+def runtimes_pair(head: Runtime, worker: Runtime) -> bool:
+    """Whether a head running build ``head`` may take a worker running build
+    ``worker``.
+
+    A ring build pairs only with the same ring build: the same ``runtime`` and
+    the same protocol, major and minor (a ring head refuses a server of
+    another minor, and a ring server drops a hello not its own). A ring build
+    and another never pair. Two other builds pair as heads and workers always
+    have: both name their protocol and :func:`rpc_compatible` holds, or
+    neither names one.
+    """
+    if head.ring or worker.ring:
+        return (
+            head.ring
+            and worker.ring
+            and head.runtime is not None
+            and head.runtime == worker.runtime
+            and head.rpc_proto is not None
+            and head.rpc_proto == worker.rpc_proto
+        )
+    if head.rpc_proto is None or worker.rpc_proto is None:
+        return head.rpc_proto is None and worker.rpc_proto is None
+    return rpc_compatible(head.rpc_proto, worker.rpc_proto)
 
 
 # --- a rig's identity key ----------------------------------------------------------

@@ -983,6 +983,10 @@ def _share(args: argparse.Namespace) -> int:
             changes["enabled"] = args.on
         if args.image is not None:
             changes["image"] = None if args.image == "none" else args.image
+        if args.ring_image is not None:
+            changes["ring_image"] = (
+                None if args.ring_image == "none" else args.ring_image
+            )
         if args.roles is not None:
             changes["roles"] = tuple(r for r in args.roles.split(",") if r)
         if args.cards is not None:
@@ -1017,6 +1021,8 @@ def _share(args: argparse.Namespace) -> int:
             changes["port_forward"] = args.port_forward
         if args.permanent_forward is not None:
             changes["port_forward_permanent"] = args.permanent_forward
+        if args.ring_links is not None:
+            changes["ring_links"] = args.ring_links
     except ValueError:
         print("error: a number was asked for and something else given", file=sys.stderr)
         return int(Exit.USAGE)
@@ -1070,6 +1076,13 @@ def _share(args: argparse.Namespace) -> int:
         print("image:   none (launcher native: the pinned llama.cpp build)")
     else:
         print(f"image:   {wanted.image or 'none'}")
+        if wanted.ring_image is not None:
+            from mcgyvr.rig.session import ring_image_fault
+
+            fault = ring_image_fault(wanted)
+            print(f"ring:    {wanted.ring_image} ({fault or 'the pinned ring build'})")
+        if wanted.ring_links:
+            print("ring:    links on (takes a session's worker <-> worker peers)")
     cards = "all" if wanted.cards is None else ", ".join(map(str, wanted.cards))
     print(f"cards:   {cards} (each lent whole)")
     print(f"ram:     {wanted.container_mb()} MiB per container")
@@ -1253,6 +1266,10 @@ def add_parser(
     switch.add_argument("--on", dest="on", action="store_const", const=True)
     switch.add_argument("--off", dest="on", action="store_const", const=False)
     share.add_argument("--image", help="the engine image sessions run in (none)")
+    share.add_argument(
+        "--ring-image",
+        help="the image of the pinned ring build, by its digest, or none",
+    )
     share.add_argument("--roles", help="worker, head, or worker,head")
     share.add_argument(
         "--cards", help="card indexes lent, each whole, comma separated, or all"
@@ -1302,6 +1319,22 @@ def add_parser(
         action="store_const",
         const=False,
     )
+    ring = share.add_mutually_exclusive_group()
+    ring.add_argument(
+        "--ring-links",
+        dest="ring_links",
+        action="store_const",
+        const=True,
+        help="take a session's worker <-> worker ring peers (off until given)",
+    )
+    ring.add_argument(
+        "--no-ring-links", dest="ring_links", action="store_const", const=False
+    )
     share.set_defaults(
-        func=_share, on=None, cache=None, port_forward=None, permanent_forward=None
+        func=_share,
+        on=None,
+        cache=None,
+        port_forward=None,
+        permanent_forward=None,
+        ring_links=None,
     )

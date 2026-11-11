@@ -305,8 +305,9 @@ wg show wg0 latest-handshakes | sed 's/^/handshake /'
 wg show wg0 endpoints | sed 's/^/endpoint /'
 """
 
-#: Open a worker's RPC port to the tunnel: for each peer network, allow TCP from wg0 to
-#: this address and port, and the replies back out, so the head can reach the server.
+#: Open a worker's RPC port to the tunnel: for each peer network given, allow TCP from
+#: wg0 to this address and port, and the replies back out, so the head can reach the
+#: server (and a ring neighbour that may dial this port, once its walk found a path).
 OPEN_WORKER_SCRIPT = r"""set -eu
 self="$1"
 port="$2"
@@ -320,6 +321,23 @@ done | nft -f -
 echo "open"
 """
 
+#: The local ephemeral port range, read into $low and $high: the ports the kernel
+#: picks for this rig's own outgoing TCP, which a reply may come back to.
+_EPHEMERAL_RANGE = r"""range=$(cat /proc/sys/net/ipv4/ip_local_port_range)
+low=$(echo $range | cut -d' ' -f1)
+high=$(echo $range | cut -d' ' -f2)
+"""
+#: For each host/port pair left in "$@": allow TCP from this tunnel address ($self)
+#: out on wg0 to that host and port, and its replies back in to the ephemeral range.
+_DIAL_RULES = r"""  while [ "$#" -ge 2 ]; do
+    echo "add rule inet mcgyvr output oifname wg0 ip saddr $self ip daddr $1 \
+tcp dport $2 accept"
+    echo "add rule inet mcgyvr input iifname wg0 ip saddr $1 ip daddr $self \
+tcp sport $2 tcp dport $low-$high accept"
+    shift 2
+  done
+"""
+
 #: Open the head's side of the tunnel. The arguments are this rig's tunnel address, the
 #: container gateway and one host/port pair per remote rpc device. On eth0 it allows the
 #: gateway to reach the head's API port, which is how the published port gets in. On wg0
@@ -327,28 +345,43 @@ echo "open"
 #: replies to come back to the head's address on any port of the local ephemeral range
 #: the kernel picks for those outgoing connections
 #: (/proc/sys/net/ipv4/ip_local_port_range). It prints "open" once nft takes them.
-OPEN_HEAD_SCRIPT = r"""set -eu
+OPEN_HEAD_SCRIPT = (
+    r"""set -eu
 self="$1"
 gateway="$2"
 shift 2
-range=$(cat /proc/sys/net/ipv4/ip_local_port_range)
-low=$(echo $range | cut -d' ' -f1)
-high=$(echo $range | cut -d' ' -f2)
-{
+"""
+    + _EPHEMERAL_RANGE
+    + r"""{
   echo "add rule inet mcgyvr input iifname eth0 ip saddr $gateway \
 tcp dport 8080 accept"
   echo "add rule inet mcgyvr output oifname eth0 ip daddr $gateway \
 tcp sport 8080 accept"
-  while [ "$#" -ge 2 ]; do
-    echo "add rule inet mcgyvr output oifname wg0 ip saddr $self ip daddr $1 \
-tcp dport $2 accept"
-    echo "add rule inet mcgyvr input iifname wg0 ip saddr $1 ip daddr $self \
-tcp sport $2 tcp dport $low-$high accept"
-    shift 2
-  done
-} | nft -f -
+"""
+    + _DIAL_RULES
+    + r"""} | nft -f -
 echo "open"
 """
+)
+
+#: Open a worker's ring links: the arguments are this rig's tunnel address and one
+#: host/port pair per ring neighbour's rpc server it may dial (the hub's
+#: ``tunnel_up`` ``ring.dial_ports``, for a neighbour whose walk found a path). On
+#: wg0 only it allows TCP from this address to each pair, and the replies back to
+#: the local ephemeral range, the head's own dial rules (OPEN_HEAD_SCRIPT) without
+#: its API port. Nothing on eth0. It prints "open" once nft takes them.
+OPEN_RING_SCRIPT = (
+    r"""set -eu
+self="$1"
+shift
+"""
+    + _EPHEMERAL_RANGE
+    + "{\n"
+    + _DIAL_RULES
+    + r"""} | nft -f -
+echo "open"
+"""
+)
 
 #: Does the given address and port already have a listening TCP socket? Both are turned
 #: into the hex form /proc/net/tcp uses and matched on an entry in state 0A (LISTEN).
@@ -471,6 +504,13 @@ class WorkerSpec:
     memory_mb: int
 
 
+#: The variable that keeps a ring build's head star only: every copy between
+#: two workers goes through the head, none worker to worker (the fork's
+#: ``GGML_RPC_STAR_ONLY``, read in ``ggml/src/ggml-rpc/ggml-rpc.cpp``). Set
+#: when ``head_start.ring`` is false on a ring build, never on another build.
+STAR_ONLY_ENV = "GGML_RPC_STAR_ONLY"
+
+
 @dataclass(frozen=True, kw_only=True)
 class HeadSpec:
     """What the head container needs: the session and image, the llama-server
@@ -481,6 +521,11 @@ class HeadSpec:
     many threads. ``api_key``, when the session host makes one
     (:meth:`mcgyvr.rig.session.SessionHost.head_key`), is the key the head's API
     asks of every request but ``/health``; it is never part of a repr.
+    ``build`` is the id of the build a native head runs
+    (:data:`mcgyvr.serving.llamacpp.RING_ID`), None for the default one; a
+    container head runs ``image``, whatever it is. ``ring`` says the build is a
+    ring build, and ``star_only`` that its workers may not pass tensors worker
+    to worker: the head runs with :data:`STAR_ONLY_ENV` set.
     """
 
     session_id: str
@@ -500,6 +545,9 @@ class HeadSpec:
     slots: int = 1  # parallel slots (-np); the context and KV cache scale with it
     cpus: int | None = None  # cores lent: the container's --cpus and the --threads
     api_key: str | None = field(default=None, repr=False)
+    build: str | None = None
+    ring: bool = False
+    star_only: bool = False
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -682,6 +730,8 @@ def head_argv(spec: HeadSpec, owner: Owner) -> list[str]:
     fitting off (`HEAD_FIT`), since it states its context and layers itself.
     A container's head takes no key (its API is published on the tunnel's own
     network); a spec that carries one is refused rather than started without it.
+    A ring build's head told to keep its ring off (``star_only``) is given
+    :data:`STAR_ONLY_ENV`; nothing else differs between builds.
     """
     if spec.api_key is not None:
         raise PoolError("a docker head is started with no API key")
@@ -698,6 +748,8 @@ def head_argv(spec: HeadSpec, owner: Owner) -> list[str]:
         listed = ",".join(str(gpu) for gpu in spec.gpus)
         argv += ["--gpus", f'"device={listed}"']
     argv += _engine_lockdown(owner, spec.memory_mb, HEAD_PIDS)
+    if spec.star_only:
+        argv += ["--env", f"{STAR_ONLY_ENV}=1"]
     if spec.cpus is not None:
         argv += ["--cpus", str(spec.cpus)]
     argv += [

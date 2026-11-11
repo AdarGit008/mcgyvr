@@ -237,7 +237,11 @@ firewall unasked); `up` from `tunnel.TunnelPlan` (mtu `pooled.TUNNEL_MTU`);
 device, then `spawn` of `head` (the pinned llama-server, `--host 127.0.0.1`, `--rpc` naming the
 forwards, an environment of PATH-like variables plus `GGML_*`/`CUDA_*`/`VK_*`/`MTL_*`/`METAL_*`,
 the card variables, and always `GGML_RPC_NO_COMM=1` and `GGML_RPC_NO_RDMA=1`, so the head never asks
-a worker for comm_init's wildcard listener and never negotiates RDMA, and `LLAMA_API_KEY`, the key
+a worker for comm_init's wildcard listener and never negotiates RDMA (a session that runs the ring
+build, `head_start.runtime_id` naming it: its own pinned llama-server, fetched then, with
+`GGML_RPC_NO_RDMA=1` alone, since the fork has no comm_init, and either `GGML_RPC_STAR_ONLY=1` when
+`head_start.ring` is false or `GGML_RPC_PEER_ENDPOINTS` naming, for each forward, the worker's tunnel
+`host:port` the other workers dial: `userwg.head_build_env`), and `LLAMA_API_KEY`, the key
 this session made for the head's API, which the head asks of every request but `/health`; the key is
 in the `spawn` env only, never in `argv`, and the helper keeps it as it keeps every request field: in
 memory, never on stdout, stderr or a file); `state`/`lease` while it
@@ -261,6 +265,12 @@ items below are what worker support needs first.
   `test_a_native_unit_is_emitted_as_a_program_not_a_container.py`). A pooled native worker's engine
   is NOT such a block: it listens on 127.0.0.1 behind `serve` (above), so if the worker work reuses
   `emit.native_block` for it, it needs an explicit loopback case, not the fleet rule.
+- Ring links (`hubwire.FEATURE_RING_PEERS`, a `tunnel_up` peer carrying `ring`): a native rig
+  names no `ring_peers`, whatever its `ring_links` setting, and `userwg` refuses `open_ring`. A
+  Linux worker holds a ring link to TCP inside the tunnel only (`pooled.OPEN_RING_SCRIPT`, and
+  `OPEN_WORKER_SCRIPT` per `accept_ports`); a native worker would need the helper to dial a ring
+  neighbour through the netstack only, to that neighbour's `dial_ports` alone, and to let a
+  neighbour in on the `accept_ports` alone, each with a test, before it may name the feature.
 - Done: a per-session key for the head's loopback API (it had to land before the first pin row:
   a pinned helper makes the native head reachable by any local process on the loopback, and the
   key is what keeps another local user off it). `userwg.NativeHost.head_key` makes 256 bits per

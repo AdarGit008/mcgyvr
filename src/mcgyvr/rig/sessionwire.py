@@ -57,6 +57,7 @@ from mcgyvr.hubwire import MAX_PROBE_DEADLINE_MS as MAX_PROBE_DEADLINE_MS
 from mcgyvr.hubwire import MAX_PROBE_INTERVAL_MS as MAX_PROBE_INTERVAL_MS
 from mcgyvr.hubwire import MAX_PROBE_TTL_S as MAX_PROBE_TTL_S
 from mcgyvr.hubwire import MAX_RATE_KBPS as MAX_RATE_KBPS
+from mcgyvr.hubwire import MAX_RING_PORTS as MAX_RING_PORTS
 from mcgyvr.hubwire import MAX_RTT_SAMPLES as MAX_RTT_SAMPLES
 from mcgyvr.hubwire import MAX_RTT_US as MAX_RTT_US
 from mcgyvr.hubwire import MAX_SLOTS as MAX_SLOTS
@@ -165,6 +166,17 @@ class RelayGrant:
 
 
 @dataclass(frozen=True, kw_only=True)
+class RingLink:
+    """A worker <-> worker ring link the hub names a peer for
+    (:data:`mcgyvr.hubwire.RING_FIELD`): the peer's rpc ports this rig may open
+    TCP to, and this rig's own rpc ports the peer may open TCP to. A peer that
+    carries one is optional: the session neither fails nor waits on it."""
+
+    dial_ports: tuple[int, ...] = ()
+    accept_ports: tuple[int, ...] = ()
+
+
+@dataclass(frozen=True, kw_only=True)
 class TunnelPeer:
     rig_id: str
     public_key: str
@@ -176,6 +188,9 @@ class TunnelPeer:
     #: (:mod:`mcgyvr.rig.identity`), when the hub forwards them.
     identity_key: str | None = None
     public_key_sig: str | None = None
+    #: The ring link this peer is named for, or None for a peer the session
+    #: needs (every peer before :data:`mcgyvr.hubwire.FEATURE_RING_PEERS`).
+    ring: RingLink | None = None
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -225,6 +240,9 @@ class WorkerStart:
     session_id: str
     cards: tuple[WorkerCard, ...]
     digest: str | None = None  # the sha256 of the weights the head will load
+    #: The build to start, an id from this rig's own hello
+    #: (:data:`mcgyvr.hubwire.RUNTIME_ID_FIELD`), or None for its default build.
+    runtime_id: str | None = None
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -255,6 +273,12 @@ class HeadStart:
     tensor_split: tuple[int, ...]
     n_gpu_layers: int
     slots: int = DEFAULT_SLOTS
+    #: The build to start, as :attr:`WorkerStart.runtime_id` says.
+    runtime_id: str | None = None
+    #: Whether a ring build's workers may pass tensors worker to worker
+    #: (:data:`mcgyvr.hubwire.HEAD_RING_FIELD`): False runs its head star only,
+    #: None (left out) is the build's own default.
+    ring: bool | None = None
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -441,8 +465,42 @@ def _slots(body: _Body) -> int:
     return body.number("slots", 1, MAX_SLOTS, default=DEFAULT_SLOTS)
 
 
+def _ports(body: _Body, field: str) -> tuple[int, ...]:
+    found = []
+    for port in body.items(field, 0, MAX_RING_PORTS, optional=True):
+        if type(port) is not int or not 1 <= port <= MAX_PORT:
+            raise body.refuse(field, f"not a list of ports of 1 to {MAX_PORT}")
+        found.append(port)
+    _unique(body, field, found)
+    return tuple(found)
+
+
+def _ring(peer: _Body) -> RingLink | None:
+    """The ring link a tunnel_up peer is named for: none when the field is left
+    out, and refused when it names no port either way."""
+    if not peer.has(hubwire.RING_FIELD):
+        return None
+    link = peer.nested(hubwire.RING_FIELD, peer.raw(hubwire.RING_FIELD))
+    found = RingLink(
+        dial_ports=_ports(link, "dial_ports"),
+        accept_ports=_ports(link, "accept_ports"),
+    )
+    if not (found.dial_ports or found.accept_ports):
+        raise link.refuse("dial_ports", "no port either way")
+    return found
+
+
 def _start(envelope: protocol.Envelope) -> _Body:
     return _Body(envelope.body, "body", envelope.id)
+
+
+def _runtime_id(body: _Body) -> str | None:
+    """The build a start names (:data:`mcgyvr.hubwire.RUNTIME_ID_FIELD`), None
+    when it names none; refused unless it is of the id's shape."""
+    found: str | None = body.text(
+        hubwire.RUNTIME_ID_FIELD, hubwire.RUNTIME_ID, optional=True
+    )
+    return found
 
 
 def _token(body: _Body, field: str) -> bytes:
@@ -510,9 +568,15 @@ def read_tunnel_up(envelope: protocol.Envelope) -> TunnelUp:
                 public_key_sig=peer.text(
                     hubwire.SESSION_KEY_SIG_FIELD, hubwire.IDENTITY_SIG, optional=True
                 ),
+                ring=_ring(peer),
             )
         )
     _unique(body, "peers", [peer.rig_id for peer in peers])
+    keys = [peer.public_key for peer in peers]
+    if any(peer.ring is not None and keys.count(peer.public_key) > 1 for peer in peers):
+        # A second peer under one WireGuard key would take over the first's
+        # allowed-ips; an optional ring link may never do that to any peer.
+        raise body.refuse("peers", "a ring peer's public_key is another peer's")
     attempt_s = (
         body.number("attempt_s", 1, MAX_ATTEMPT_S) if body.has("attempt_s") else None
     )
@@ -533,7 +597,8 @@ def read_tunnel_up(envelope: protocol.Envelope) -> TunnelUp:
 
 def read_worker_start(envelope: protocol.Envelope) -> WorkerStart:
     """Read a worker_start body: which cards, on which ports and backend, to serve,
-    and the digest of the weights the head will load, when the hub names it."""
+    the digest of the weights the head will load, when the hub names it, and the
+    build to serve them with, when it names one."""
     body = _start(envelope)
     session_id = body.text("session_id", SESSION_ID)
     cards = []
@@ -558,11 +623,17 @@ def read_worker_start(envelope: protocol.Envelope) -> WorkerStart:
         if body.has("model")
         else None
     )
-    return WorkerStart(session_id=session_id, cards=tuple(cards), digest=digest)
+    return WorkerStart(
+        session_id=session_id,
+        cards=tuple(cards),
+        digest=digest,
+        runtime_id=_runtime_id(body),
+    )
 
 
 def read_head_start(envelope: protocol.Envelope) -> HeadStart:
-    """Read a head_start body: the model, its devices and its slots.
+    """Read a head_start body: the model, its devices and its slots, and the
+    build to run and whether its ring may be used, when the hub names them.
 
     Context is the window each slot gets; tensor_split holds one share per
     device and must not sum to zero.
@@ -627,6 +698,12 @@ def read_head_start(envelope: protocol.Envelope) -> HeadStart:
             "n_gpu_layers", 0, MAX_GPU_LAYERS, default=DEFAULT_GPU_LAYERS
         ),
         slots=_slots(body),
+        runtime_id=_runtime_id(body),
+        ring=(
+            body.flag(hubwire.HEAD_RING_FIELD)
+            if body.has(hubwire.HEAD_RING_FIELD)
+            else None
+        ),
     )
 
 

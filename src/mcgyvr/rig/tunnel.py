@@ -14,7 +14,7 @@ from __future__ import annotations
 import ipaddress
 import socket
 import struct
-from collections.abc import Iterable, Sequence
+from collections.abc import Collection, Iterable, Sequence
 from dataclasses import dataclass
 
 from mcgyvr import hostos, hubwire
@@ -69,6 +69,9 @@ PATHS = {
     hubwire.BIRTHDAY_KIND: "direct",
     hubwire.BIRTHDAY_BURST_KIND: "direct",
 }
+#: The candidate kinds walked by the birthday dance (``Sessions._birthday``),
+#: which a ring peer is never aimed at.
+BIRTHDAY_KINDS = frozenset({hubwire.BIRTHDAY_KIND, hubwire.BIRTHDAY_BURST_KIND})
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -100,8 +103,9 @@ class RelayAim:
 @dataclass(frozen=True, kw_only=True)
 class PeerPlan:
     """A peer as the tunnel is told about it: its key, its keepalive interval,
-    the addresses it is allowed, the candidates to aim at in order, and a relay
-    to fall back on when none of them answers."""
+    the addresses it is allowed, the candidates to aim at in order, a relay
+    to fall back on when none of them answers, and the ring link it is named
+    for (None for a peer the session needs)."""
 
     rig_id: str
     public_key: str
@@ -109,6 +113,7 @@ class PeerPlan:
     allowed: tuple[ipaddress.IPv4Network, ...]
     candidates: tuple[Candidate, ...]
     relay: RelayAim | None = None
+    ring: sessionwire.RingLink | None = None
 
     @property
     def tunnel_host(self) -> ipaddress.IPv4Address | None:
@@ -123,11 +128,13 @@ class PeerPlan:
 @dataclass(frozen=True, kw_only=True)
 class TunnelPlan:
     """This rig's end of a tunnel: its address on it, the port it listens on,
-    and what was planned for each peer."""
+    what was planned for each peer, and the ring peers left out of it for
+    having nothing this rig may aim at (reported with no path)."""
 
     address: ipaddress.IPv4Interface
     listen_port: int
     peers: tuple[PeerPlan, ...]
+    unreached: tuple[str, ...] = ()
 
     def script_args(self) -> list[str]:
         """The arguments the tunnel script is run with: this end's address and
@@ -153,9 +160,20 @@ class TunnelPlan:
                 return peer
         return None
 
-    def peer_nets(self) -> tuple[ipaddress.IPv4Network, ...]:
-        """Every peer's allowed addresses, peer by peer."""
-        return tuple(net for peer in self.peers for net in peer.allowed)
+    def peer_nets(
+        self, port: int | None = None, came_up: Collection[str] = ()
+    ) -> tuple[ipaddress.IPv4Network, ...]:
+        """The allowed addresses of the peers that may reach this rig's `port`,
+        peer by peer: every peer the session needs, and a ring peer only when
+        its walk came up (its rig id in `came_up`) and its ring link names
+        `port` among its ``accept_ports``. With no ring peers, every peer's."""
+        return tuple(
+            net
+            for peer in self.peers
+            if peer.ring is None
+            or (peer.rig_id in came_up and port in peer.ring.accept_ports)
+            for net in peer.allowed
+        )
 
 
 #: Whether an address is one a peer on this LAN could be reached at: the wire's
@@ -272,6 +290,7 @@ def plan(
     *,
     listen_port: int,
     own: Sequence[ipaddress.IPv4Interface],
+    drop: Collection[str] = (),
 ) -> TunnelPlan:
     """Lay out the tunnel a tunnel-up asks for, having checked it against this
     machine: the listen port is the one this session was prepared on, the
@@ -281,7 +300,14 @@ def plan(
     no other peer's, and include an endpoint or relay this rig may aim at.
 
     A tunnel-up that breaks any of these is refused by code and message; an
-    accepted one becomes a plan carrying the port asked for."""
+    accepted one becomes a plan carrying the port asked for. A ring peer
+    (:attr:`mcgyvr.rig.sessionwire.TunnelPeer.ring`) is held to the same
+    rules but three: its relay is never taken (the star through the head is
+    its fallback), its birthday candidates are dropped (an optional link is
+    never worth the dance), and with no other endpoint this rig may aim at it
+    is left out of the plan, never configured, rather than refusing the
+    tunnel the session needs. So is a ring peer named in `drop` (one the
+    identity check refused), once its addresses are checked like any peer's."""
     if up.listen_port != listen_port:
         raise RefusedError(
             protocol.ErrorCode.BAD_MESSAGE,
@@ -309,7 +335,12 @@ def plan(
                 sessionwire.SessionCode.TUNNEL_FAILED,
                 "address: the tunnel's network overlaps one this machine is on",
             )
+    if all(peer.ring is not None for peer in up.peers):
+        raise RefusedError(
+            protocol.ErrorCode.BAD_MESSAGE, "peers: only ring peers, none it needs"
+        )
     peers = []
+    unreached: list[str] = []
     taken: list[ipaddress.IPv4Network] = []
     for peer in up.peers:
         for net in peer.allowed_ips:
@@ -330,7 +361,12 @@ def plan(
                 )
             taken.append(net)
         found = candidates(peer, network, own)
-        relay = _relay(peer, network, own)
+        relay = _relay(peer, network, own) if peer.ring is None else None
+        if peer.ring is not None:
+            found = tuple(c for c in found if c.endpoint.kind not in BIRTHDAY_KINDS)
+        if peer.ring is not None and (not found or peer.rig_id in drop):
+            unreached.append(peer.rig_id)
+            continue
         if not found and relay is None:
             raise RefusedError(
                 sessionwire.SessionCode.TUNNEL_FAILED,
@@ -344,6 +380,12 @@ def plan(
                 allowed=peer.allowed_ips,
                 candidates=found,
                 relay=relay,
+                ring=peer.ring,
             )
         )
-    return TunnelPlan(address=address, listen_port=listen_port, peers=tuple(peers))
+    return TunnelPlan(
+        address=address,
+        listen_port=listen_port,
+        peers=tuple(peers),
+        unreached=tuple(unreached),
+    )
