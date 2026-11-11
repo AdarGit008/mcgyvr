@@ -18,15 +18,24 @@ the hub believed when it sent the ride does not admit it.
 
 The unit is a scripted server on loopback; its in-flight count and the slots'
 lock directory are the test's.
+
+The hub seats a ride by the same rule on the host's last advert
+(``hubwire.RIDE_ROOM_CASES`` holds both sides to the same cases): the last
+test reads the rig's side of them, with no server.
 """
 
 from __future__ import annotations
 
 from collections.abc import Iterator
+from contextlib import ExitStack
 from pathlib import Path
 
 import pytest
 
+from mcgyvr import hubwire
+from mcgyvr.rig import hitchhike
+from mcgyvr.rig.relay import RideRefusedError
+from mcgyvr.rig.sessionwire import SessionCode
 from tests.relays import Host, _host
 from tests.relays import _ride_body as _body
 
@@ -139,3 +148,44 @@ def test_rides_take_the_free_slots_up_to_the_rider_cap(
         built.relays.cancel_all()
         assert built.unit.server is not None
         built.unit.server.shutdown()
+
+
+@pytest.mark.parametrize("case", hubwire.RIDE_ROOM_CASES)
+def test_the_rig_admits_a_ride_by_the_cases_the_hub_seats_by(
+    case: hubwire.RideRoomCase,
+) -> None:
+    """The rig's side of the shared cases: what it advertises free, and
+    whether it admits one more ride on top of ``riding``."""
+    unit = hitchhike.Shared(
+        unit_id="coder",
+        name="coder",
+        model="qwen-7b",
+        address="http://127.0.0.1:8080",
+        slots=case.slots,
+        ctx=8192,
+        rider_cap=case.rider_cap,
+    )
+    busy: list[int | None] = [0]
+    units = hitchhike.Units(
+        send=lambda frame, timeout=None: True,
+        setup=lambda: hitchhike.Setup(units=(unit,), in_flight=lambda _: busy[0]),
+        say=lambda line: None,
+        start=lambda work: work(),
+    )
+    units.online()
+    assert hubwire.rider_cap_fits(case.rider_cap, case.slots)
+    assert (
+        hitchhike.free_slots(case.slots, case.in_flight, case.riding) == case.free_slots
+    )
+    with ExitStack() as rides:
+        for riding in range(case.riding):
+            busy[0] = riding  # the rides on it so far, nothing of the host's
+            rides.enter_context(units.ride("coder"))
+        busy[0] = case.in_flight
+        if case.admits:
+            with units.ride("coder"):
+                pass
+        else:
+            with pytest.raises(RideRefusedError) as refused, units.ride("coder"):
+                pass
+            assert refused.value.code == SessionCode.BUSY

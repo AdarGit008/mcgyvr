@@ -158,10 +158,9 @@ class TunnelPlan:
         return tuple(net for peer in self.peers for net in peer.allowed)
 
 
-def is_lan(address: ipaddress.IPv4Address) -> bool:
-    """Whether a private address is one a peer on this LAN could be reached at:
-    private, and one a peer can be at (:func:`mcgyvr.hubwire.is_peer_address`)."""
-    return address.is_private and hubwire.is_peer_address(address)
+#: Whether an address is one a peer on this LAN could be reached at: the wire's
+#: rule (:func:`mcgyvr.hubwire.is_lan_address`), the one a hub vouches by.
+is_lan = hubwire.is_lan_address
 
 
 def read_interfaces() -> tuple[tuple[str, ipaddress.IPv4Interface], ...]:

@@ -71,7 +71,8 @@ def test_the_lan_rule_the_tunnels_aim_and_the_probes_are_the_one_wire_rule(
 ) -> None:
     """``is_lan``, ``may_aim_at`` and the probe's default rule do not each spell
     the five properties no peer can be at; they read ``hubwire.is_peer_address``,
-    and a LAN address is that rule and private."""
+    and a LAN address is that rule and private (``hubwire.is_lan_address``, which
+    ``is_lan`` is)."""
     from mcgyvr import hubwire
     from mcgyvr.rig import probe, tunnel
 
@@ -79,8 +80,30 @@ def test_the_lan_rule_the_tunnels_aim_and_the_probes_are_the_one_wire_rule(
     peer = hubwire.is_peer_address(host)
 
     assert probe.reachable is hubwire.is_peer_address
+    assert tunnel.is_lan is hubwire.is_lan_address
     assert tunnel.is_lan(host) is (host.is_private and peer)
     assert tunnel.may_aim_at(host, None, ()) is peer
+
+
+@pytest.mark.parametrize(
+    ("address", "peer"),
+    [
+        ("2001:db8::7", True),
+        ("2606:4700::1", True),
+        ("ff02::1", False),
+        ("::1", False),
+        ("fe80::1", False),
+        ("::", False),
+    ],
+)
+def test_the_peer_rule_reads_an_ipv6_address_as_it_does_an_ipv4_one(
+    address: str, peer: bool
+) -> None:
+    """A hub vouches for an agent's IPv6 endpoint by the same rule; the
+    product's agent reports none (its endpoints are IPv4)."""
+    from mcgyvr import hubwire
+
+    assert hubwire.is_peer_address(ipaddress.IPv6Address(address)) is peer
 
 
 def test_this_machines_interfaces_are_read_from_the_kernel() -> None:
