@@ -189,7 +189,7 @@ class TunnelPeer:
     identity_key: str | None = None
     public_key_sig: str | None = None
     #: The ring link this peer is named for, or None for a peer the session
-    #: needs (every peer before :data:`mcgyvr.hubwire.RING_PEERS_FEATURE`).
+    #: needs (every peer before :data:`mcgyvr.hubwire.FEATURE_RING_PEERS`).
     ring: RingLink | None = None
 
 

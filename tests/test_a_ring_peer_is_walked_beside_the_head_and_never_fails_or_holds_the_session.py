@@ -614,8 +614,8 @@ def test_the_rig_names_ring_peers_only_once_its_owner_turned_them_on(
     assert session.RING_PEERS_FEATURE not in off.features
     assert session.RING_PEERS_FEATURE not in session.FEATURES
     assert on.features == (*off.features, session.RING_PEERS_FEATURE)
-    assert session.RING_PEERS_FEATURE == hubwire.RING_PEERS_FEATURE
-    assert hubwire.RING_PEERS_FEATURE in rig_schema.load()["x-features"]
+    assert session.RING_PEERS_FEATURE == hubwire.FEATURE_RING_PEERS
+    assert hubwire.FEATURE_RING_PEERS in rig_schema.load()["x-features"]
 
 
 def test_ring_links_are_off_and_unwritten_until_the_owner_sets_them() -> None:

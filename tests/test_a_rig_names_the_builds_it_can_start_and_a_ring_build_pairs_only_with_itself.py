@@ -197,7 +197,7 @@ def test_a_hello_names_its_builds_default_first_valid_against_the_schema() -> No
         _hello(
             _offer(
                 runtimes=builds,
-                features=("probe", hubwire.RUNTIME_SELECT_FEATURE),
+                features=("probe", hubwire.FEATURE_RUNTIME_SELECT),
             )
         )
     )
@@ -233,7 +233,7 @@ def test_the_agent_writes_no_build_the_wire_may_not_carry() -> None:
 def test_the_wire_names_are_the_schemas() -> None:
     schema = rig_schema.load()
     defs = schema["$defs"]
-    assert hubwire.RUNTIME_SELECT_FEATURE in schema["x-features"]
+    assert hubwire.FEATURE_RUNTIME_SELECT in schema["x-features"]
     listed = defs["Capabilities"]["properties"][hubwire.RUNTIMES_FIELD]
     assert listed["maxItems"] == hubwire.MAX_RUNTIMES
     assert listed["items"] == {"$ref": "#/$defs/Runtime"}

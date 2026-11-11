@@ -1120,7 +1120,7 @@ entries name development tooling, flags and records outside this repository.
   release as `<repo>@<tag>` whether from an image or an archive;
   `rpc_proto`; `ring`), the hello field `capabilities.runtimes`
   (`RUNTIMES_FIELD`, default build first, at most `MAX_RUNTIMES`,
-  `runtimes_fit`), the feature `runtime_select` (`RUNTIME_SELECT_FEATURE`),
+  `runtimes_fit`), the feature `runtime_select` (`FEATURE_RUNTIME_SELECT`),
   the optional start fields `worker_start.runtime_id` / `head_start.runtime_id`
   (`RUNTIME_ID_FIELD`) and `head_start.ring` (`HEAD_RING_FIELD`: false runs
   a ring build's head star only), and one pairing rule, `runtimes_pair`: a
@@ -1139,7 +1139,7 @@ entries name development tooling, flags and records outside this repository.
   a worker's only peer was the head, so a worker -> worker ring link could
   never form. With `"ring_links": true` in its lending settings (off, and
   unwritten, by default; a native rig never) a rig names the new feature
-  `ring_peers` (`hubwire.RING_PEERS_FEATURE`, the first feature name defined
+  `ring_peers` (`hubwire.FEATURE_RING_PEERS`, the first feature name defined
   in `hubwire`), and a `tunnel_up` peer may carry `ring`
   (`hubwire.RING_FIELD`: `dial_ports`, `accept_ports`). Such a peer is
   optional: it is walked beside the head under the same deadline, given up

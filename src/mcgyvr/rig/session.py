@@ -101,10 +101,10 @@ MULTI_SESSION_FEATURE = hubwire.FEATURE_MULTI_SESSION
 #: there too.
 PORT_MAP_FEATURE = hubwire.FEATURE_PORT_MAP
 #: The feature that says this rig takes a session's worker <-> worker ring peers
-#: (:data:`mcgyvr.hubwire.RING_PEERS_FEATURE`): named only when the owner turned it
+#: (:data:`mcgyvr.hubwire.FEATURE_RING_PEERS`): named only when the owner turned it
 #: on (``Sharing.ring_links``) on a rig whose sessions run in containers, and kept
 #: out of FEATURES, so a rig without the switch names what it always named.
-RING_PEERS_FEATURE = hubwire.RING_PEERS_FEATURE
+RING_PEERS_FEATURE = hubwire.FEATURE_RING_PEERS
 #: Every feature the hello and the offer name, within ``MAX_FEATURES``, no repeats,
 #: each one of the wire's (:data:`mcgyvr.hubwire.FEATURES`, which the hub publishes):
 #: ``probe`` and ``traversal``: it answers UDP probes and walks STUN candidates,
@@ -124,10 +124,10 @@ FEATURES = (
     PORT_MAP_FEATURE,
 )
 #: The feature that says this rig offers the builds it can start and starts the
-#: one a start names (:data:`mcgyvr.hubwire.RUNTIME_SELECT_FEATURE`): named only
+#: one a start names (:data:`mcgyvr.hubwire.FEATURE_RUNTIME_SELECT`): named only
 #: when it offers a ring build (:func:`rig_builds`), and kept out of FEATURES,
 #: so a rig without one names what it always named.
-RUNTIME_SELECT_FEATURE = hubwire.RUNTIME_SELECT_FEATURE
+RUNTIME_SELECT_FEATURE = hubwire.FEATURE_RUNTIME_SELECT
 #: The llama.cpp RPC protocol of the pinned build, as the wire names it: what
 #: a rig running that build declares in its hello.
 PINNED_RPC_PROTO = hubwire.RpcProto(

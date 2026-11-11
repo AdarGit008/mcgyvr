@@ -108,14 +108,14 @@ is here:
   as :data:`RPC_PROTO_FIELD`) and which workers a head may take
   (:func:`rpc_compatible`);
 * a session's optional worker <-> worker ring links: the feature a rig names
-  for them (:data:`RING_PEERS_FEATURE`, the first feature name defined here),
+  for them (:data:`FEATURE_RING_PEERS`, the first feature name defined here),
   the ``tunnel_up`` peer field carrying one (:data:`RING_FIELD`) and its bound
   (:data:`MAX_RING_PORTS`);
 * the llama.cpp builds a rig can start for a session (:class:`Runtime`, its
   id's shape :data:`RUNTIME_ID`, listed as :data:`RUNTIMES_FIELD`, at most
   :data:`MAX_RUNTIMES`: :func:`runtimes_fit`), the build a rig that lists none
   stands for (:func:`implied_runtime`, :func:`rig_runtimes`), the feature a rig
-  names when it starts the one a start names (:data:`RUNTIME_SELECT_FEATURE`,
+  names when it starts the one a start names (:data:`FEATURE_RUNTIME_SELECT`,
   by :data:`RUNTIME_ID_FIELD`; a head star only by :data:`HEAD_RING_FIELD`),
   and which builds a head and a worker may run together
   (:func:`runtimes_pair`);
@@ -322,6 +322,20 @@ FEATURE_HITCHHIKE_UNITS = "hitchhike_units"
 FEATURE_MULTI_SESSION = "multi_session"
 FEATURE_BACKEND_SELECT = "backend_select"
 FEATURE_PORT_MAP = "port_map"
+#: The feature a rig names when it takes a session's worker <-> worker tunnel
+#: peers (a ``tunnel_up`` peer carrying :data:`RING_FIELD`): it walks such a peer
+#: beside the ones it must reach, never fails or waits on it, and opens only the
+#: TCP that peer's ring link needs inside the tunnel. A rig names it only when its
+#: owner turned it on; the hub names such peers only when every rig of the session
+#: names it.
+FEATURE_RING_PEERS = "ring_peers"
+#: The feature a rig names when it offers the builds it can start
+#: (:data:`RUNTIMES_FIELD`) and starts the one a ``worker_start`` or
+#: ``head_start`` names (:data:`RUNTIME_ID_FIELD`), running a ring build's head
+#: star only when ``head_start`` says so (:data:`HEAD_RING_FIELD`). A rig names
+#: it together with its builds, never without; the hub names either start
+#: field only to a rig that names it.
+FEATURE_RUNTIME_SELECT = "runtime_select"
 FEATURES: tuple[str, ...] = (
     FEATURE_PROBE,
     FEATURE_TRAVERSAL,
@@ -330,6 +344,8 @@ FEATURES: tuple[str, ...] = (
     FEATURE_MULTI_SESSION,
     FEATURE_BACKEND_SELECT,
     FEATURE_PORT_MAP,
+    FEATURE_RING_PEERS,
+    FEATURE_RUNTIME_SELECT,
 )
 #: The roles a rig may offer in a session: at most both.
 RigRole = Literal["head", "worker"]
@@ -1613,13 +1629,6 @@ def rpc_compatible(head: RpcProto, worker: RpcProto) -> bool:
 
 # --- worker <-> worker ring links ----------------------------------------------------
 
-#: The feature a rig names when it takes a session's worker <-> worker tunnel
-#: peers (a ``tunnel_up`` peer carrying :data:`RING_FIELD`): it walks such a peer
-#: beside the ones it must reach, never fails or waits on it, and opens only the
-#: TCP that peer's ring link needs inside the tunnel. A rig names it only when its
-#: owner turned it on; the hub names such peers only when every rig of the session
-#: names it.
-RING_PEERS_FEATURE = "ring_peers"
 #: The ``tunnel_up`` peer field that makes the peer an optional ring link: the
 #: peer's rpc ports this rig may open TCP to (``dial_ports``) and this rig's own
 #: rpc ports the peer may open TCP to (``accept_ports``), each list at most
@@ -1631,13 +1640,6 @@ MAX_RING_PORTS = MAX_CARDS
 
 # --- the llama.cpp builds a rig can start for a session ---------------------------
 
-#: The feature a rig names when it offers the builds it can start
-#: (:data:`RUNTIMES_FIELD`) and starts the one a ``worker_start`` or
-#: ``head_start`` names (:data:`RUNTIME_ID_FIELD`), running a ring build's head
-#: star only when ``head_start`` says so (:data:`HEAD_RING_FIELD`). A rig names
-#: it together with its builds, never without; the hub names either start
-#: field only to a rig that names it.
-RUNTIME_SELECT_FEATURE = "runtime_select"
 #: The capabilities field listing every build a rig can start for a session
 #: (:class:`Runtime`), its default build first. Left out: the rig names no
 #: build, and stands for the one its ``runtime`` and :data:`RPC_PROTO_FIELD`
