@@ -82,7 +82,7 @@ RETIRED = {
 
 #: The owner's consents a settings file may carry, each true or false and
 #: written only when given (:meth:`Sharing` names what each allows).
-_CONSENTS = ("port_forward", "port_forward_permanent")
+_CONSENTS = ("port_forward", "port_forward_permanent", "ring_links")
 
 
 class SharingError(Exception):
@@ -114,8 +114,11 @@ class Sharing:
     without it names no ``port_map`` feature and refuses the hub's ask.
     `port_forward_permanent` lets that forward take a permanent lease (held
     until it is given back) on a router that grants no other; without it such
-    a router's forward is refused. `notes` carries what the reader said about
-    retired settings, and takes no part in comparison.
+    a router's forward is refused. `ring_links` lets this rig take a session's
+    worker <-> worker tunnel peers (it names ``ring_peers``): the pinned build
+    never dials one, so it stays off unless the owner turns it on in the file.
+    `notes` carries what the reader said about retired settings, and takes no
+    part in comparison.
     """
 
     enabled: bool = False
@@ -135,6 +138,7 @@ class Sharing:
     launcher: str = LAUNCHER_DOCKER
     port_forward: bool = False
     port_forward_permanent: bool = False
+    ring_links: bool = False
     notes: tuple[str, ...] = field(default=(), compare=False)
 
     def native_here(self) -> bool:

@@ -1082,6 +1082,31 @@ entries name development tooling, flags and records outside this repository.
   tag does, the version and notes rule, both rehearsals, the secrets (none
   stored; the PyPI trusted publisher and the `pypi` environment), and how a
   fork releases.
+
+- **A worker may take its ring neighbours as optional tunnel peers, off until
+  the owner turns it on (`ring_links`).** A pooled session's tunnel was a star:
+  a worker's only peer was the head, so a worker -> worker ring link could
+  never form. With `"ring_links": true` in its lending settings (off, and
+  unwritten, by default; a native rig never) a rig names the new feature
+  `ring_peers` (`hubwire.RING_PEERS_FEATURE`, the first feature name defined
+  in `hubwire`), and a `tunnel_up` peer may carry `ring`
+  (`hubwire.RING_FIELD`: `dial_ports`, `accept_ports`). Such a peer is
+  optional: it is walked beside the head under the same deadline, given up
+  the moment the head has settled, never relayed, left out of the tunnel when
+  it has nothing the rig may aim at, and reported `none` without failing the
+  session. Once the worker starts, a ring peer that came up may dial the
+  rig's `accept_ports` and the rig may dial the peer's `dial_ports` (a new
+  `OPEN_RING_SCRIPT`: TCP on wg0 only, replies to the ephemeral range, the
+  head's own dial rules); on eth0 a ring peer gets only the WireGuard UDP
+  rule any tunnel peer gets, while it is aimed at. A ring peer is checked
+  against the identity pins but never writes one, and a ring peer under
+  another peer's WireGuard key is refused (`bad_message`). A session's head
+  refuses any ring peer (`bad_message`). A rig without the switch refuses a
+  ring peer (`not_capable`) and makes exactly the calls it made.
+  The pinned build (upstream llama.cpp) never dials a ring link and the head
+  still runs with `GGML_RPC_NO_COMM=1`: this builds the tunnel and firewall
+  only. The protocol schema gains `RingLink` and `TunnelPeer.ring`.
+
 - **A rig's hello names each model's quantisation (`quant`), so a hub can plan
   by the wire's decode rule.** The hub's planner bounded a device's decode
   speed by its memory bandwidth alone, because the rig never said a model's

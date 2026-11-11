@@ -462,6 +462,11 @@ class NativeHost:
     def listening(self, name: str, own: str, port: int) -> bool:
         return False
 
+    def open_ring(self, name: str, own: str, pairs: Sequence[str]) -> None:
+        # A native rig names no ring_peers (it serves no worker), so it is never
+        # asked to dial one: the helper could not hold the rule if it were.
+        raise pooled.PoolError("a native rig runs no rpc worker")
+
     def open_head(
         self, name: str, own: str, gateway: str, pairs: Sequence[str]
     ) -> None:

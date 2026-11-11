@@ -305,8 +305,9 @@ wg show wg0 latest-handshakes | sed 's/^/handshake /'
 wg show wg0 endpoints | sed 's/^/endpoint /'
 """
 
-#: Open a worker's RPC port to the tunnel: for each peer network, allow TCP from wg0 to
-#: this address and port, and the replies back out, so the head can reach the server.
+#: Open a worker's RPC port to the tunnel: for each peer network given, allow TCP from
+#: wg0 to this address and port, and the replies back out, so the head can reach the
+#: server (and a ring neighbour that may dial this port, once its walk found a path).
 OPEN_WORKER_SCRIPT = r"""set -eu
 self="$1"
 port="$2"
@@ -320,6 +321,23 @@ done | nft -f -
 echo "open"
 """
 
+#: The local ephemeral port range, read into $low and $high: the ports the kernel
+#: picks for this rig's own outgoing TCP, which a reply may come back to.
+_EPHEMERAL_RANGE = r"""range=$(cat /proc/sys/net/ipv4/ip_local_port_range)
+low=$(echo $range | cut -d' ' -f1)
+high=$(echo $range | cut -d' ' -f2)
+"""
+#: For each host/port pair left in "$@": allow TCP from this tunnel address ($self)
+#: out on wg0 to that host and port, and its replies back in to the ephemeral range.
+_DIAL_RULES = r"""  while [ "$#" -ge 2 ]; do
+    echo "add rule inet mcgyvr output oifname wg0 ip saddr $self ip daddr $1 \
+tcp dport $2 accept"
+    echo "add rule inet mcgyvr input iifname wg0 ip saddr $1 ip daddr $self \
+tcp sport $2 tcp dport $low-$high accept"
+    shift 2
+  done
+"""
+
 #: Open the head's side of the tunnel. The arguments are this rig's tunnel address, the
 #: container gateway and one host/port pair per remote rpc device. On eth0 it allows the
 #: gateway to reach the head's API port, which is how the published port gets in. On wg0
@@ -327,28 +345,43 @@ echo "open"
 #: replies to come back to the head's address on any port of the local ephemeral range
 #: the kernel picks for those outgoing connections
 #: (/proc/sys/net/ipv4/ip_local_port_range). It prints "open" once nft takes them.
-OPEN_HEAD_SCRIPT = r"""set -eu
+OPEN_HEAD_SCRIPT = (
+    r"""set -eu
 self="$1"
 gateway="$2"
 shift 2
-range=$(cat /proc/sys/net/ipv4/ip_local_port_range)
-low=$(echo $range | cut -d' ' -f1)
-high=$(echo $range | cut -d' ' -f2)
-{
+"""
+    + _EPHEMERAL_RANGE
+    + r"""{
   echo "add rule inet mcgyvr input iifname eth0 ip saddr $gateway \
 tcp dport 8080 accept"
   echo "add rule inet mcgyvr output oifname eth0 ip daddr $gateway \
 tcp sport 8080 accept"
-  while [ "$#" -ge 2 ]; do
-    echo "add rule inet mcgyvr output oifname wg0 ip saddr $self ip daddr $1 \
-tcp dport $2 accept"
-    echo "add rule inet mcgyvr input iifname wg0 ip saddr $1 ip daddr $self \
-tcp sport $2 tcp dport $low-$high accept"
-    shift 2
-  done
-} | nft -f -
+"""
+    + _DIAL_RULES
+    + r"""} | nft -f -
 echo "open"
 """
+)
+
+#: Open a worker's ring links: the arguments are this rig's tunnel address and one
+#: host/port pair per ring neighbour's rpc server it may dial (the hub's
+#: ``tunnel_up`` ``ring.dial_ports``, for a neighbour whose walk found a path). On
+#: wg0 only it allows TCP from this address to each pair, and the replies back to
+#: the local ephemeral range, the head's own dial rules (OPEN_HEAD_SCRIPT) without
+#: its API port. Nothing on eth0. It prints "open" once nft takes them.
+OPEN_RING_SCRIPT = (
+    r"""set -eu
+self="$1"
+shift
+"""
+    + _EPHEMERAL_RANGE
+    + "{\n"
+    + _DIAL_RULES
+    + r"""} | nft -f -
+echo "open"
+"""
+)
 
 #: Does the given address and port already have a listening TCP socket? Both are turned
 #: into the hex form /proc/net/tcp uses and matched on an entry in state 0A (LISTEN).

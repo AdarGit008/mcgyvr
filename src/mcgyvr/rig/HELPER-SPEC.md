@@ -261,6 +261,12 @@ items below are what worker support needs first.
   `test_a_native_unit_is_emitted_as_a_program_not_a_container.py`). A pooled native worker's engine
   is NOT such a block: it listens on 127.0.0.1 behind `serve` (above), so if the worker work reuses
   `emit.native_block` for it, it needs an explicit loopback case, not the fleet rule.
+- Ring links (`hubwire.RING_PEERS_FEATURE`, a `tunnel_up` peer carrying `ring`): a native rig
+  names no `ring_peers`, whatever its `ring_links` setting, and `userwg` refuses `open_ring`. A
+  Linux worker holds a ring link to TCP inside the tunnel only (`pooled.OPEN_RING_SCRIPT`, and
+  `OPEN_WORKER_SCRIPT` per `accept_ports`); a native worker would need the helper to dial a ring
+  neighbour through the netstack only, to that neighbour's `dial_ports` alone, and to let a
+  neighbour in on the `accept_ports` alone, each with a test, before it may name the feature.
 - Done: a per-session key for the head's loopback API (it had to land before the first pin row:
   a pinned helper makes the native head reachable by any local process on the loopback, and the
   key is what keeps another local user off it). `userwg.NativeHost.head_key` makes 256 bits per

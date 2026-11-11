@@ -107,6 +107,10 @@ is here:
 * the llama.cpp RPC protocol version a rig speaks (:class:`RpcProto`, carried
   as :data:`RPC_PROTO_FIELD`) and which workers a head may take
   (:func:`rpc_compatible`);
+* a session's optional worker <-> worker ring links: the feature a rig names
+  for them (:data:`RING_PEERS_FEATURE`, the first feature name defined here),
+  the ``tunnel_up`` peer field carrying one (:data:`RING_FIELD`) and its bound
+  (:data:`MAX_RING_PORTS`);
 * a rig's identity key and the signature it puts on each session's tunnel
   key (:data:`IDENTITY_KEY_FIELD`, :data:`SESSION_KEY_SIG_FIELD`, their shapes
   :data:`IDENTITY_KEY` and :data:`IDENTITY_SIG`, the bytes signed
@@ -1597,6 +1601,24 @@ def rpc_compatible(head: RpcProto, worker: RpcProto) -> bool:
     A major changes on a break; a newer head speaks an older minor.
     """
     return worker.major == head.major and worker.minor <= head.minor
+
+
+# --- worker <-> worker ring links ----------------------------------------------------
+
+#: The feature a rig names when it takes a session's worker <-> worker tunnel
+#: peers (a ``tunnel_up`` peer carrying :data:`RING_FIELD`): it walks such a peer
+#: beside the ones it must reach, never fails or waits on it, and opens only the
+#: TCP that peer's ring link needs inside the tunnel. A rig names it only when its
+#: owner turned it on; the hub names such peers only when every rig of the session
+#: names it.
+RING_PEERS_FEATURE = "ring_peers"
+#: The ``tunnel_up`` peer field that makes the peer an optional ring link: the
+#: peer's rpc ports this rig may open TCP to (``dial_ports``) and this rig's own
+#: rpc ports the peer may open TCP to (``accept_ports``), each list at most
+#: :data:`MAX_RING_PORTS` long, not both empty.
+RING_FIELD = "ring"
+#: Most ports one side of a ring link names: one per card.
+MAX_RING_PORTS = MAX_CARDS
 
 
 # --- a rig's identity key ----------------------------------------------------------
