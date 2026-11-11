@@ -398,14 +398,6 @@ def _port_forward_section() -> list[str]:
         f"`{hubwire.SessionCode.MODEL_MISSING}`. Hashing a large model delays the "
         "head's start; a session stopped meanwhile stops the hashing too."
     )
-    names = (
-        "**A unit's numbers on the wire.** A rig that shares a unit with riders "
-        "advertises its numbers to the hub under the wire's names, not the "
-        "setup's; the hub shows the wire's:"
-    )
-    table = ["| Setup | Wire | What it is |", "| --- | --- | --- |"]
-    for wire, (setup, meaning) in hubwire.UNIT_SETUP_NAMES.items():
-        table.append(f"| `{setup}` | `{wire}` | {meaning} |")
     return [
         "## Lending to a hub: the port forward",
         "",
@@ -413,7 +405,24 @@ def _port_forward_section() -> list[str]:
         "",
         *_wrap(digest, rest=""),
         "",
-        *_wrap(names, rest=""),
+    ]
+
+
+def _unit_wire_names_section() -> list[str]:
+    """SETUP.md's *A unit's numbers on the wire*, under `units`: the setup key of
+    each number a shared unit advertises beside the wire's name the hub shows
+    (``hubwire.UNIT_SETUP_NAMES``)."""
+    text = (
+        "A rig that shares a unit with riders advertises its numbers to the hub "
+        "under the wire's names, not the setup's; the hub shows the wire's:"
+    )
+    table = ["| Setup | Wire | What it is |", "| --- | --- | --- |"]
+    for wire, (setup, meaning) in hubwire.UNIT_SETUP_NAMES.items():
+        table.append(f"| `{setup}` | `{wire}` | {meaning} |")
+    return [
+        "### A unit's numbers on the wire",
+        "",
+        *_wrap(text, rest=""),
         "",
         *table,
         "",
@@ -1012,6 +1021,8 @@ def render_setup() -> str:
     for field in SCHEMA:
         if field.block:
             lines += _section(field, field.name, 2, dotted=True)
+            if field.name == "units":
+                lines += _unit_wire_names_section()
 
     return "\n".join(lines).rstrip("\n") + "\n"
 

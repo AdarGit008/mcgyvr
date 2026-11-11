@@ -728,8 +728,8 @@ MODELS_PATH = f"{API_ROOT}/models"
 #: The field of each listed model holding the request slots of every ready
 #: unit of it, one whole number per unit.
 MODEL_SLOTS = "slots"
-#: Where a chat request is sent, under :data:`API_ROOT`: the hub's, a relief
-#: rung's and any OpenAI-compatible server's.
+#: Where a chat request is sent, under :data:`API_ROOT`: the hub's, a rung's
+#: and any OpenAI-compatible server's.
 CHAT_PATH = f"{API_ROOT}/chat/completions"
 #: The hub's own JSON API root, beside :data:`API_ROOT`.
 API_PREFIX = "/api/v1"
