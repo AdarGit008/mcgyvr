@@ -206,6 +206,63 @@ def test_a_ring_peer_with_nothing_to_aim_at_is_left_out_and_reported_none(
     assert pool.sessions.state_of("s1") == ("tunnel_up", "worker")
 
 
+BIRTHDAY = [
+    {"host": "203.0.113.40", "port": 6000, "kind": "birthday", "ports": 64},
+    {"host": "203.0.113.41", "port": 4000, "kind": "birthday_burst", "ports": 16},
+]
+
+
+def _danced(pool: Pool) -> list[tuple[str, ...]]:
+    """The birthday dances the rig ran in its tunnel container."""
+    return [args for _, _, args in pool.docker.python if args[:1] == ("birthday",)]
+
+
+def test_a_ring_peer_with_birthday_candidates_alone_never_dances_and_is_none(
+    pool: Pool,
+) -> None:
+    _prepare(pool)
+    report = pool.up("t1", **_body(_ring_peer(BIRTHDAY)))
+    assert _paths(report) == {"rig-peer": "lan", "rig-ring": "none"}
+    assert pool.sessions.state_of("s1") == ("tunnel_up", "worker")
+    assert _danced(pool) == []
+    # nothing else to aim at, so it was left out of the tunnel
+    (up,) = _scripts(pool, pooled.TUNNEL_SCRIPT)
+    assert RING_KEY not in up
+
+
+def test_a_ring_peer_walks_its_other_candidates_and_skips_the_dance(
+    pool: Pool,
+) -> None:
+    # the head is reached only at its second candidate, so the ring walk would
+    # have reached its birthday candidate while the head's walk was still open
+    pool.docker.answering = {(fakes.PEER_ADDRESS, 51821), (RING_ADDRESS, 51820)}
+    _prepare(pool)
+    body = _body(
+        _ring_peer([*BIRTHDAY, {"host": RING_ADDRESS, "port": 51820, "kind": "lan"}])
+    )
+    body["peers"][0]["endpoints"] = [
+        {"host": fakes.PEER_ADDRESS, "port": port, "kind": "lan"}
+        for port in (51820, 51821)
+    ]
+    report = pool.up("t1", **body)
+    assert _danced(pool) == []
+    assert _paths(report) == {"rig-peer": "lan", "rig-ring": "lan"}
+    (up,) = _scripts(pool, pooled.TUNNEL_SCRIPT)
+    assert "203.0.113.40" not in up and "203.0.113.41" not in up
+
+
+def test_the_peer_the_session_needs_still_dances_at_its_birthday_candidate(
+    pool: Pool,
+) -> None:
+    _prepare(pool)
+    body = _body(_ring_peer())
+    body["peers"][0]["endpoints"] = BIRTHDAY[:1]
+    report = pool.up("t1", **body)
+    assert _paths(report) == {"rig-peer": "direct", "rig-ring": "lan"}
+    probe = ("birthday", "probe", "51820", "203.0.113.40", "6000", "64")
+    assert _danced(pool) == [probe]
+
+
 def test_the_peer_the_session_needs_with_nothing_to_aim_at_is_still_refused(
     pool: Pool,
 ) -> None:

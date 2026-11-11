@@ -2082,10 +2082,7 @@ class Sessions:
             for walk in open_:
                 if walk.aim is not None and not walk.relayed and not walk.birthday_sent:
                     candidate = walk.peer.candidates[walk.step]
-                    if candidate.endpoint.kind in (
-                        hubwire.BIRTHDAY_KIND,
-                        hubwire.BIRTHDAY_BURST_KIND,
-                    ):
+                    if candidate.endpoint.kind in tunnel.BIRTHDAY_KINDS:
                         walk.birthday_sent = True
                         self._birthday(session, walk, candidate)
             changed = False

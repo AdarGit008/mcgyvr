@@ -17,7 +17,7 @@ import struct
 from collections.abc import Collection, Iterable, Sequence
 from dataclasses import dataclass
 
-from mcgyvr import hostos
+from mcgyvr import hostos, hubwire
 from mcgyvr.rig import protocol, sessionwire
 from mcgyvr.scan import BRIDGE_PREFIXES
 
@@ -69,6 +69,9 @@ PATHS = {
     "birthday": "direct",
     "birthday_burst": "direct",
 }
+#: The candidate kinds walked by the birthday dance (``Sessions._birthday``),
+#: which a ring peer is never aimed at.
+BIRTHDAY_KINDS = frozenset({hubwire.BIRTHDAY_KIND, hubwire.BIRTHDAY_BURST_KIND})
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -311,11 +314,12 @@ def plan(
     A tunnel-up that breaks any of these is refused by code and message; an
     accepted one becomes a plan carrying the port asked for. A ring peer
     (:attr:`mcgyvr.rig.sessionwire.TunnelPeer.ring`) is held to the same
-    rules but two: its relay is never taken (the star through the head is its
-    fallback), and with no endpoint this rig may aim at it is left out of the
-    plan, never configured, rather than refusing the tunnel the session
-    needs. So is a ring peer named in `drop` (one the identity check
-    refused), once its addresses are checked like any peer's."""
+    rules but three: its relay is never taken (the star through the head is
+    its fallback), its birthday candidates are dropped (an optional link is
+    never worth the dance), and with no other endpoint this rig may aim at it
+    is left out of the plan, never configured, rather than refusing the
+    tunnel the session needs. So is a ring peer named in `drop` (one the
+    identity check refused), once its addresses are checked like any peer's."""
     if up.listen_port != listen_port:
         raise RefusedError(
             protocol.ErrorCode.BAD_MESSAGE,
@@ -370,6 +374,8 @@ def plan(
             taken.append(net)
         found = candidates(peer, network, own)
         relay = _relay(peer, network, own) if peer.ring is None else None
+        if peer.ring is not None:
+            found = tuple(c for c in found if c.endpoint.kind not in BIRTHDAY_KINDS)
         if peer.ring is not None and (not found or peer.rig_id in drop):
             unreached.append(peer.rig_id)
             continue
