@@ -547,13 +547,96 @@ def test_the_channels_versions_and_frame_limits_are_the_schemas(
     assert (status["minimum"], status["maximum"]) == hubwire.RELAY_STATUS
 
 
-def test_the_udp_wire_keeps_the_wires_version_and_ticket() -> None:
+#: ``udpwire``'s name for each UDP value against hubwire's: the same name but
+#: for the version and the kind and reason bytes, which it names for itself.
+_UDP_NAMES = {
+    "VERSION": "UDP_VERSION",
+    **{
+        name: name
+        for name in (
+            "STUN_MAGIC",
+            "PROBE_MAGIC",
+            "RELAY_MAGIC",
+            "STUN_REQUEST_MIN_BYTES",
+            "STUN_REQUEST_MAX_BYTES",
+            "PROBE_PACKET_MIN_BYTES",
+            "PROBE_PACKET_MAX_BYTES",
+            "RELAY_BIND_MIN_BYTES",
+            "RELAY_BIND_MAX_BYTES",
+            "RELAY_MAX_PACKET_BYTES",
+            "PORT_CHECK_MAX_PONGS",
+            "TOKEN_BYTES",
+            "TXID_BYTES",
+        )
+    },
+    "_REQUEST": "UDP_KIND_REQUEST",
+    "_ANSWER": "UDP_KIND_ANSWER",
+    "_REFUSED": "UDP_KIND_REFUSED",
+    "PING": "PROBE_PING",
+    "PONG": "PROBE_PONG",
+    "BULK": "PROBE_BULK",
+    "BAD_TICKET": "RELAY_BAD_TICKET",
+    "EXPIRED": "RELAY_EXPIRED",
+    "FULL": "RELAY_FULL",
+    "RATE_LIMITED": "RELAY_RATE_LIMITED",
+}
+
+
+def test_the_udp_wire_keeps_the_wires_udp_values_and_ticket() -> None:
     """``rig/udpwire.py`` runs in the tunnel without the package, so it cannot
-    import the version or the relay ticket's shape: its copies are held here."""
+    import the UDP packets' values or the relay ticket's shape: its copies are
+    held here, each to the name the hub imports."""
     from mcgyvr.rig import udpwire
 
-    assert udpwire.VERSION == hubwire.UDP_VERSION
+    for theirs, ours in _UDP_NAMES.items():
+        assert getattr(udpwire, theirs) == getattr(hubwire, ours), theirs
     assert udpwire.TICKET.pattern == hubwire.TICKET.pattern
+
+
+def test_the_udp_values_are_the_schemas(protocol: dict[str, Any]) -> None:
+    said = dict(protocol["x-udp"])
+    assert said.pop("vectors")
+    assert said == {
+        "version": hubwire.UDP_VERSION,
+        "stun_magic": hubwire.STUN_MAGIC.decode(),
+        "probe_magic": hubwire.PROBE_MAGIC.decode(),
+        "relay_magic": hubwire.RELAY_MAGIC.decode(),
+        "stun_request_min_bytes": hubwire.STUN_REQUEST_MIN_BYTES,
+        "stun_request_max_bytes": hubwire.STUN_REQUEST_MAX_BYTES,
+        "probe_packet_min_bytes": hubwire.PROBE_PACKET_MIN_BYTES,
+        "probe_packet_max_bytes": hubwire.PROBE_PACKET_MAX_BYTES,
+        "relay_bind_min_bytes": hubwire.RELAY_BIND_MIN_BYTES,
+        "relay_bind_max_bytes": hubwire.RELAY_BIND_MAX_BYTES,
+        "relay_max_packet_bytes": hubwire.RELAY_MAX_PACKET_BYTES,
+        "port_check_max_pongs": hubwire.PORT_CHECK_MAX_PONGS,
+        "probe_kinds": {
+            "ping": hubwire.PROBE_PING,
+            "pong": hubwire.PROBE_PONG,
+            "bulk": hubwire.PROBE_BULK,
+        },
+        "relay_refusals": {
+            "bad_ticket": hubwire.RELAY_BAD_TICKET,
+            "expired": hubwire.RELAY_EXPIRED,
+            "full": hubwire.RELAY_FULL,
+            "rate_limited": hubwire.RELAY_RATE_LIMITED,
+        },
+    }
+
+
+def test_the_feature_names_are_the_schemas_and_the_rig_names_its_own(
+    protocol: dict[str, Any],
+) -> None:
+    """The hub builds its ``Feature`` names from :data:`hubwire.FEATURES`, so
+    the published ``x-features`` are these, sorted; the rig names all of them
+    but ``backend_select`` (its worker starts the same on every backend)."""
+    from mcgyvr.rig import session
+
+    assert len(set(hubwire.FEATURES)) == len(hubwire.FEATURES)
+    assert len(hubwire.FEATURES) <= hubwire.MAX_FEATURES
+    assert protocol["x-features"] == sorted(hubwire.FEATURES)
+    assert set(session.FEATURES) == set(hubwire.FEATURES) - {
+        hubwire.FEATURE_BACKEND_SELECT
+    }
 
 
 def test_the_channels_close_and_error_codes_are_the_schemas(

@@ -892,10 +892,7 @@ def _count(value: object) -> int | None:
 def _asked(target: Target, accept: str) -> dict[str, str]:
     """The headers a request to `target` names what it accepts with, and the
     unit's key as a bearer token when the target carries one."""
-    headers = {"Accept": accept}
-    if target.key:
-        headers["Authorization"] = f"Bearer {target.key}"
-    return headers
+    return {"Accept": accept, **hubwire.bearer(target.key)}
 
 
 def _page(target: Target) -> bytes | None:

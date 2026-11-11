@@ -98,6 +98,11 @@ DECODE_TOKENS = 256
 PREFILL_TOKENS = 16
 DECODE_SAMPLES = 5
 PREFILL_SAMPLES = 3
+#: Where a unit lists its models and takes a chat request: the OpenAI paths, the
+#: wire's (``mcgyvr.hubwire.MODELS_PATH``, ``CHAT_PATH``) spelled again, as this
+#: program runs on the rig without the package (held equal by test).
+MODELS_PATH = "/v1/models"
+CHAT_PATH = "/v1/chat/completions"
 #: Naming the model is a quick read; a completion may take the minutes a long
 #: prefill needs.
 MODELS_TIMEOUT_S = 10.0
@@ -261,12 +266,12 @@ def measure_vllm(
     HarnessError.
     """
     base = address.rstrip("/")
-    listing = transport.get(f"{base}/v1/models", MODELS_TIMEOUT_S)
+    listing = transport.get(f"{base}{MODELS_PATH}", MODELS_TIMEOUT_S)
     try:
         model = listing["data"][0]["id"]
     except (KeyError, IndexError, TypeError) as exc:
-        raise HarnessError(f"{base}/v1/models names no model") from exc
-    url = f"{base}/v1/chat/completions"
+        raise HarnessError(f"{base}{MODELS_PATH} names no model") from exc
+    url = f"{base}{CHAT_PATH}"
     warmup = {"max_tokens": WARMUP_TOKENS, "temperature": 0, "ignore_eos": False}
     transport.post(
         url, {"model": model, "messages": VLLM_SHORT, **warmup}, REQUEST_TIMEOUT_S
@@ -726,11 +731,11 @@ def load(
 
     model: str | None = None
     if engine == "vllm":
-        listing = ask.get(f"{base}/v1/models", None)
+        listing = ask.get(f"{base}{MODELS_PATH}", None)
         try:
             model = str(listing["data"][0]["id"])
         except (KeyError, IndexError, TypeError) as exc:
-            raise HarnessError(f"{base}/v1/models names no model") from exc
+            raise HarnessError(f"{base}{MODELS_PATH} names no model") from exc
     prompt, prompt_tokens = _load_prompt(engine, base, ask, model, window)
     max_tokens = window - prompt_tokens
     if engine == "vllm":
