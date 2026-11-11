@@ -63,11 +63,9 @@ CACHE_ELEM_BYTES = {
     for name in LLAMACPP_CACHE_TYPES
 }
 
-#: The measured scratch readings, the backend they were read under and the cache
-#: pad are the per-card fit law's (`mcgyvr.hubwire`), which the hub's planner
-#: computes from too; named here for the sizer's callers.
-MEASURED_SCRATCH_MIB = hubwire.MEASURED_SCRATCH_MIB
-MEASURED_SCRATCH_BACKEND = hubwire.MEASURED_SCRATCH_BACKEND
+#: The cache pad is the per-card fit law's (`mcgyvr.hubwire`), which the hub's
+#: planner computes from too, as are the measured scratch readings and the
+#: backend they were read under (`hubwire.MEASURED_SCRATCH_MIB`), read there.
 SWA_PAD = hubwire.CACHE_PAD_CELLS
 context_per_sequence = hubwire.context_per_sequence
 
@@ -308,7 +306,7 @@ def allowance(
     n_ctx: int,
     n_seq_max: int = 1,
     n_ubatch: int = 512,
-    backend: str = MEASURED_SCRATCH_BACKEND,
+    backend: str = hubwire.MEASURED_SCRATCH_BACKEND,
     unified: bool = False,
 ) -> hubwire.Allowance:
     """What one card holding (part of) `geometry` is charged beside its weights,

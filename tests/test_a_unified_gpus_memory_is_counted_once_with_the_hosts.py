@@ -18,7 +18,7 @@ from typing import Any
 
 import pytest
 
-from mcgyvr import recommend
+from mcgyvr import hubwire, recommend
 from mcgyvr.hubwire import RESOURCE_BACKENDS, shares_ram
 from mcgyvr.scan import Scan
 from mcgyvr.serving import (
@@ -131,7 +131,7 @@ def test_a_claim_on_a_unified_gpu_leaves_the_host_too() -> None:
 def test_a_split_prices_scratch_from_a_cuda_reading_only_on_cuda_cards(
     backend: str,
 ) -> None:
-    arch, by_batch = next(iter(vramfit.MEASURED_SCRATCH_MIB.items()))
+    arch, by_batch = next(iter(hubwire.MEASURED_SCRATCH_MIB.items()))
     batch, reading = next(iter(by_batch.items()))
     model = {**split.table(), "arch": arch}
     grid = Grid(tensor=1, pipeline=2, split=SPLIT_LAYER)
@@ -147,10 +147,10 @@ def test_a_split_prices_scratch_from_a_cuda_reading_only_on_cuda_cards(
         n_ctx=2 * 4096,
         n_seq_max=2,
         n_ubatch=batch,
-        backend=vramfit.MEASURED_SCRATCH_BACKEND,
+        backend=hubwire.MEASURED_SCRATCH_BACKEND,
     )
     assert on_cuda.measured and on_cuda.total >= int(reading * MIB)
-    assert charged(vramfit.MEASURED_SCRATCH_BACKEND) == [on_cuda.total] * 2
+    assert charged(hubwire.MEASURED_SCRATCH_BACKEND) == [on_cuda.total] * 2
     # Off CUDA the reading is not given: the card is charged the law, its context
     # and the compute buffer at the split's 2 x 4096 cells.
     law = vramfit.allowance(
@@ -161,7 +161,7 @@ def test_a_split_prices_scratch_from_a_cuda_reading_only_on_cuda_cards(
 
 
 def test_the_measured_backend_is_one_the_wire_names() -> None:
-    assert vramfit.MEASURED_SCRATCH_BACKEND in RESOURCE_BACKENDS
+    assert hubwire.MEASURED_SCRATCH_BACKEND in RESOURCE_BACKENDS
 
 
 def test_co_resident_units_on_a_unified_gpu_sum_card_and_host_memory() -> None:

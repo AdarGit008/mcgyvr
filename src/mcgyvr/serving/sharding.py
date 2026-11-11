@@ -146,7 +146,7 @@ class Target:
     bind: str | None = None
     #: The card's backend as its scan read it: a scratch reading taken under
     #: one backend is never given to a card of another (`vramfit.allowance`).
-    backend: str = vramfit.MEASURED_SCRATCH_BACKEND
+    backend: str = hubwire.MEASURED_SCRATCH_BACKEND
     #: Whether the card's memory is the host's (`hubwire.shares_ram`): its
     #: engine context is the unified figure (`hubwire.UNIFIED_CONTEXT_MIB`).
     unified: bool = False

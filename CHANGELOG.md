@@ -145,6 +145,38 @@ entries name development tooling, flags and records outside this repository.
   log now reads instead of a copy. `rig.pooled.PoolError` is a different error
   and keeps its name.
 
+- **A rig's hello answers what each model's cache takes, and the hub plans from
+  the answers (I-17).** The hub sized a model's cache from one flat figure (every
+  caching layer at the full context), so it over-charged a model whose layers
+  slide and under-charged one whose blocks keep a recurrent state. Each model in
+  the hello now carries `cache_fit` (`hubwire.CacheFit`): the MiB its KV caches
+  and recurrent state take at each context per slot of `hubwire.FIT_CTX` (2048
+  to 1048576, doubling, up to the model's trained context, and that context
+  padded) over each slot count of `hubwire.FIT_SLOTS` (1, 2, 4, 8, 16), sized by
+  `vramfit.kv_bytes` and `vramfit.rs_bytes` at the head's cache type and
+  micro-batch (`rig.inventory.cache_fit`), and beside each the most a run of
+  consecutive blocks holds above its even share (`excess_mib`, from each
+  block's own cache row and recurrent state). A card of a layer split holds
+  one run, so the hub charges it its blocks' share plus that excess, never more
+  than the whole answer. The field is optional: a model that cannot be sized is
+  sent without it, and so is every model of a hello the answers would make
+  larger than one message, which the agent then says in one line (64 models of
+  long names and a full weight cache, answered to a 262144-token context, fit).
+  The published schema gains the `CacheFit` shape.
+
+- **The head is started with a named micro-batch, `-ub 512`, and the hub prices
+  it at the same flags (I-17c).** The head's cache type and micro-batch are
+  `hubwire.HEAD_KV_CACHE_TYPE` (`q8_0`) and `hubwire.HEAD_UBATCH` (512), with
+  `hubwire.HEAD_KV_BYTES_PER_ELEMENT` (34/32) the cache type's width, held by
+  test to the scanner's. `pooled.head_server_args` now passes `-ub 512` to every
+  head, container and native; llama.cpp's own default is 512, so the engine
+  runs the batch it ran before. `pooled.KV_CACHE_TYPE` is the hubwire constant.
+
+- **The scratch readings are read from `hubwire` alone (I-17b).**
+  `vramfit.MEASURED_SCRATCH_MIB` and `vramfit.MEASURED_SCRATCH_BACKEND`, which
+  re-named `hubwire`'s, are gone; `serving` and `sharding` read
+  `hubwire.MEASURED_SCRATCH_MIB` and `hubwire.MEASURED_SCRATCH_BACKEND`.
+
 - **`mcgyvr recommend` asks placement whether a model fits (I-47).** Its own
   arithmetic left out the scratch allowance and the RAM rule placement applies,
   so it could recommend what placement then refused. A checkpoint is now a
