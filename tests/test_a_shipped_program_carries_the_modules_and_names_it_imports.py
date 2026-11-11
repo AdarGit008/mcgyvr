@@ -53,9 +53,8 @@ def test_a_constant_that_is_not_plain_is_refused() -> None:
 
 
 def test_nothing_installed_is_imported_in_a_shipped_programs_place() -> None:
-    program = shipped.program(
-        "mcgyvr.hubwire", modules=("mcgyvr.hostos",), tail="import mcgyvr.config\n"
-    )
+    # hostos imports the wire's names, which ship as constants beside it.
+    program = shipped.program("mcgyvr.hostos", tail="import mcgyvr.config\n")
     done = subprocess.run(
         [sys.executable, "-I", "-B", "-"],
         input=shipped.packed(program),

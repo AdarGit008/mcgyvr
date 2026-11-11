@@ -21,6 +21,7 @@ from collections.abc import Callable, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 
+from mcgyvr.hubwire import bearer
 from mcgyvr.ladder_map import Endpoint, LadderError, Protocol
 from mcgyvr.redact import safe_url
 from mcgyvr.weights import is_model
@@ -204,10 +205,7 @@ def probe_endpoint(
     started = time.monotonic()
 
     try:
-        headers = {}
-        key = endpoint.credential()
-        if key:
-            headers["Authorization"] = f"Bearer {key}"
+        headers = bearer(endpoint.credential())
     except LadderError as exc:
         # A key that is needed and missing raises here instead of being sent as
         # nothing: the source cannot be dispatched to at all, so the resolution

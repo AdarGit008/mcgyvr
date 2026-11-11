@@ -2,15 +2,17 @@
 
 The hub publishes the REST API a rider's agent uses beside the agent channel
 as a schema of its own (``tests/rig_schema.py`` pins it as
-:data:`tests.rig_schema.RIDER`): each method of ``/api/v1/me/rungs`` and the
-models it takes and answers (``x-paths``), and every refusal of its
+:data:`tests.rig_schema.RIDER`): each method of ``/api/v1/me/rungs`` and
+``/api/v1/me/credits`` and the models it takes and answers (``x-paths``),
+and every refusal of its
 OpenAI-compatible ``/v1`` as a code with its one HTTP status
 (``x-openai-errors``).
 
 Held here: the path a sync asks is the one published; the ladder a sync
 ``POST``s is a request the hub takes, which is closed (a key the hub does not
 name is refused, so none is sent); and the listing these tests serve as the
-hub's answer is one the hub may send. The refusals read off a hub are the
+hub's answer is one the hub may send; the balance a credits read takes is
+the shape the hub publishes for it. The refusals read off a hub are the
 wire's (:mod:`mcgyvr.hubwire`), held to ``x-openai-errors`` in
 ``tests/test_the_hub_wire_is_defined_once_in_the_product.py``.
 """
@@ -102,3 +104,25 @@ def test_the_listing_these_tests_serve_is_an_answer_the_hub_may_send(
         rig_schema.validate(listing, rider, _ref(rider, method, "response"))
     read = rungs.read(json.loads(json.dumps(listing)), served.address)
     assert [each.id for each in read.rungs] == ([FIRST, SECOND] if ride else [])
+
+
+def test_a_credits_read_asks_the_published_path_and_takes_its_balance_shape(
+    rider: dict[str, Any],
+) -> None:
+    from mcgyvr import hubwire
+    from mcgyvr.rig import rungs
+
+    paths = rider["x-paths"]
+    assert set(paths) == {hubwire.RUNGS_PATH, hubwire.CREDITS_PATH}
+    assert rungs.CREDITS_PATH == hubwire.CREDITS_PATH
+    ref = paths[rungs.CREDITS_PATH]["get"]["response"]["$ref"]
+    model = rider["$defs"][ref.removeprefix("#/$defs/")]
+    balance = model["properties"][hubwire.CREDITS_BALANCE_FIELD]
+    assert balance["pattern"] == f"^{hubwire.CREDITS_BALANCE.pattern}$"
+    assert balance["maxLength"] == hubwire.CREDITS_MAX_BALANCE == rungs.MAX_BALANCE
+    for said in ("12.5", "0.000001", "-3", "0"):
+        answer: dict[str, Any] = {hubwire.CREDITS_BALANCE_FIELD: said, "entries": []}
+        rig_schema.validate(answer, rider, ref)
+        assert rungs.BALANCE.fullmatch(said)
+    for said in ("1e3", "1.", ".5", "1" * (hubwire.CREDITS_MAX_BALANCE + 1)):
+        assert not rungs.BALANCE.fullmatch(said)

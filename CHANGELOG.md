@@ -14,6 +14,29 @@ entries name development tooling, flags and records outside this repository.
 
 ### Changed
 
+- **The wire's remaining names are defined once, in `mcgyvr.hubwire`, and the hub
+  imports them (I-68, I-69, I-70, I-73, I-77, I-86, I-109, I-128, I-151).** New
+  in hubwire: the seven feature names an agent may list (`FEATURES`,
+  `FEATURE_*`; the rig's `session.FEATURES` names every one but
+  `backend_select`, and the published `x-features` are unchanged); the UDP
+  packets' magics, sizes and kind and reason bytes (`rig/udpwire.py` keeps its
+  copy, as it runs without the package, now held to every one of them by test);
+  the paths `CHAT_PATH`, `API_PREFIX`, `AGENT_PATH`, `RUNGS_PATH`,
+  `CREDITS_PATH` and the credits answer's balance shape (`CREDITS_BALANCE`,
+  `CREDITS_MAX_BALANCE`), which the rider schema now publishes under
+  `/api/v1/me/credits` (`CreditsOut`); the port-map tag `PORT_MAP_CONFLICT`;
+  `bearer(key)`, the one builder of the `Authorization: Bearer` header the
+  product's Python requests send (the same header, and none without a key); and
+  the setup keys of a unit's wire numbers (`UNIT_SETUP_NAMES`: `units.width` is
+  `slots`, `units.window` is `ctx`, `rider_slots` is `rider_cap`), which
+  SETUP.md now shows as a table. The runner, decision asks, relay table, agent
+  path, rider sync and credits read, port map, tunnel paths, task catalog,
+  language bundles, host seam (`hostos`) and machine reader (`rigscan`'s
+  system, arch and backend names) take these names instead of their own
+  spellings; the harness, piped to a rig as source, keeps its two OpenAI paths,
+  held equal by test. The protocol schema's `capabilities.runtime` says it is
+  informational: the hub does not read it.
+
 - **The policy block `orchestrator` is `proposer`; a decomposition is survey,
   scaffold, fill or draft, and vet.** policy.yaml's `orchestrator` block is
   refused, naming `proposer`: rename the block and drop its `type` line (it

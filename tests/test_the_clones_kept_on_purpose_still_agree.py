@@ -4,7 +4,9 @@
 ``mcgyvr.serving.shipped``, so the reader and the fetcher keep no copies.)
 
 * ``detect._quoted`` and ``fleet.harness._bounded``: the harness is piped to a
-  rig as source and must stay standard-library only.
+  rig as source and must stay standard-library only; for the same reason it
+  spells the OpenAI paths the wire names (``hubwire.MODELS_PATH``,
+  ``hubwire.CHAT_PATH``) again.
 * ``repo.languages.engine.walk`` and ``gate.adapters.javascript._walk``:
   the adapter importing the proposer would be an import cycle.
 
@@ -19,10 +21,15 @@ from typing import Any, cast
 
 import pytest
 
-from mcgyvr import detect
+from mcgyvr import detect, hubwire
 from mcgyvr.fleet import harness
 from mcgyvr.gate.adapters import javascript
 from mcgyvr.repo.languages import engine
+
+
+def test_the_harness_asks_a_unit_at_the_wires_paths() -> None:
+    assert harness.MODELS_PATH == hubwire.MODELS_PATH
+    assert harness.CHAT_PATH == hubwire.CHAT_PATH
 
 
 def test_both_quoting_bounds_are_the_same_number() -> None:

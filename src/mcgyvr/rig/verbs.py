@@ -25,7 +25,8 @@ from typing import TYPE_CHECKING, Any
 
 from mcgyvr import hostos
 from mcgyvr.exits import Exit
-from mcgyvr.hubwire import SCOPE_VALUES, retired_audience
+from mcgyvr.hubwire import AGENT_PATH as AGENT_PATH
+from mcgyvr.hubwire import SCOPE_VALUES, bearer, retired_audience
 
 if TYPE_CHECKING:
     from mcgyvr.rig.credentials import Credentials
@@ -33,8 +34,6 @@ if TYPE_CHECKING:
     from mcgyvr.rig.session import SessionHost
     from mcgyvr.rig.sharing import Sharing
 
-#: The path on a hub under which an agent is given its channel.
-AGENT_PATH = "/api/v1/agent"
 #: How long opening the hub's websocket may take, in seconds.
 CONNECT_TIMEOUT_S = 15.0
 #: The uid and gid containers take as root: the unprivileged nobody account.
@@ -192,7 +191,7 @@ def run_agent(kept: Credentials, config: Path | None = None) -> int:
     url = agent_url(kept.hub)
     version = _agent_version()
     headers = {
-        "Authorization": f"Bearer {kept.token}",
+        **bearer(kept.token),
         "User-Agent": f"mcgyvr/{version}",
     }
 

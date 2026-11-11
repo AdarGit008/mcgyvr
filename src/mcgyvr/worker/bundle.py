@@ -29,6 +29,7 @@ from importlib import resources
 from mcgyvr.contract import UNIFIED_DIFF, WHOLE_FILE
 from mcgyvr.gate.adapter import LanguageAdapter
 from mcgyvr.gate.adapters import JavaScriptAdapter, PythonAdapter
+from mcgyvr.hubwire import MCGYVR_CODE
 
 # The measured ceiling on one bundle, in bytes of UTF-8 text after provenance is
 # stripped. `load_bundle` refuses an artifact over it rather than truncating it
@@ -68,10 +69,6 @@ _LANGUAGE_BUNDLES: dict[str, tuple[str, BundleStanding]] = {
 #: The registry `load_bundle` reads; it names the whole sorted set when a key is
 #: missing.
 _BUNDLES: dict[str, tuple[str, BundleStanding]] = dict(_LANGUAGE_BUNDLES)
-
-#: The use case whose bundle is chosen by the target's language; no other use
-#: case carries a bundle.
-MCGYVR_CODE = "mcgyvr-code"
 
 _DEFAULT_ADAPTERS: tuple[LanguageAdapter, ...] = (PythonAdapter(), JavaScriptAdapter())
 

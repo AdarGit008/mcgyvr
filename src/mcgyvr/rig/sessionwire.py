@@ -109,8 +109,9 @@ Role = hubwire.RigRole
 ROLES = protocol.ROLES
 STATES = hubwire.SESSION_STATES
 #: The endpoints a relayed request may name on the wire, mapped to the path
-#: the relay fetches upstream (the path is this agent's own, not the wire's).
-RELAY_PATHS = {"chat_completions": "/v1/chat/completions"}
+#: the relay fetches upstream: the table is this agent's own, not the wire's, and
+#: its path the OpenAI chat path every server here answers.
+RELAY_PATHS = {"chat_completions": hubwire.CHAT_PATH}
 
 
 # The bodies the rigs exchange, whether read from the wire or built for it.

@@ -66,6 +66,9 @@ from mcgyvr.fleet.files import (
     recorded_key_env,
 )
 from mcgyvr.hubwire import (
+    CREDITS_BALANCE,
+    CREDITS_BALANCE_FIELD,
+    CREDITS_MAX_BALANCE,
     LADDER_MAX_RUNGS,
     LADDER_MODEL,
     MODEL_NAME,
@@ -76,20 +79,19 @@ from mcgyvr.hubwire import (
     SCOPE_CREW,
     SCOPE_OWN,
     SEAL_KEY_FIELD,
+    bearer,
     rung_offer,
 )
+from mcgyvr.hubwire import CREDITS_PATH as CREDITS_PATH
+from mcgyvr.hubwire import RUNGS_PATH as RUNGS_PATH
 from mcgyvr.rig.verbs import AGENT_PATH, _RefusalError, hub_address
 from mcgyvr.seal import SealKey
 
-#: The hub's rider API path, taken on the hub's own address and not on a rung's.
-RUNGS_PATH = "/api/v1/me/rungs"
-#: The member's balance and ledger on the hub, asked with the same key.
-CREDITS_PATH = "/api/v1/me/credits"
 #: Most bytes of the credits answer read: a balance and the latest entries.
 MAX_CREDITS_BYTES = 64 * 1024
 #: A balance as the hub writes one: an exact decimal, at most this long.
-MAX_BALANCE = 40
-BALANCE = re.compile(rf"(?=.{{1,{MAX_BALANCE}}}$)-?[0-9]+(\.[0-9]+)?")
+MAX_BALANCE = CREDITS_MAX_BALANCE
+BALANCE = re.compile(rf"(?=.{{1,{MAX_BALANCE}}}$){CREDITS_BALANCE.pattern}")
 #: The variable name a sync reads the rider's personal hub key from when it is
 #: told none, and the agent's refresh when ``hitchhike.yaml`` records none.
 KEY_ENV = "MCGYVR_HUB_API_KEY"
@@ -401,7 +403,7 @@ def ask(
     said) and a body that is not JSON; :class:`SyncError` covers a hub that
     could not be reached at all.
     """
-    sent = {"Authorization": f"Bearer {key}", "Accept": "application/json"}
+    sent = {**bearer(key), "Accept": "application/json"}
     if body is not None:
         sent["Content-Type"] = "application/json"
     request = urllib.request.Request(
@@ -434,7 +436,7 @@ def balance(hub: str, key: str) -> str:
     exact decimal of at most ``MAX_BALANCE`` characters, or
     :class:`HubAnswerError` for anything else."""
     document = ask(hub_url(hub, CREDITS_PATH), hub, key, most=MAX_CREDITS_BYTES)
-    said = document.get("balance") if isinstance(document, dict) else None
+    said = document.get(CREDITS_BALANCE_FIELD) if isinstance(document, dict) else None
     if not isinstance(said, str) or not BALANCE.fullmatch(said):
         raise refused("balance", "is not a decimal number of credits")
     return said

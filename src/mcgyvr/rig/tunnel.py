@@ -66,8 +66,8 @@ PATHS = {
     "lan": "lan",
     "public": "direct",
     "reflexive": "direct",
-    "birthday": "direct",
-    "birthday_burst": "direct",
+    hubwire.BIRTHDAY_KIND: "direct",
+    hubwire.BIRTHDAY_BURST_KIND: "direct",
 }
 
 
