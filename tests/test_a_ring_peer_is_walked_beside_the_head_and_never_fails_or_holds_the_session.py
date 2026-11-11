@@ -296,6 +296,18 @@ def test_a_tunnel_of_ring_peers_alone_is_refused(pool: Pool) -> None:
     assert _scripts(pool, pooled.TUNNEL_SCRIPT) == []
 
 
+def test_the_sessions_head_refuses_a_ring_peer_as_a_bad_message(pool: Pool) -> None:
+    # every worker is one the head needs: none is ever optional to it
+    fakes.prepared(pool, role="head")
+    refused = pool.ask("tunnel_up", "t1", **_body(_ring_peer()))
+    assert refused is not None and refused["body"]["code"] == "bad_message"
+    assert "the session's head" in refused["body"]["message"]
+    pool.settle()
+    assert _scripts(pool, pooled.TUNNEL_SCRIPT) == []
+    # the same head takes the star it always took
+    assert pool.up("t2", **fakes.tunnel_up_body())["type"] == "tunnel_report"
+
+
 def test_a_rig_without_ring_links_refuses_a_ring_peer(tmp_path: Path) -> None:
     pool = make_pool(tmp_path)
     try:

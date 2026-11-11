@@ -1212,14 +1212,21 @@ class Sessions:
                     )
                 session.reported_to.append(envelope.id)
                 return None
-            if any(peer.ring is not None for peer in asked.peers) and not (
-                self._takes_ring_peers()
-            ):
-                return sessionwire.refusal(
-                    envelope.id,
-                    SessionCode.NOT_CAPABLE,
-                    "peers: a ring peer, and this rig takes none",
-                )
+            if any(peer.ring is not None for peer in asked.peers):
+                if not self._takes_ring_peers():
+                    return sessionwire.refusal(
+                        envelope.id,
+                        SessionCode.NOT_CAPABLE,
+                        "peers: a ring peer, and this rig takes none",
+                    )
+                if session.role == "head":
+                    # The head is the root of every ring route, never a link of
+                    # it: a worker it needs is never optional to it.
+                    return sessionwire.refusal(
+                        envelope.id,
+                        protocol.ErrorCode.BAD_MESSAGE,
+                        "peers: a ring peer, and this rig is the session's head",
+                    )
             unvetted, dropped = self._vet_peers(asked)
             if unvetted is not None:
                 self._log(f"session {session.id}: refused: {unvetted}")
