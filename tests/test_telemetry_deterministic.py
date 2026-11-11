@@ -42,7 +42,7 @@ def test_a_non_completion_answer_is_recorded_and_returned_unchanged(
         lambda: answer,
         path=sink,
         attempt_id="d1",
-        orchestrator="orch-a",
+        session="orch-a",
         rung="deterministic",
     )
 
@@ -54,7 +54,7 @@ def test_a_non_completion_answer_is_recorded_and_returned_unchanged(
     assert record["ok"] is True
     assert record["rung"] == "deterministic"
     assert record["attempt_id"] == "d1"
-    assert record["orchestrator"] == "orch-a"
+    assert record["session"] == "orch-a"
     # The completion-only fields are absent from a non-Completion answer.
     for field in ("latency_s", "model", "input_tokens", "stop_reason"):
         assert field not in record, (

@@ -17,6 +17,7 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import Any
 
+from mcgyvr.knowledge.record import ARCHITECTURES
 from mcgyvr.shipped import shipped_file
 
 TABLE_FILENAME = "capability-table.json"
@@ -47,8 +48,9 @@ class CapabilityTableError(Exception):
 class Model:
     """One row of the table: what a model costs to serve.
 
-    Its size, its weights and the memory it takes to work, and the server it
-    needs if any.
+    Its size, its weights and the memory it takes to work, the server it
+    needs if any, and the architecture it declares (`ARCHITECTURES`; None when
+    the row declares none, which sizing reads as not a mixture of experts).
     """
 
     id: str
@@ -61,6 +63,7 @@ class Model:
     notes: str
     not_for_fit: str | None = None
     model_id: str | None = None
+    architecture: str | None = None
 
 
 @dataclass(frozen=True)
@@ -95,9 +98,9 @@ class CapabilityTable:
 #: the table without first being declared here, where a reviewer reads it. A
 #: row states what a model costs to serve, and these keys are the only terms it
 #: can state that in.
-#: `active_params_b` and `architecture` are declared and checked but not
-#: carried into `Model`: `architecture` is read from the raw document by the
-#: sizing seam, and `active_params_b` is checked as a number and unread.
+#: `active_params_b` is declared and checked as a number but not carried into
+#: `Model`, since nothing reads it; `architecture` is checked against
+#: `ARCHITECTURES` and carried, so sizing reads it from the loaded row.
 #: A declared key that is not a container holds a single value; an object
 #: under it would carry keys of no level (see `CONTAINER_KEYS`).
 DECLARED_KEYS: Mapping[str, frozenset[str]] = MappingProxyType(
@@ -252,6 +255,11 @@ def _check_row(index: int, value: Any, path: Path) -> None:
             f"{path}: {row} gives 'not_for_fit' as {entry['not_for_fit']!r}; it "
             f"is the text saying why the row is never listed as fitting a card"
         )
+    if "architecture" in entry and entry["architecture"] not in ARCHITECTURES:
+        raise CapabilityTableError(
+            f"{path}: {row} gives 'architecture' as {entry['architecture']!r}; a "
+            f"model's 'architecture' is one of {', '.join(ARCHITECTURES)}"
+        )
     if "model_id" in entry and not _text(entry["model_id"]):
         raise CapabilityTableError(
             f"{path}: {row} gives 'model_id' as {entry['model_id']!r}; a model's "
@@ -286,8 +294,8 @@ def load(path: Path | None = None) -> CapabilityTable:
 
     Every failure is a `CapabilityTableError` naming the file: unreadable or
     non-UTF-8 text, invalid JSON, another schema version, a key or value of a
-    shape this code does not declare, no models at all, or a `model_id`
-    declared twice.
+    shape this code does not declare, an architecture not in `ARCHITECTURES`,
+    no models at all, or a `model_id` declared twice.
     """
     path = path or table_path()
     try:
@@ -324,6 +332,9 @@ def load(path: Path | None = None) -> CapabilityTable:
             notes=str(entry.get("notes", "")),
             not_for_fit=str(entry["not_for_fit"]) if "not_for_fit" in entry else None,
             model_id=(str(entry["model_id"]) if "model_id" in entry else None),
+            architecture=(
+                str(entry["architecture"]) if "architecture" in entry else None
+            ),
         )
         for entry in raw.get("models", [])
     )

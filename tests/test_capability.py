@@ -134,3 +134,27 @@ def test_a_duplicate_model_id_is_refused(tmp_path: Path) -> None:
     document = table_document(rows=[first, second])
     with pytest.raises(CapabilityTableError, match="twice"):
         load(write_table(tmp_path, document))
+
+
+def test_a_row_carries_the_architecture_it_declares(tmp_path: Path) -> None:
+    mixture = row("invented-model-a", architecture="moe")
+    plain = row("invented-model-b", architecture="dense")
+    silent = row("invented-model-c")
+    table = load(write_table(tmp_path, table_document(rows=[mixture, plain, silent])))
+    assert [m.architecture for m in table.models] == ["moe", "dense", None]
+
+
+@pytest.mark.parametrize("stated", ["hybrid", "", 7])
+def test_an_architecture_outside_the_vocabulary_is_refused_by_name(
+    tmp_path: Path, stated: object
+) -> None:
+    document = table_document(rows=[row("invented-model-a", architecture=stated)])
+    with pytest.raises(CapabilityTableError, match="'architecture'"):
+        load(write_table(tmp_path, document))
+
+
+def test_the_shipped_tables_mixtures_of_experts_say_so_on_the_loaded_row() -> None:
+    raw = json.loads(table_path().read_text(encoding="utf-8"))
+    declared = {str(e["id"]): e.get("architecture") for e in raw["models"]}
+    assert {m.id: m.architecture for m in load().models} == declared
+    assert "moe" in declared.values()

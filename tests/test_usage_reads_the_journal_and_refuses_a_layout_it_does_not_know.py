@@ -74,7 +74,7 @@ def _journal(journal: Path, session: str = "sess-a", rung: str = "flash") -> Pat
                 call,
                 path=sink,
                 attempt_id=attempt_id,
-                orchestrator=session,
+                session=session,
                 rung=rung,
             )
         return attempt_id
@@ -82,10 +82,10 @@ def _journal(journal: Path, session: str = "sess-a", rung: str = "flash") -> Pat
     first = attempt(rung, 1, _completion(100, 20))
     second = attempt(rung, 2, _completion(50, 5))
     third = attempt("pro", 1, RuntimeError("the unit went away"))
-    correct(path=sink, attempt_id=first, outcome="failed", orchestrator=session)
-    correct(path=sink, attempt_id=second, outcome="passed", orchestrator=session)
-    correct(path=sink, attempt_id=third, outcome="error", orchestrator=session)
-    correct(path=sink, attempt_id="ghost", outcome="passed", orchestrator=session)
+    correct(path=sink, attempt_id=first, outcome="failed", session=session)
+    correct(path=sink, attempt_id=second, outcome="passed", session=session)
+    correct(path=sink, attempt_id=third, outcome="error", session=session)
+    correct(path=sink, attempt_id="ghost", outcome="passed", session=session)
     return sink
 
 
@@ -159,7 +159,7 @@ def test_a_row_of_a_layout_it_does_not_know_is_refused_by_name(
     captured = capsys.readouterr()
     assert captured.out == "", captured.out
     assert f"{sink}:{line}:" in captured.err, captured.err
-    assert f"reads layout version {TELEMETRY_VERSION} only" in captured.err
+    assert "reads layout versions 1 and 2 only" in captured.err
     stated = (
         "carries no layout version"
         if version is None
@@ -254,7 +254,7 @@ def test_an_attempt_with_no_run_stamp_is_tallied_under_no_run(
         lambda: None,
         path=sink,
         attempt_id="sess-a:c1:flash:1",
-        orchestrator="sess-a",
+        session="sess-a",
         rung="flash",
     )
 

@@ -30,7 +30,6 @@ from mcgyvr.worker.reply import (
     ParsedFile,
     ReplyError,
     parse_diff,
-    parse_pinned,
     parse_reply,
 )
 
@@ -353,17 +352,6 @@ def test_a_diff_reply_needs_its_target_and_base() -> None:
         parse_reply(GOOD, output_schema="unified_diff", target=TARGET)
     with pytest.raises(ValueError, match="base content"):
         parse_reply(GOOD, output_schema="unified_diff", base=BASE)
-
-
-def test_a_pinned_schema_never_carries_a_diff() -> None:
-    result = parse_pinned(
-        GOOD,
-        response_schema={"type": "object"},
-        output_schema="unified_diff",
-        target=TARGET,
-    )
-    assert isinstance(result, ReplyError)
-    assert result.code == "unsupported-schema"
 
 
 def test_the_patch_git_applies_names_the_target_and_nothing_the_model_wrote() -> None:

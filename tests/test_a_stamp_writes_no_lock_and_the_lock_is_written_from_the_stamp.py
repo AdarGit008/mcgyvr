@@ -187,3 +187,27 @@ def test_a_malformed_stamp_folder_is_refused_by_what_is_wrong(
     with pytest.raises(lock.LockRefusedError, match=word):
         lock.write_from_stamp(folder)
     assert not (folder / LOCK_DIR).exists()
+
+
+def test_a_stamp_folder_that_appears_while_it_is_written_is_refused_and_kept(
+    setup: Path, no_lab: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from mcgyvr import atomic
+    from mcgyvr.fleet import stamp
+
+    _read_twice(setup)
+    target = stamp.folder(fx.FLEET, "sample-1")
+    real = atomic.publish_dir
+
+    def racing(folder: Path, files: Any) -> None:
+        folder.mkdir(parents=True)
+        (folder / "theirs").write_text("kept")
+        real(folder, files)
+
+    monkeypatch.setattr(atomic, "publish_dir", racing)
+    done = stamp.stamp(_sample(setup), run_id="sample-1")
+
+    assert not done.green
+    assert done.why == (f"stamp: {target} appeared while the stamp was being written",)
+    assert _files(target) == ["theirs"]
+    assert sorted(p.name for p in target.parent.iterdir()) == ["sample-1"]

@@ -20,19 +20,16 @@ This module is a shadow: it observes the decision loop and writes beside it.
 It never feeds a decision back into the pipeline, and ``mcgyvr.gate.jev`` does
 not call it.
 
-The sink's line discipline mirrors the dispatch journal's (:mod:`mcgyvr.telemetry`):
-one JSON object per line, appended under an exclusive ``flock`` so concurrent
+The sink's line discipline is the dispatch journal's, from :mod:`mcgyvr.jsonl`:
+one JSON object per line, appended under an exclusive lock so concurrent
 writers append whole lines rather than interleaving them, with a torn trailing
 line terminated before the next record so a crash mid-write cannot glue two
-records into one unreadable line. It stays here rather than importing that
-module's private helpers because this is a standalone seam with its own record
-vocabulary.
+records into one unreadable line. The record vocabulary is this module's own.
 """
 
 from __future__ import annotations
 
 import json
-import os
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from dataclasses import field as dataclass_field
@@ -40,7 +37,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from mcgyvr import hostos
+from mcgyvr import jsonl
 from mcgyvr.decision import CHOICE_LABELS
 
 #: Labels a lettered candidate list may use, by position: the 62-label alphabet
@@ -155,7 +152,8 @@ class ShadowSink:
         """Append ``record`` as one JSON line; a no-op when unwired."""
         if self._path is None:
             return
-        _append_line(self._path, record)
+        line = (json.dumps(record.to_dict()) + "\n").encode("utf-8")
+        jsonl.append_line(self._path, line)
 
 
 def read(path: Path | str) -> list[DecisionRecord]:
@@ -165,23 +163,12 @@ def read(path: Path | str) -> list[DecisionRecord]:
     so one damaged line cannot hide the rest of the file. A missing file reads
     as no records at all.
     """
-    try:
-        raw = Path(path).read_bytes()
-    except FileNotFoundError:
-        return []
     records: list[DecisionRecord] = []
-    for line in raw.splitlines():
-        if not line.strip():
-            continue
+    for _, parsed in jsonl.read_lines(Path(path)):
         try:
-            parsed = json.loads(line.decode("utf-8"))
-        except (UnicodeDecodeError, json.JSONDecodeError):
+            records.append(DecisionRecord.from_dict(parsed))
+        except (KeyError, TypeError, ValueError):
             continue
-        if isinstance(parsed, dict):
-            try:
-                records.append(DecisionRecord.from_dict(parsed))
-            except (KeyError, TypeError, ValueError):
-                continue
     return records
 
 
@@ -276,56 +263,3 @@ def _letter_of(record: DecisionRecord) -> str | None:
     if index >= len(_LETTERS):
         return None
     return _LETTERS[index]
-
-
-def _append_line(path: Path, record: DecisionRecord) -> None:
-    """Append ``record`` to ``path`` as one JSON line, creating it if needed.
-
-    The parent directory is created, and the write happens under an exclusive
-    ``flock`` so concurrent writers append whole lines instead of interleaving
-    them. A file left ending without a newline is terminated first, so a record
-    is never glued onto a torn one.
-    """
-    path.parent.mkdir(parents=True, exist_ok=True)
-    line = (json.dumps(record.to_dict()) + "\n").encode("utf-8")
-    flags = os.O_RDWR | os.O_CREAT | os.O_APPEND | hostos.open_flags_binary()
-    fd = os.open(path, flags, 0o666)
-    try:
-        hostos.lock(fd)
-        try:
-            _terminate_stump(fd)
-            _write_all(fd, line)
-        finally:
-            hostos.unlock(fd)
-    finally:
-        os.close(fd)
-
-
-def _terminate_stump(fd: int) -> None:
-    """End the file in a newline before more is appended to it.
-
-    A writer that died mid-line would otherwise leave a partial line for the next
-    record to be glued onto, and the reader would drop both of them.
-    """
-    end = os.lseek(fd, 0, os.SEEK_END)
-    if end == 0:
-        return
-    os.lseek(fd, end - 1, os.SEEK_SET)
-    if os.read(fd, 1) != b"\n":
-        os.write(fd, b"\n")
-
-
-def _write_all(fd: int, data: bytes) -> None:
-    """Write all of ``data`` to ``fd``, looping while the kernel takes less.
-
-    ``os.write`` may accept fewer bytes than it was given; a write that accepts
-    none raises rather than leaving a torn record in the sink.
-    """
-    view = memoryview(data)
-    while view:
-        written = os.write(fd, view)
-        if written <= 0:
-            raise OSError(
-                f"telemetry sink accepted {len(data) - len(view)} of {len(data)} bytes"
-            )
-        view = view[written:]

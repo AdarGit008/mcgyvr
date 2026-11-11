@@ -64,7 +64,7 @@ def _record(sink: Path, attempt_id: str, user: str = USER, reply: str = REPLY) -
         lambda: _completion(reply),
         path=sink,
         attempt_id=attempt_id,
-        orchestrator="agent-a",
+        session="agent-a",
         rung="local_qwen-7b",
         messages=_messages(user),
         endpoint="http://localhost:11434",

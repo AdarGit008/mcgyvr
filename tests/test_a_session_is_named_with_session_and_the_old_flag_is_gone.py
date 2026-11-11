@@ -47,8 +47,8 @@ def test_session_names_the_journal_and_the_result(
     assert (journal / "agent-a.jsonl").is_file()
     result = json.loads(lj.result_of(contract).read_text(encoding="utf-8"))
     assert result["session"] == "agent-a"
-    # The old key, kept for one release with the same value.
-    assert result["orchestrator"] == "agent-a"
+    # The old key's one-release copy is gone with the journal's version 2.
+    assert "orchestrator" not in result
 
 
 def test_the_old_flag_is_refused_by_direct_and_spends_nothing(

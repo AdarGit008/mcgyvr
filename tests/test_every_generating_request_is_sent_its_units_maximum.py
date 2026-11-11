@@ -14,7 +14,8 @@ cap every generating request is sent is:
 * nothing where neither is: a model-written ``code`` dispatch fails loud,
   naming ``units.<unit>.window`` and ``units.<unit>.output_tokens``.
 
-A contract's own ``limits.max_output_tokens`` is read and never sent. A request
+A contract's own ``limits.max_output_tokens`` is sent in its place where it is
+smaller: the stricter of the two wins, and a larger one raises nothing. A request
 that states its own small cap — a one-token decision, a warm-up, a probe —
 keeps it.
 """
@@ -151,16 +152,34 @@ def test_a_unit_stating_both_is_sent_the_smaller(
 
 
 @pytest.mark.parametrize("stated", [16, 1024, 40000])
-def test_a_contracts_own_cap_is_never_what_is_sent(
+def test_a_contracts_own_cap_is_sent_only_where_it_is_smaller(
     stated: int, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The run 3 contract capped at 16 is sent what its unit can give."""
-    assert sent(HOSTED, "api_coder", monkeypatch, stated) == [("api_coder", 32768)]
+    """A contract capped at 16 is sent 16; one at 40000 is sent what its unit
+    can give, which is less."""
+    hosted = min(stated, 32768)
+    assert sent(HOSTED, "api_coder", monkeypatch, stated) == [("api_coder", hosted)]
     room = 4096 - charged(measured(stated))
     assert sent(WINDOWED, "local_coder", monkeypatch, stated)[-1] == (
         "local_coder",
-        room,
+        min(stated, room),
     )
+
+
+def test_a_contracts_cap_says_where_its_number_came_from() -> None:
+    """The basis names the contract's key when its cap wins, and is the unit's
+    own when the unit gives less; a unit stating neither sends the contract's."""
+    from mcgyvr.gate.preflight import contract_cap
+
+    rung = unit_map(parse_config(HOSTED)).bind("api_coder")
+    small = contract_cap(rung, measured(16), contract(16))
+    assert small.tokens == 16
+    assert "limits.max_output_tokens (16)" in small.basis
+    large = contract_cap(rung, measured(40000), contract(40000))
+    assert large == unit_max(rung, measured(40000))
+    bare = unit_map(parse_config(BARE)).bind("local_bare")
+    assert contract_cap(bare, measured(16), contract(16)).tokens == 16
+    assert contract_cap(bare, measured(), contract()).tokens is None
 
 
 @pytest.mark.parametrize("size", [0, 2000, 8000, 12000])

@@ -343,7 +343,7 @@ JOURNAL_FIELDS: tuple[Field, ...] = (
         "dir",
         "str",
         "Where every run journals what it asked, what came back and how it "
-        "landed: one `<orchestrator>.jsonl` per writer, the prompts and replies "
+        "landed: one `<session>.jsonl` per writer, the prompts and replies "
         "content-addressed under `blobs/`, and each run's result file under "
         "`results/`. Deterministic runs are here too, with a row naming the "
         "program instead of a model. This is mcgyvr's own record, it never "
@@ -353,8 +353,10 @@ JOURNAL_FIELDS: tuple[Field, ...] = (
         "copy for your own use. `mcgyvr usage` reads the journal back: per run "
         "and per rung, the attempts, the tokens and time they spent, and the "
         "verdicts they came to. Every row carries the layout version it was "
-        "written under, and `mcgyvr usage` refuses a row of a version it does "
-        "not read rather than misread it. Either copy can also be read from DIR "
+        "written under (2; 1 before `session` and `family` were renamed, still "
+        "read), and `mcgyvr usage` names and leaves out a file holding a row of "
+        "a version it does not read rather than misread it, counting the rest "
+        "and exiting 1. Either copy can also be read from DIR "
         "directly: one JSONL per writer, prompts and replies under `blobs/`, "
         "results under `results/`.",
         default=JOURNAL_DIR_DEFAULT,
@@ -641,7 +643,9 @@ UNIT_FIELDS: tuple[Field, ...] = (
         "or Windows rig reached over ssh (its rig file, `mcgyvr scan --rig`, "
         "says so) the door ships the launcher there and it runs the same way, "
         "with no docker. Absent means `docker`; `setup` writes `native` for a "
-        "unit on a Mac or Windows machine, this one or such a rig.",
+        "unit on a Mac or Windows machine, this one or such a rig. A native Mac "
+        "or Windows rig lends a pooled head only: it starts no pooled rpc "
+        "worker, and a session asking it for one is refused.",
         choices=LAUNCHERS,
         bind_hint="e.g. native -- leave it out for a container",
     ),
