@@ -165,6 +165,7 @@ the live fleet folder under $MCGYVR_HOME/fleets (default ~/.mcgyvr/fleets) that 
   - `--on`
   - `--off`
   - `--image IMAGE` — the engine image sessions run in (none).
+  - `--ring-image RING_IMAGE` — the image of the pinned ring build, by its digest, or none.
   - `--roles ROLES` — worker, head, or worker,head.
   - `--cards CARDS` — card indexes lent, each whole, comma separated, or all.
   - `--max-ram-mb MAX_RAM_MB` — the memory each container may take, or none.
@@ -184,6 +185,8 @@ the live fleet folder under $MCGYVR_HOME/fleets (default ~/.mcgyvr/fleets) that 
   - `--permanent-forward` — let the port forward take a permanent lease on a router that grants no other
     (given back when the agent stops).
   - `--no-permanent-forward`
+  - `--ring-links` — take a session's worker <-> worker ring peers (off until given).
+  - `--no-ring-links`
 - `mcgyvr direct FILE|DIR ...` — vet and run contracts you wrote: files, or a directory of them.
   - `--repo PATH` — the repository to work against: a local git checkout, or a URL to clone
     (https/git/file) (default: .).
