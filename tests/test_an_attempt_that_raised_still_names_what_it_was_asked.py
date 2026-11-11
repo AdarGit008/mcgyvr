@@ -50,7 +50,7 @@ def test_a_raised_attempt_records_its_prompt_and_has_no_reply_key(
             dies,
             path=sink,
             attempt_id="agent-a:impl:local_qwen-7b:1",
-            orchestrator="agent-a",
+            session="agent-a",
             rung="local_qwen-7b",
             model="qwen2.5-coder:7b",
             messages=MESSAGES,

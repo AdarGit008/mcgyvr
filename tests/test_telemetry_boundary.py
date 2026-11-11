@@ -35,7 +35,7 @@ def test_a_torn_line_does_not_swallow_the_next_record(tmp_path: Path) -> None:
     # A torn line: the write that produced it crashed after the comma.
     sink.write_bytes(b'{"record_kind": "attempt", "attempt_id": "torn", ')
 
-    _correct()(path=sink, attempt_id="a1", outcome="merged", orchestrator="orch-a")
+    _correct()(path=sink, attempt_id="a1", outcome="merged", session="orch-a")
 
     records: list[dict[str, Any]] = []
     for line in sink.read_bytes().split(b"\n"):
@@ -80,4 +80,4 @@ def test_a_short_write_is_a_failure_not_a_silent_stump(
     monkeypatch.setattr(os, "write", full_disk)
 
     with pytest.raises(OSError, match="sink accepted"):
-        _correct()(path=sink, attempt_id="a1", outcome="merged", orchestrator="orch-a")
+        _correct()(path=sink, attempt_id="a1", outcome="merged", session="orch-a")

@@ -15,8 +15,6 @@ contract:
   stop_conditions:
     - What add should return for values that are not numbers is not stated.
   demonstration: ["python3 accept.py"]
-  limits:
-    max_output_tokens: 1024
   scope:
     allow: ["calc.py"]
 files:

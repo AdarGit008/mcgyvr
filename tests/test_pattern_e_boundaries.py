@@ -292,7 +292,7 @@ def test_telemetry_does_not_write_a_credential_into_its_own_sink(
             raises,
             path=sink,
             attempt_id="a1",
-            orchestrator="test",
+            session="test",
             rung="api_large",
         )
 

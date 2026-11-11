@@ -1,4 +1,4 @@
-"""A request may carry the turns before it and the tools on offer.
+"""A request may carry the turns before it.
 
 A conversation with a rung is several dispatches, and each one has to send
 everything said so far: the system prompt, then the earlier turns exactly as
@@ -7,9 +7,9 @@ it asked for, and each tool's answer), then — when there is one — the new us
 message last. A request that only continues a conversation after a tool
 answered has no new user message, and none is invented for it.
 
-Tools are offered as the OpenAI function tools the compatible servers read, with
-``tool_choice: "auto"``; a request that offers none sends neither key, so every
-single-turn request goes out exactly as it did before.
+A request offers no tools and pins no response schema: neither ``tools``,
+``tool_choice`` nor ``response_format`` is sent, so the reply is the prose the
+fenced-block parse reads.
 
 The turns are checked cheaply when the request is built: each is a mapping with
 a role the protocol knows. A system turn among them is refused, because the
@@ -34,19 +34,6 @@ ENDPOINT = Endpoint(
     max_parallel=1,
     credential_env=None,
 )
-
-READ_FILE: dict[str, Any] = {
-    "type": "function",
-    "function": {
-        "name": "read_file",
-        "description": "Read one file of the repository.",
-        "parameters": {
-            "type": "object",
-            "properties": {"path": {"type": "string"}},
-            "required": ["path"],
-        },
-    },
-}
 
 TURNS: tuple[dict[str, Any], ...] = (
     {"role": "user", "content": "what does f return?"},
@@ -122,36 +109,13 @@ def test_an_empty_prompt_with_no_turns_is_still_the_one_user_message(
     assert payload["messages"] == [{"role": "user", "content": ""}]
 
 
-def test_tools_are_offered_with_tool_choice_auto(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    request = Request(prompt="read a.py", max_output_tokens=64, tools=(READ_FILE,))
-    payload = sent_payload(monkeypatch, request)
-    assert payload["tools"] == [READ_FILE]
-    assert payload["tool_choice"] == "auto"
-
-
-def test_a_request_offering_no_tools_sends_neither_key(
+def test_a_request_offers_no_tools_and_pins_no_schema(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     payload = sent_payload(monkeypatch, Request(prompt="hi", max_output_tokens=64))
     assert "tools" not in payload
     assert "tool_choice" not in payload
-
-
-def test_a_response_schema_and_tools_may_be_sent_together(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    schema = {"type": "object", "properties": {"answer": {"type": "string"}}}
-    request = Request(
-        prompt="read a.py",
-        max_output_tokens=64,
-        tools=(READ_FILE,),
-        response_schema=schema,
-    )
-    payload = sent_payload(monkeypatch, request)
-    assert payload["tools"] == [READ_FILE]
-    assert payload["response_format"]["json_schema"]["schema"] == schema
+    assert "response_format" not in payload
 
 
 @pytest.mark.parametrize(

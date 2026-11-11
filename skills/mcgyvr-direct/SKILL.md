@@ -241,10 +241,11 @@ Hard ceilings on what one execution of this contract may spend.
 
 **`limits.max_output_tokens`**
 - type: number (min 1); optional, default unset
-- description: Not sent, and not needed: every model request is sent the most its unit can give — the
-  unit's `output_tokens`, clamped to the room its `window` leaves once the prompt is paid for — so no
-  contract caps a reply below what its unit serves. Still read, so a contract that states it loads; it
-  caps nothing. A reply cut off at the unit's maximum is a named failure, never applied to a file.
+- description: The most tokens this contract's reply may take, sent as the request's `max_tokens` when it
+  is below the most the unit can give (the unit's `output_tokens`, clamped to the room its `window`
+  leaves once the prompt is paid for); the smaller of the two is sent. Unset, the reply is sent the
+  unit's maximum. A reply cut off at the cap is a named failure, never applied to a file, so a cap
+  smaller than the file needs fails every attempt.
 
 **`limits.max_window_fraction`**
 - type: decimal number (min 0.0, max 1.0); optional, default unset
@@ -464,8 +465,9 @@ the config's `journal.dir`, in `results/`. The file's keys:
   default), the commit, or why it was refused (as `detail`).
   `committed`, `commit`, `branch`, `handoff` are the commit as fields.
 - `target`, `contract`, `task_type`, `session` (the writer: the chat the run
-  is filed under; also written as `orchestrator`, its old key, for one
-  release), `run`, `session_file`, `journal`, `exit_code`.
+  is filed under; written only as `session` now, while journal rows from
+  before carry it as `orchestrator`, read as `session` for one release),
+  `run`, `session_file`, `journal`, `exit_code`.
 - `copy_errors` — a `--record DIR` copy that could not be written, and
   why. Empty on almost every run. mcgyvr's own record under `journal`
   is complete whatever this says; a copy is not a sink and its failure
@@ -592,7 +594,7 @@ Each entry of its `notes`:
 Every run is journaled under the config's `journal.dir` and nothing on
 the command line moves it — that one directory is where every run can
 be counted. Deterministic runs are there too, as a row naming
-the program that did the work with `tier: deterministic` and no prompt
+the program that did the work with `family: deterministic` and no prompt
 or reply beside it. `--record DIR` adds a complete second copy for your
 own use. `--notes-from RESULT` starts a contract's climb with an earlier
 run's failure notes, under a banner naming that run: for a rerun on another

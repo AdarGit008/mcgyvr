@@ -17,7 +17,7 @@ the denominator was missing.
 So the floor writes a row, on the same terms as a dispatch: written before the
 gate, keyed the same way, corrected with its verdict and then with how the work
 landed. It is not a dispatch and does not pretend to be one — no prompt, no
-reply, no endpoint, no tokens, and ``tier`` says ``deterministic`` beside a
+reply, no endpoint, no tokens, and ``family`` says ``deterministic`` beside a
 ``rung`` that is a program's name rather than a model's. What makes it worth
 having is that it is in the same table as the dispatches, so the two can be
 counted against each other in one query.
@@ -68,10 +68,10 @@ def test_the_floor_writes_a_row_the_corpus_can_be_asked_about(
     lj.main(lj.run_args(contract, repo, config))
 
     row = floor_row(ours)
-    assert row["orchestrator"] == "claude-s1"
+    assert row["session"] == "claude-s1"
     assert row["task_type"] == "code"
     assert row["operation"] == "format"
-    assert row["tier"] == "deterministic"
+    assert row["family"] == "deterministic"
     assert "tidy" in str(row["attempt_id"])
 
 
@@ -81,9 +81,9 @@ def test_the_floor_row_names_the_program_that_did_the_work(
     ours: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """``rung`` is a program here, and ``tier`` is what keeps that unambiguous.
+    """``rung`` is a program here, and ``family`` is what keeps that unambiguous.
 
-    A ladder rung and a tool cannot collide in a query that reads ``tier``
+    A ladder rung and a tool cannot collide in a query that reads ``family``
     first, which is why the column is worth its width.
     """
     lj.scripted(monkeypatch)

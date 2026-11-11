@@ -135,7 +135,7 @@ def _row(sink: Path, completion: Completion) -> dict[str, Any]:
         lambda: completion,
         path=sink,
         attempt_id="agent-a:impl:api_deepseek:1",
-        orchestrator="agent-a",
+        session="agent-a",
         rung="api_deepseek",
     )
     (row,) = fold(path=sink)

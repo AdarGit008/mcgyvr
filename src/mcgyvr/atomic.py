@@ -4,11 +4,14 @@ Every file mcgyvr keeps for a later reader is written through ``write``, so a
 failed or interrupted write leaves the previous file intact and no litter
 beside it; ``replace`` is the rename that ends it, for a caller whose staged
 file or folder is built some other way (a resumed download, an unpacked
-release). The module also holds the two modes a kept file can have:
-`_PRIVATE` for what only its owner may read, and `_ORDINARY` for the rest,
-which the writer's umask narrows further, and the pair that keeps a secret in a
-file of its own (`write_private`, `read_private`): written at 0600, read back
-only from a plain file of this user that nobody else may read or write.
+release). A new folder that must appear whole or not at all — a promoted
+fleet, a sample run's stamp — is built by ``publish_dir``, which refuses
+rather than replaces one that appeared meanwhile. The module also holds the
+two modes a kept file can have: `_PRIVATE` for what only its owner may read,
+and `_ORDINARY` for the rest, which the writer's umask narrows further, and the
+pair that keeps a secret in a file of its own (`write_private`,
+`read_private`): written at 0600, read back only from a plain file of this user
+that nobody else may read or write.
 
 Standard library and ``mcgyvr.hostos`` only, and Python 3.9: the programs the
 door ships to a rig (:mod:`mcgyvr.serving.shipped`) carry this module.
@@ -17,9 +20,12 @@ door ships to a rig (:mod:`mcgyvr.serving.shipped`) carry this module.
 from __future__ import annotations
 
 import os
+import shutil
 import stat
+import tempfile
 import threading
 import time
+from collections.abc import Mapping
 from pathlib import Path
 
 from mcgyvr import hostos
@@ -111,6 +117,37 @@ def replace(source: str | os.PathLike[str], target: str | os.PathLike[str]) -> N
         except PermissionError:
             time.sleep(REPLACE_PAUSE_S)
     os.replace(source, target)
+
+
+class TargetAppearedError(FileExistsError):
+    """The folder :func:`publish_dir` was building appeared while it was built,
+    and was left as it is."""
+
+
+def publish_dir(target: Path, files: Mapping[Path, bytes]) -> None:
+    """Make the new folder `target` holding `files`, whole or not at all.
+
+    Each file (a path relative to `target`, and its bytes) is written into a
+    hidden staging folder beside `target`, which is then renamed into place, so
+    a reader finds every file or no folder. A `target` that appeared while the
+    files were written (a folder, a file or a link) raises
+    :class:`TargetAppearedError` and is left as it is. The staging folder is
+    removed on that refusal and on any other failure, so nothing is left
+    behind. `target`'s parent is created when missing.
+    """
+    target.parent.mkdir(parents=True, exist_ok=True)
+    staging = Path(tempfile.mkdtemp(prefix=f".{target.name}.", dir=target.parent))
+    try:
+        for relative, data in files.items():
+            path = staging / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(data)
+        if target.exists() or target.is_symlink():
+            raise TargetAppearedError(f"{target} appeared while it was being written")
+        os.rename(staging, target)
+    except BaseException:
+        shutil.rmtree(staging, ignore_errors=True)
+        raise
 
 
 class PrivateFileError(Exception):
