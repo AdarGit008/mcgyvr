@@ -118,7 +118,8 @@ live, probes the live one against its lock, and lists pulled combinations.
 
 Read-only introspection: `mcgyvr config`, `mcgyvr ladder show`,
 `mcgyvr catalog`, `mcgyvr sandbox`, `mcgyvr capabilities` and `mcgyvr usage`
-(what the journal's runs spent and came to).
+(what the journal's runs spent and came to). `mcgyvr sandbox --cache` lists the
+task images mcgyvr built, and `--clear-cache` removes them.
 
 ## What decides acceptance
 
@@ -162,6 +163,10 @@ The documented way in is `make`:
   `references/failure-notes.schema.json`, and `skills/mcgyvr-use/SKILL.md` from
   the CLI's flags and the schemas in `src/mcgyvr/config.py`,
   `src/mcgyvr/contract.py` and `src/mcgyvr/notes.py`.
+- `make catalog` — regenerate the header-read fields (each record's
+  `architecture`) of `data/model-catalog.json` from the shipped header rows in
+  `data/model-geometry.json`, offline (`python -m mcgyvr.knowledge.regenerate`;
+  `--check` compares and writes nothing).
 - `make check` — everything CI runs: lint, typecheck, docs check, and test.
 - `make release` — the local half of a release (see Releasing); publishes
   nothing.

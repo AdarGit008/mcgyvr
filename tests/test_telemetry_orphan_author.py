@@ -38,7 +38,7 @@ def test_a_correction_cannot_be_written_without_naming_its_author(
 ) -> None:
     """The defect is the optional parameter; the fix refuses the omission."""
     sink = tmp_path / "attempts.jsonl"
-    with pytest.raises(TypeError, match="orchestrator"):
+    with pytest.raises(TypeError, match="session"):
         _correct()(path=sink, attempt_id="ghost-1", outcome="merged")
 
 
@@ -49,7 +49,7 @@ def test_an_orphan_correction_carries_the_author_it_named(tmp_path: Path) -> Non
         path=sink,
         attempt_id="ghost-1",
         outcome="merged",
-        orchestrator="orch-b",
+        session="orch-b",
     )
 
     orphan = [r for r in _fold()(path=sink) if r.get("attempt_id") == "ghost-1"]

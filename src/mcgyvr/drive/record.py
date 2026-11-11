@@ -1,8 +1,8 @@
-"""Where a run's attempt records go, and which orchestrator is writing them.
+"""Where a run's attempt records go, and which session is writing them.
 
 `Recording` is the value the driver hands to `telemetry.observe` for every
 dispatch and to `telemetry.correct` for every row it corrects afterwards: the
-journal sink, the orchestrator id the rows are filed under, the run stamp, the
+journal sink, the session (the writer) the rows are filed under, the run stamp, the
 session transcript and any copies the caller asked for. `attempt_id` is what
 those rows are keyed by, and `copy_failed` collects a copy that could not be
 written instead of raising it.
@@ -20,15 +20,15 @@ from mcgyvr.result import is_run_stamp
 class Recording:
     """Where one run's records go, and who is writing them.
 
-    `path` is the JSONL sink the rows are appended to, `orchestrator` the id
+    `path` is the JSONL sink the rows are appended to, `session` the id
     every row is filed under, and `run` this run's stamp — empty when the caller
-    made none, and the ids then name the orchestrator alone. A recording is
+    made none, and the ids then name the session alone. A recording is
     built once per run, and the driver reads it to reach the sink rather than to
     open it: nothing here writes, and the journal directory is not created.
     """
 
     path: Path
-    orchestrator: str
+    session: str
     run: str = ""
     #: `session_file` is the transcript of the session that typed the command, so
     #: a row can be followed back to the conversation that produced it:
@@ -64,23 +64,23 @@ class Recording:
         self.copy_errors.setdefault(mirror, f"{type(exc).__name__}: {exc}")
 
     def __post_init__(self) -> None:
-        if not self.orchestrator.strip():
+        if not self.session.strip():
             raise ValueError(
-                "an orchestrator id is required to record: a row that cannot "
-                "say which orchestrator produced it is the hole the field "
-                "exists to close."
+                "a session id is required to record: a row that cannot say "
+                "which session produced it is the hole the field exists to "
+                "close."
             )
 
     def attempt_id(self, contract: str, rung: str, attempt: int, draw: int = 0) -> str:
         """The id this run records one dispatch under.
 
-        Built as `[orchestrator:run:]contract:rung:attempt`, with the run stamp
+        Built as `[session:run:]contract:rung:attempt`, with the run stamp
         left out when `run` is empty, and suffixed `#<draw>` for a draw past the
         first. Draw `0` therefore carries the unsuffixed id an install without
         breadth already writes, and draws `1` and up get `#1`, `#2`, … of their
         own, so the rows of one attempt stay distinct without renumbering it.
         """
-        who = f"{self.orchestrator}:{self.run}" if self.run else self.orchestrator
+        who = f"{self.session}:{self.run}" if self.run else self.session
         row = f"{who}:{contract}:{rung}:{attempt}"
         return row if draw == 0 else f"{row}#{draw}"
 

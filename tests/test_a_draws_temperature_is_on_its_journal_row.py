@@ -51,7 +51,7 @@ def _lines(path: Path) -> list[dict[str, object]]:
 
 def test_a_row_with_no_temperature_omits_the_key(tmp_path: Path) -> None:
     path = tmp_path / "j.jsonl"
-    observe(lambda: "ran", path=path, attempt_id="a", orchestrator="t", rung="ruff")
+    observe(lambda: "ran", path=path, attempt_id="a", session="t", rung="ruff")
 
     (row,) = _lines(path)
     assert "temperature" not in row, "absent, never zeroed"
@@ -68,7 +68,7 @@ def test_a_dispatch_that_raised_still_says_its_temperature(tmp_path: Path) -> No
             dies,
             path=path,
             attempt_id="a#1",
-            orchestrator="t",
+            session="t",
             rung="local_qwen-7b",
             temperature=0.7,
         )

@@ -9,9 +9,9 @@ Three concerns, each in its own module:
   one dispatch (target content, interface, dependency signatures, numbered
   sources, stop conditions, the reply shape, and any retry notes), together with
   the token count and the preflight fit issue, if the prompt does not fit.
-- `reply` — `parse_reply` (and `parse_pinned`) turn a finished reply's text into
-  the bytes meant for a file under a named output schema, or refuse with a
-  `ReplyError` code instead of writing a plausible file.
+- `reply` — `parse_reply` turns a finished reply's text into the bytes meant
+  for a file under a named output schema, or refuses with a `ReplyError` code
+  instead of writing a plausible file.
 
 This package only builds the request and judges the answer; it does not run
 backends, write files, or keep state. `sources` lives alongside for reading the

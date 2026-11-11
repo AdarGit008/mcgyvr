@@ -21,11 +21,8 @@ from __future__ import annotations
 import copy
 import ipaddress
 import json
-import os
 import re
-import shutil
 import socket
-import tempfile
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -306,32 +303,23 @@ def promote(dev_root: Path, setup: Path, name: str) -> Path:
     }
     for relative in (LOCK_DIR / f"{name}.json", *records):
         files[relative] = (dev_root / relative).read_bytes()
-    _build(folder, name, files)
+    _build(folder, files)
     return folder
 
 
-def _build(folder: Path, name: str, files: dict[Path, bytes]) -> None:
-    """Write `files` into a staging folder beside `folder` and rename it into
-    place, so the folder holds every file or never appears.
+def _build(folder: Path, files: dict[Path, bytes]) -> None:
+    """Make `folder` holding `files` (`atomic.publish_dir`), so the folder holds
+    every file or never appears.
 
-    A staging folder is removed on any failure, and a `folder` that appeared
-    while the fleet was being written is left as it is.
+    A `folder` that appeared while the fleet was being written is left as it
+    is, and refused.
     """
-    fleets_dir().mkdir(parents=True, exist_ok=True)
-    staging = Path(tempfile.mkdtemp(prefix=f".{name}.", dir=fleets_dir()))
     try:
-        for relative, data in files.items():
-            target = staging / relative
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_bytes(data)
-        if folder.exists() or folder.is_symlink():
-            raise PromoteRefusedError(
-                f"{folder} appeared while it was being built; it is left as it is"
-            )
-        os.rename(staging, folder)
-    except BaseException:
-        shutil.rmtree(staging, ignore_errors=True)
-        raise
+        atomic.publish_dir(folder, files)
+    except atomic.TargetAppearedError as exc:
+        raise PromoteRefusedError(
+            f"{folder} appeared while it was being built; it is left as it is"
+        ) from exc
 
 
 def on_a_users_machine(address: str) -> str | None:

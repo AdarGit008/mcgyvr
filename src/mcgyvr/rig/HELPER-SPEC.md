@@ -247,6 +247,10 @@ probe's small-ping shape and the teardown grace.
 
 ## 6. Before native workers ship
 
+Until they do, a native Mac or Windows rig lends a pooled head only: `userwg.NativeHost.start_worker`
+and `open_worker` refuse (`a native rig runs no rpc worker`) and the rig offers no worker role. The
+items below are what worker support needs first.
+
 - A native rpc worker binds the session's tunnel address inside the netstack only (`serve`), never a
   host address and never 0.0.0.0; its engine (`ggml-rpc-server`) listens on 127.0.0.1 and the
   helper dials it only after checking the listener belongs to the spawned worker's pid.

@@ -134,6 +134,7 @@ def test_the_shipped_catalog_is_read_as_records_whose_numbers_all_say_so() -> No
 _INVENTED: dict[str, Any] = {
     "model_id": "invented-org/Invented-7B",
     "quant": "Q4_K_M",
+    "architecture": "dense",
     "engines": ["llama.cpp"],
     "weights": {
         "repo": "invented-org/Invented-7B-GGUF",

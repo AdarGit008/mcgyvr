@@ -82,11 +82,6 @@ HOSTED_CONNECT_TIMEOUT_S = 30.0
 # would only make the message longer.
 _ERROR_BODY_CHARS = 400
 
-# The name a pinned response schema is sent under. The chat completions schema
-# form asks for one, and nothing reads it back: the schema beside it is what the
-# backend holds the reply to.
-_RESPONSE_SCHEMA_NAME = "reply"
-
 
 class RunnerError(Exception):
     """Base of every error one dispatch at one endpoint can raise."""
@@ -349,9 +344,7 @@ class Request:
     system: str = ""
     temperature: float = 0.0
     timeout_s: float | None = None
-    response_schema: dict[str, Any] | None = None
     turns: tuple[Mapping[str, Any], ...] = ()
-    tools: tuple[Mapping[str, Any], ...] = ()
     cap_basis: str = ""
 
     def __post_init__(self) -> None:
@@ -485,20 +478,14 @@ class _Parsed:
 class Runner(ABC):
     """One protocol path on one endpoint.
 
-    A subclass states which path it speaks (`protocol`, `path`) and whether it
-    can be sent a pinned schema (`honours_response_schema`), and it builds and
-    reads its own payload. This class does the dispatch: it refuses a request
+    A subclass states which path it speaks (`protocol`, `path`), and it builds
+    and reads its own payload. This class does the dispatch: it refuses a request
     the path cannot carry, posts the body, and maps every answer that is not the
     one asked for onto a `RunnerError`.
     """
 
     protocol: ClassVar[Protocol]
     path: ClassVar[str]
-    # Whether this path has a parameter to send a pinned response schema. Where
-    # there is none, the schema is not sent, the reply is prose the parser falls
-    # back to reading, and `_notes` says so on the reply rather than letting it
-    # pass as schema-checked.
-    honours_response_schema: ClassVar[bool] = False
 
     def __init__(self, endpoint: Endpoint) -> None:
         self.endpoint = endpoint
@@ -652,19 +639,11 @@ class Runner(ABC):
     ) -> tuple[str, ...]:
         """The caveats that have to travel with this reply, in the order listed.
 
-        A schema the path could not send, the three ways a length stop is read,
+        The three ways a length stop is read,
         an unrecognised stop reason, and a backend that went over the cap it was
         sent.
         """
         notes: list[str] = []
-        if request.response_schema is not None and not self.honours_response_schema:
-            notes.append(
-                f"a response schema was pinned and the {self.protocol} path has "
-                f"no parameter to send it, so this reply is prose rather than "
-                f"the pinned object. It is still readable — the parser falls "
-                f"back to the fenced shape — but it was not schema-checked by "
-                f"the backend."
-            )
         if stop_reason is StopReason.TRUNCATED:
             if request.max_output_tokens is None:
                 notes.append(
@@ -729,7 +708,6 @@ class OpenAIRunner(Runner):
 
     protocol: ClassVar[Protocol] = Protocol.OPENAI
     path: ClassVar[str] = CHAT_PATH
-    honours_response_schema: ClassVar[bool] = True
 
     def _payload(self, model: str, request: Request) -> dict[str, Any]:
         messages: list[Mapping[str, Any]] = []
@@ -750,25 +728,6 @@ class OpenAIRunner(Runner):
             # ceiling (or whose prompt leaves it no room): it sends nothing and
             # leaves the backend's own length limit to stop it.
             payload["max_tokens"] = request.max_output_tokens
-        if request.response_schema is not None:
-            # A pinned schema goes as a strict `json_schema` response format, which
-            # is the only way this path can ask for more than prose.
-            payload["response_format"] = {
-                "type": "json_schema",
-                "json_schema": {
-                    "name": _RESPONSE_SCHEMA_NAME,
-                    # Strict asks the backend to hold the reply to the schema rather
-                    # than merely suggest it, which is what makes sending the schema
-                    # worth anything.
-                    "strict": True,
-                    "schema": request.response_schema,
-                },
-            }
-        if request.tools:
-            # Tool definitions are forwarded as given, and the model is left to
-            # decide whether to call one.
-            payload["tools"] = list(request.tools)
-            payload["tool_choice"] = "auto"
         # The payload is turned into a streamed ask, with usage included in the
         # stream, so one read path serves every backend behind a unit.
         return whole.asking(payload)
@@ -892,13 +851,12 @@ def at_unit_max(endpoint: Endpoint, request: Request) -> Request:
 def _sent_text(request: Request) -> str:
     """Everything a request puts in the window ahead of the reply, as text.
 
-    The system prompt, each turn and each tool definition as the JSON they are
-    sent as, and the prompt, joined by newlines: the count the room is sized
-    from covers every part of the request, not the user text alone.
+    The system prompt, each turn as the JSON it is sent as, and the prompt,
+    joined by newlines: the count the room is sized from covers every part of
+    the request, not the user text alone.
     """
     parts = [request.system]
     parts += [json.dumps(dict(turn)) for turn in request.turns]
-    parts += [json.dumps(dict(tool)) for tool in request.tools]
     parts.append(request.prompt)
     return "\n".join(part for part in parts if part)
 

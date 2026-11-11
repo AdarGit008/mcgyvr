@@ -21,13 +21,12 @@ PACKAGE = REPO / "src" / "mcgyvr"
 #: The renames that are not a kept file put in place, by file: each moves a
 #: file of its own aside or publishes a folder that must not overwrite one.
 RENAMES = {
+    # publish_dir: a new folder (a promoted fleet, a stamp) must not overwrite
+    # one that appeared meanwhile: os.rename refuses an existing target on
+    # Windows, which replace would not.
+    "atomic.py": 1,
     # A lock marker is published under its final name while its lock is held.
     "pressure.py": 1,
-    # A built fleet folder must not overwrite one that appeared meanwhile:
-    # os.rename refuses an existing target on Windows, which replace would not.
-    "fleet/promote.py": 1,
-    # A stamp folder, the same way.
-    "fleet/stamp.py": 1,
     # An artifact a step wrote is moved aside, and moved back when not rewritten.
     "serving/gate-scripts/05-envelope.py": 1,
     "serving/gate-scripts/08-parse.py": 1,

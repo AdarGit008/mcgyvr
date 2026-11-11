@@ -98,7 +98,7 @@ def _attempt(
     config = parse(fleet + policy)
     contract = load_contract(lj.MODEL_CONTRACT)
     capacity = Capacity.of(config, root=tmp_path / "slots")
-    recording = Recording(path=journal / "t.jsonl", orchestrator="t")
+    recording = Recording(path=journal / "t.jsonl", session="t")
     with TempDirSandbox(repo) as sandbox:
         attempt = worker_attempt(
             config, unit_map(config), contract, sandbox, recording=recording

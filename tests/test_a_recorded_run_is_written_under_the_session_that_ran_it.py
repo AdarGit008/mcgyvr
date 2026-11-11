@@ -1,18 +1,18 @@
-"""A recorded run is written under the orchestrator that ran it, or not at all.
+"""A recorded run is written under the session that ran it, or not at all.
 
-``drive.Recording`` requires an orchestrator id: "a row that cannot say which
-orchestrator produced it is the hole the field exists to close", in the words
+``drive.Recording`` requires a session id: "a row that cannot say which
+session produced it is the hole the field exists to close", in the words
 of ``mcgyvr direct``'s own refusal. The command has two flags for it: ``--record
 DIR`` names the journal directory and ``--session ID`` names the writer,
 and the sink is ``DIR/<ID>.jsonl`` so a directory with two files in it is two
-orchestrators without anyone opening one. Neither is required — the config
+sessions without anyone opening one. Neither is required — the config
 names the directory and the session names the writer — but both do what they
 say.
 
 ``--record`` without ``--session`` is refused when no session names the
 writer either, before a sandbox is opened and before anything is dispatched. The
 alternative — a default id derived from the process — is exactly the
-single-orchestrator assumption ``drive.Recording`` rules out. What *is* accepted
+single-session assumption ``drive.Recording`` rules out. What *is* accepted
 is the session that typed the command: ``CLAUDE_CODE_SESSION_ID`` or
 ``PI_SESSION_FILE`` name a writer as surely as the flag does, and better,
 because the row can then be followed back to the conversation
@@ -151,7 +151,7 @@ def _main(argv: Sequence[str]) -> int:
         return int(exc.code) if isinstance(exc.code, int) else 2
 
 
-def test_record_with_an_orchestrator_writes_that_orchestrators_journal(
+def test_record_with_a_session_writes_that_sessions_journal(
     repo: Path,
     config: Path,
     contract: Path,
@@ -186,7 +186,7 @@ def test_record_with_an_orchestrator_writes_that_orchestrators_journal(
         else "no journal dir"
     )
     (row,) = fold(path=sink)
-    assert row["orchestrator"] == "agent-a"
+    assert row["session"] == "agent-a"
     assert row["rung"] == "local_qwen-7b"
     assert row["ok"] is True
     # The writer, the run, then the work: a re-run of the same contract is a
@@ -196,7 +196,7 @@ def test_record_with_an_orchestrator_writes_that_orchestrators_journal(
     ), row["attempt_id"]
 
 
-def test_record_without_an_orchestrator_or_a_session_is_refused_before_dispatch(
+def test_record_without_a_session_is_refused_before_dispatch(
     repo: Path,
     config: Path,
     contract: Path,
