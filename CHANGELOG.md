@@ -72,8 +72,7 @@ entries name development tooling, flags and records outside this repository.
   file's `replan:` block, now `lineage:`. The result file's `replanned` is
   `redecomposed`, the decision log (`--log`) is `mcgyvr.delegate_log/2`, whose
   `orchestrator_*` kinds are `proposer_*` (and `config_no_orchestrator`
-  `config_no_proposer`); a `/1` log is still read, its old kinds read as the
-  new ones with a warning, for this release only. `mcgyvr use` lists its
+  `config_no_proposer`); a `/1` log is refused naming `/2`. `mcgyvr use` lists its
   stages `classifier`, `reviewer` and `replan` as `fill`, `verifier` and
   `redecompose`. The help says `mcgyvr PROMPT` decomposes the prompt into
   contracts, and that the session agent chooses direct or delegate while

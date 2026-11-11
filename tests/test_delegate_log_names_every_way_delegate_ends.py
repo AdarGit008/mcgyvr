@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+import warnings
 from pathlib import Path
 from typing import Any
 
@@ -507,7 +508,7 @@ def test_a_kind_from_a_newer_writer_still_reads(tmp_path: Path) -> None:
     newer = {
         "schema": SCHEMA_ID,
         "kind": "proposer_on_fire",
-        "message": "a kind added later under /1",
+        "message": "a kind added later under /2",
         "exit_code": 1,
         "raw_reply_present": False,
         "contracts": [],
@@ -524,12 +525,61 @@ def test_a_kind_from_a_newer_writer_still_reads(tmp_path: Path) -> None:
     assert not record.known
 
 
-def test_another_schema_version_is_refused(tmp_path: Path) -> None:
-    path = tmp_path / "v2.json"
-    path.write_text(json.dumps({"schema": "mcgyvr.delegate_log/2", "kind": "emitted"}))
+def _record(**overrides: object) -> dict[str, object]:
+    """A complete record, valid as `/2` until `overrides` say otherwise."""
+    return {
+        "schema": SCHEMA_ID,
+        "kind": "proposer_unavailable",
+        "message": "m",
+        "exit_code": 1,
+        "raw_reply_present": False,
+        "contracts": [],
+        "refusals": [],
+        "detail": {},
+    } | overrides
 
-    with pytest.raises(DelegateLogError, match=r"mcgyvr\.delegate_log/2"):
+
+@pytest.mark.parametrize(
+    "record",
+    [
+        # A whole record the previous build wrote, its kind under the old name.
+        _record(schema="mcgyvr.delegate_log/1", kind="orchestrator_unavailable"),
+        _record(schema="mcgyvr.delegate_log/3"),
+    ],
+    ids=["v1", "v3"],
+)
+def test_another_schema_version_is_refused(
+    tmp_path: Path, record: dict[str, object]
+) -> None:
+    path = tmp_path / "log.json"
+    path.write_text(json.dumps(record))
+
+    # Refused outright: no `RenamedWarning`, no old kind read under a new name.
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        with pytest.raises(
+            DelegateLogError, match=r"reads mcgyvr\.delegate_log/2 records"
+        ):
+            read(path)
+
+
+def test_a_v2_record_missing_a_field_is_refused(tmp_path: Path) -> None:
+    path = tmp_path / "log.json"
+    path.write_text(json.dumps({"schema": SCHEMA_ID, "kind": "emitted"}))
+
+    with pytest.raises(DelegateLogError, match=r"not a mcgyvr\.delegate_log/2 record"):
         read(path)
+
+
+def test_a_v2_record_reads_without_a_warning(tmp_path: Path) -> None:
+    path = tmp_path / "log.json"
+    path.write_text(json.dumps(_record()))
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        record = read(path)
+
+    assert record.kind is DelegateKind.PROPOSER_UNAVAILABLE
 
 
 def test_the_record_is_not_in_the_skill_the_session_agent_reads() -> None:
