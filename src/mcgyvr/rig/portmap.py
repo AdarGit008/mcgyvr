@@ -33,13 +33,14 @@ Only a port this rig tunnels on is opened, and never one a session holds.
 
 Everything a router or the network says is hostile. A UPnP description is
 fetched only from the address that answered the discovery, over plain HTTP on
-a private address, at most ``MAX_DESCRIPTION_BYTES``, and refused when it
-declares a document type or an entity; a control URL must stay on that
-address. At most ``MAX_LOCATIONS`` descriptions are fetched, each once, and a
-device that answers only as a root device (a TV, a printer) is asked only
-when nothing better answered, and is a router only if its description names
-a WAN service. A NAT-PMP answer counts only from the gateway's own port with the
-opcode and internal port that were asked.
+a private address, at most ``MAX_DESCRIPTION_BYTES``, read whole within
+``HTTP_WAIT_S`` (connect, headers and body together) or not at all, and
+refused when it declares a document type or an entity; a control URL must
+stay on that address. At most ``MAX_LOCATIONS`` descriptions are fetched, each
+once, and a device that answers only as a root device (a TV, a printer) is
+asked only when no better answer became a gateway, and is a router only if
+its description names a WAN service. A NAT-PMP answer counts only from the
+gateway's own port with the opcode and internal port that were asked.
 
 The routers, the LAN hosts the tunnel is published on, this rig's tunnel
 ports, the socket maker, the clock and the wait are handed in, so all of
@@ -77,7 +78,7 @@ NATPMP_FIRST_WAIT_S = 0.25
 NATPMP_TRIES = 4
 #: UPnP: the discovery address, how long discovery listens, the WAN services
 #: a router is called on (best first), the most bytes of a description or a
-#: control answer, and each HTTP wait.
+#: control answer, and each HTTP wait (a description fetch's whole time).
 SSDP_ADDRESS = ("239.255.255.250", 1900)
 SSDP_WAIT_S = 2.0
 WAN_SERVICES = (
@@ -87,8 +88,8 @@ WAN_SERVICES = (
 )
 #: The gateway device types, and the root device every UPnP device is: some
 #: routers answer only a search for one of these. A root device may be a TV or
-#: a printer, so its description is fetched only when no better answer named a
-#: router, and only its description decides (it must name a WAN service).
+#: a printer, so its description is fetched only when no better answer became
+#: a gateway, and only its description decides (it must name a WAN service).
 IGD_DEVICES = (
     "urn:schemas-upnp-org:device:InternetGatewayDevice:2",
     "urn:schemas-upnp-org:device:InternetGatewayDevice:1",
@@ -658,8 +659,8 @@ def discover_upnp(
     default way out and on each LAN interface (``interfaces``, by address),
     :data:`SSDP_SENDS` times within the first half of ``wait_s``, and answers
     are heard for ``wait_s`` in all. An answer to a WAN service or a gateway
-    device is fetched first; a root device's only when none of those named a
-    router. At most :data:`MAX_LOCATIONS` descriptions are fetched, each one
+    device is fetched first; a root device's only when none of those became a
+    gateway. At most :data:`MAX_LOCATIONS` descriptions are fetched, each one
     once, and only a description naming a WAN service becomes a gateway.
     """
     fetch = fetch or _fetch
@@ -714,10 +715,48 @@ def discover_upnp(
     return sorted(found, key=lambda gateway: WAN_SERVICES.index(gateway.service))
 
 
+class _Deadline(socket.socket):
+    """A connected socket whose every read waits only for what is left until
+    ``deadline`` (a :func:`time.monotonic` time): a device that trickles its
+    answer a byte at a time cannot hold a read past it."""
+
+    deadline = 0.0
+
+    def recv_into(self, buffer: Any, nbytes: int = 0, flags: int = 0) -> int:
+        left = self.deadline - time.monotonic()
+        if left <= 0:
+            raise TimeoutError("timed out")
+        self.settimeout(left)
+        return super().recv_into(buffer, nbytes, flags)
+
+
+class _Bounded(http.client.HTTPConnection):
+    """An HTTP connection that is over by ``deadline``: the connect, the
+    request, the headers and the body together."""
+
+    def __init__(self, host: str, port: int, deadline: float) -> None:
+        super().__init__(host, port, timeout=max(0.0, deadline - time.monotonic()))
+        self._deadline = deadline
+
+    def connect(self) -> None:
+        super().connect()
+        sock = _Deadline(fileno=self.sock.detach())
+        sock.deadline = self._deadline
+        left = self._deadline - time.monotonic()
+        if left <= 0:
+            sock.close()
+            raise TimeoutError("timed out")
+        sock.settimeout(left)
+        self.sock = sock
+
+
 def _fetch(location: str) -> bytes:
+    """A description, read whole within ``HTTP_WAIT_S`` of the start of the
+    fetch (connect, headers and body together); past that the fetch fails
+    (``TimeoutError``) and nothing it read is kept."""
     url = urllib.parse.urlsplit(location)
-    connection = http.client.HTTPConnection(
-        url.hostname or "", url.port or 80, timeout=HTTP_WAIT_S
+    connection = _Bounded(
+        url.hostname or "", url.port or 80, time.monotonic() + HTTP_WAIT_S
     )
     try:
         connection.request("GET", url.path or "/")

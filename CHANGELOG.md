@@ -20,15 +20,17 @@ archived outside this repository, under the same paths.
   2 s wait, and sends on each LAN interface of the rig (`tunnel.lan_hosts`: no
   bridge, tunnel or loopback) and on the system's default way when that is
   none of them; an interface that cannot send is skipped. Only a description
-  naming a WAN service becomes a gateway, as before; a root device's answer (a TV, a printer) is fetched only
-  when no WAN service or gateway device answer named a router, once, and at
-  most `MAX_LOCATIONS` (8) descriptions are fetched in all. Gateways come best
-  service first across routers too, and an answer whose `LOCATION` does not
+  naming a WAN service becomes a gateway, as before; a root device's answer (a
+  TV, a printer) is fetched only when no answer to a WAN service or gateway
+  device search became a gateway, once, and at most `MAX_LOCATIONS` (8)
+  descriptions are fetched in all, each over within `HTTP_WAIT_S` (3 s) from
+  connect to the last byte: that wait bounded each read, so a device that
+  trickled its answer held one fetch for as long as it trickled. Gateways come
+  best service first across routers too, and an answer whose `LOCATION` does not
   parse (a bad port, a broken bracket) is dropped: it raised out of discovery
-  and the hub's ask got no report; a read the socket refuses (an ICMP error
-  some systems hand an unconnected socket) is skipped too. NAT-PMP's gateway
-  lookup stays Linux-only: no Mac or Windows rig names `port_map`, so none is
-  asked.
+  and the hub's ask got no report; a read the socket refuses (an ICMP error some
+  systems hand an unconnected socket) is skipped too. NAT-PMP's gateway lookup
+  stays Linux-only: no Mac or Windows rig names `port_map`, so none is asked.
 
 - **A Mac's GPU is sized from the Metal working set llama.cpp logged, a
   reading, once a native server has started on it.** The native supervisor

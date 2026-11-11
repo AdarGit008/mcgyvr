@@ -10,11 +10,15 @@ a local HTTP server, a conflict and a permanent-only lease read by code.
 Discovery, against devices on a local UDP port, searches for WAN services,
 gateway devices and the root device, each more than once and on each LAN
 interface, within the same wait; a root device (a printer) costs one fetch at
-most and is never a router, and at most eight descriptions are fetched.
+most and is never a router, and at most eight descriptions are fetched, each
+over within its wait however slowly the device answers.
 """
 
 from __future__ import annotations
 
+import contextlib
+import inspect
+import ipaddress
 import socket
 import struct
 import threading
@@ -26,7 +30,7 @@ from typing import Any, ClassVar
 
 import pytest
 
-from mcgyvr.rig import portmap
+from mcgyvr.rig import portmap, tunnel
 
 # --- NAT-PMP ---------------------------------------------------------------------
 
@@ -505,6 +509,98 @@ def test_discovery_listens_no_longer_than_its_wait(lan: list[Lan]) -> None:
     assert WAIT_S <= took < 2 * WAIT_S  # the sends add no wait of their own
 
 
+class Refusing(Ways):
+    """A UDP socket whose first read fails as an ICMP error does on some
+    systems; the datagram that woke it is still there to read."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.refused = False
+
+    def recvfrom(self, size: int, flags: int = 0) -> tuple[bytes, Any]:
+        if not self.refused:
+            self.refused = True
+            raise OSError(111, "Connection refused")
+        return super().recvfrom(size, flags)
+
+
+def test_a_read_the_socket_refuses_is_skipped(lan: list[Lan]) -> None:
+    lan.append(Lan({WAN: [ROUTER]}))
+    sock = Refusing()
+    found = discover(lan[0], Fetch({ROUTER: igd_tree("/ctl")}), sock=sock)
+    assert found == [portmap.Gateway(WAN, "http://127.0.0.1:5000/ctl")]
+    assert sock.refused
+
+
+def test_discovery_searches_on_this_hosts_lan_interfaces_by_default(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    found = (
+        ("eth0", ipaddress.IPv4Interface("192.168.1.20/24")),
+        ("docker0", ipaddress.IPv4Interface("172.17.0.1/16")),  # its own bridge
+    )
+    monkeypatch.setattr(tunnel, "read_interfaces", lambda: found)
+    assert portmap.lan_interfaces() == ("192.168.1.20",)
+    default = inspect.signature(portmap.discover_upnp).parameters["interfaces"]
+    assert default.default is portmap.lan_interfaces
+
+
+def trickling(head: bytes, gap_s: float, for_s: float) -> tuple[int, threading.Event]:
+    """A device on 127.0.0.1 that answers one fetch with ``head`` and then one
+    byte every ``gap_s``, for ``for_s`` at most or until it is told to stop:
+    no single read waits long, the whole answer never ends."""
+    server = socket.socket()
+    server.bind(("127.0.0.1", 0))
+    server.listen(1)
+    server.settimeout(for_s)
+    stop = threading.Event()
+
+    def serve() -> None:
+        with server, contextlib.suppress(OSError):
+            conn, _ = server.accept()
+            with conn:
+                conn.recv(2048)
+                conn.sendall(head)
+                ends = time.monotonic() + for_s
+                while not stop.is_set() and time.monotonic() < ends:
+                    conn.sendall(b"x")
+                    time.sleep(gap_s)
+
+    threading.Thread(target=serve, daemon=True).start()
+    return server.getsockname()[1], stop
+
+
+@pytest.mark.parametrize(
+    "head",
+    [
+        b"HTTP/1.1 200 OK\r\nX-Slow: ",  # in the headers
+        b"HTTP/1.1 200 OK\r\nContent-Length: 65537\r\n\r\n<root>",  # in the body
+    ],
+)
+def test_a_fetch_is_over_within_its_wait_however_slowly_a_device_answers(
+    monkeypatch: pytest.MonkeyPatch, head: bytes
+) -> None:
+    # Each byte comes well within the wait, so only a deadline on the whole
+    # fetch ends it: a wait per read held it for all 5 s the device trickles.
+    monkeypatch.setattr(portmap, "HTTP_WAIT_S", 0.3)
+    port, stop = trickling(head, gap_s=0.05, for_s=5.0)
+    started = time.monotonic()
+    try:
+        with pytest.raises(TimeoutError):  # a failed fetch: an OSError
+            portmap._fetch(f"http://127.0.0.1:{port}/rootDesc.xml")
+        took = time.monotonic() - started
+    finally:
+        stop.set()
+    assert took < 2.0  # 0.3 s and the host's slack; a wait per read took 5 s
+
+
+def test_a_description_that_comes_within_its_wait_is_fetched_whole(
+    igd: portmap.Upnp,
+) -> None:
+    location = igd.address()["control"].replace("/ctl", "/rootDesc.xml")
+    assert portmap._fetch(location) == igd_tree("/ctl")
+
+
 # --- UPnP: SOAP ------------------------------------------------------------------
 
 
@@ -551,6 +647,9 @@ class Igd(BaseHTTPRequestHandler):
             f"<s:Body><u:{action}Response xmlns:u='{WAN}'>{inner}"
             f"</u:{action}Response></s:Body></s:Envelope>",
         )
+
+    def do_GET(self) -> None:
+        self._send(200, igd_tree("/ctl").decode())
 
     def _fault(self, code: int) -> None:
         self._send(
