@@ -546,6 +546,11 @@ def read_tunnel_up(envelope: protocol.Envelope) -> TunnelUp:
             )
         )
     _unique(body, "peers", [peer.rig_id for peer in peers])
+    keys = [peer.public_key for peer in peers]
+    if any(peer.ring is not None and keys.count(peer.public_key) > 1 for peer in peers):
+        # A second peer under one WireGuard key would take over the first's
+        # allowed-ips; an optional ring link may never do that to any peer.
+        raise body.refuse("peers", "a ring peer's public_key is another peer's")
     attempt_s = (
         body.number("attempt_s", 1, MAX_ATTEMPT_S) if body.has("attempt_s") else None
     )

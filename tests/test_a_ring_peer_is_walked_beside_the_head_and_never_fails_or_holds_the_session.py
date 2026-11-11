@@ -428,6 +428,110 @@ def test_the_peer_the_session_needs_failing_the_identity_check_still_refuses_it(
         pool.sessions.close()
 
 
+SECOND_KEY = "D" * 42 + "w="
+
+
+def _second_ring_peer(**changes: Any) -> dict[str, Any]:
+    peer = _ring_peer([{"host": "192.0.2.31", "port": 51820, "kind": "lan"}])
+    peer.update(rig_id="rig-ring-2", public_key=SECOND_KEY)
+    peer["allowed_ips"] = ["198.51.100.4/32"]
+    peer.update(changes)
+    return peer
+
+
+def test_a_ring_peer_under_the_needed_peers_wireguard_key_is_a_bad_message(
+    tmp_path: Path,
+) -> None:
+    # a hub copies the head's key, identity key and signature into a ring entry
+    # under another rig id: the signature holds, but the second `wg set` would
+    # take the head's allowed-ips away
+    pins = identity.Pins(tmp_path / "pins.json")
+    head = _identity()
+    body = _body(_ring_peer())
+    needed, ring = body["peers"]
+    _signed(needed, head)
+    ring["public_key"] = needed["public_key"]
+    ring[hubwire.IDENTITY_KEY_FIELD] = needed[hubwire.IDENTITY_KEY_FIELD]
+    ring[hubwire.SESSION_KEY_SIG_FIELD] = needed[hubwire.SESSION_KEY_SIG_FIELD]
+    pool = make_pool(
+        tmp_path / "pool", ring_links=True, rig_identity=_identity(), pins=pins
+    )
+    try:
+        _prepare(pool)
+        refused = pool.ask("tunnel_up", "t1", **body)
+        assert refused is not None and refused["body"]["code"] == "bad_message"
+        assert "public_key is another peer's" in refused["body"]["message"]
+        pool.settle()
+        assert _scripts(pool, pooled.TUNNEL_SCRIPT) == []
+        assert pins.all() == {}
+    finally:
+        pool.sessions.close()
+
+
+def test_two_ring_peers_under_one_wireguard_key_are_a_bad_message(pool: Pool) -> None:
+    _prepare(pool)
+    body = _body(_ring_peer(), _second_ring_peer(public_key=RING_KEY))
+    refused = pool.ask("tunnel_up", "t1", **body)
+    assert refused is not None and refused["body"]["code"] == "bad_message"
+    pool.settle()
+    assert _scripts(pool, pooled.TUNNEL_SCRIPT) == []
+
+
+def test_ring_peers_under_keys_of_their_own_are_taken(pool: Pool) -> None:
+    _prepare(pool)
+    report = pool.up("t1", **_body(_ring_peer(), _second_ring_peer()))
+    assert _paths(report) == {"rig-peer": "lan", "rig-ring": "lan", "rig-ring-2": "lan"}
+
+
+def test_two_needed_peers_under_one_key_are_read_and_taken_as_they_always_were(
+    tmp_path: Path,
+) -> None:
+    # no ring peer: the duplicate-key refusal is the ring link's alone, and a
+    # head's two workers under one key are what they were before ring_peers
+    body = fakes.tunnel_up_body()
+    twin = dict(body["peers"][0], rig_id="rig-twin", allowed_ips=["198.51.100.5/32"])
+    body["peers"].append(twin)
+    frame = json.dumps({"v": 1, "type": "tunnel_up", "id": "t1", "body": body})
+    read = sessionwire.read_tunnel_up(protocol.decode(frame))
+    assert [p.public_key for p in read.peers] == [fakes.PEER_KEY, fakes.PEER_KEY]
+    pool = make_pool(tmp_path, ring_links=True)
+    try:
+        fakes.prepared(pool, role="head")
+        assert pool.up("t1", **body)["type"] == "tunnel_report"
+        (up,) = _scripts(pool, pooled.TUNNEL_SCRIPT)
+        assert up.count(fakes.PEER_KEY) == 2
+    finally:
+        pool.sessions.close()
+
+
+def test_a_ring_peer_carrying_another_rigs_identity_and_signature_is_left_out(
+    tmp_path: Path,
+) -> None:
+    # the same copy with a WireGuard key of its own: the signature covers the
+    # session and the WireGuard key, so it does not hold for the ring entry's
+    pins = identity.Pins(tmp_path / "pins.json")
+    head = _identity()
+    body = _body(_ring_peer())
+    needed, ring = body["peers"]
+    _signed(needed, head)
+    ring[hubwire.IDENTITY_KEY_FIELD] = needed[hubwire.IDENTITY_KEY_FIELD]
+    ring[hubwire.SESSION_KEY_SIG_FIELD] = needed[hubwire.SESSION_KEY_SIG_FIELD]
+    pool = make_pool(
+        tmp_path / "pool", ring_links=True, rig_identity=_identity(), pins=pins
+    )
+    try:
+        _prepare(pool)
+        report = pool.up("t1", **body)
+        assert _paths(report) == {"rig-peer": "lan", "rig-ring": "none"}
+        (up,) = _scripts(pool, pooled.TUNNEL_SCRIPT)
+        assert RING_KEY not in up
+        (left,) = [line for line in pool.logged if "left out of the tunnel" in line]
+        assert "ring peer rig-ring" in left and "not signed" in left
+        assert pins.all() == {"rig-peer": head.public_key}
+    finally:
+        pool.sessions.close()
+
+
 def test_a_ring_peer_taken_pins_nothing_and_the_peer_the_session_needs_is_pinned(
     tmp_path: Path,
 ) -> None:
