@@ -1961,8 +1961,10 @@ HEAD_UBATCH = 512
 # layers, recurrent state, a sequence's padded cells), so the hub need not
 # re-derive a cache from a flattened shape. It answers on a grid: per context a
 # slot and per slot count, what the model's caches and recurrent state take
-# across all its layers, at the head's cache type and micro-batch. The hub
-# picks among the answers; a card of a split holds its layers' share.
+# across all its layers, at the head's cache type and micro-batch, and the most
+# any run of consecutive blocks holds above its even share of that. The hub
+# picks among the answers; a card of a split holds its blocks' even share and,
+# since its blocks are one run, that excess at most beside it.
 
 #: The ModelInfo field a rig's answers travel in (:class:`CacheFit`); an agent
 #: from before it, or one that could not size the model, sends none.
@@ -1996,17 +1998,23 @@ class CacheFit:
     """A rig's answers for one model: ``cache_mib[i][j]`` is the MiB (rounded
     up) its KV caches and recurrent state take, across all its layers, at
     ``ctx[i]`` of context per slot over ``slots[j]`` slots, at
-    :data:`HEAD_KV_CACHE_TYPE` and :data:`HEAD_UBATCH`. Both axes rise; the
-    rig answers on :data:`FIT_CTX` and :data:`FIT_SLOTS`, and a reader takes
-    whatever axes it is sent."""
+    :data:`HEAD_KV_CACHE_TYPE` and :data:`HEAD_UBATCH`. ``excess_mib[i][j]``
+    is, at the same point, the most any run of consecutive blocks holds above
+    its even share of that (``cache_mib`` over the layers, a block each): 0 when
+    every block costs the same, about a full-attention layer's cache above the
+    average when most layers slide. A card of a layer split holds one run of
+    blocks, so its share plus the excess holds them whatever the layer pattern.
+    Both axes rise; the rig answers on :data:`FIT_CTX` and :data:`FIT_SLOTS`,
+    and a reader takes whatever axes it is sent."""
 
     slots: tuple[int, ...]
     ctx: tuple[int, ...]
     cache_mib: tuple[tuple[int, ...], ...]
+    excess_mib: tuple[tuple[int, ...], ...]
 
     @functools.cached_property
     def _hash(self) -> int:
-        return hash((self.slots, self.ctx, self.cache_mib))
+        return hash((self.slots, self.ctx, self.cache_mib, self.excess_mib))
 
     def __hash__(self) -> int:
         # a planner keys its caches by a model's figures, these among them:
@@ -2018,34 +2026,42 @@ class CacheFit:
         within their limits and there is one answer per context and slot count."""
         _rising(self.slots, 1, MAX_SLOTS, MAX_FIT_SLOT_COUNTS, "cache_fit.slots")
         _rising(self.ctx, 1, MAX_CTX, MAX_FIT_CONTEXTS, "cache_fit.ctx")
-        rows = self.cache_mib
-        _need(
-            type(rows) is tuple
-            and len(rows) == len(self.ctx)
-            and all(
-                type(row) is tuple
-                and len(row) == len(self.slots)
-                and all(_is_int(v) and 0 <= v <= MAX_FIT_CACHE_MIB for v in row)
-                for row in rows
-            ),
-            "cache_fit.cache_mib",
-            f"not one row per context of one answer per slot count, each 0 to "
-            f"{MAX_FIT_CACHE_MIB}",
-        )
+        for field in ("cache_mib", "excess_mib"):
+            rows = getattr(self, field)
+            _need(
+                type(rows) is tuple
+                and len(rows) == len(self.ctx)
+                and all(
+                    type(row) is tuple
+                    and len(row) == len(self.slots)
+                    and all(_is_int(v) and 0 <= v <= MAX_FIT_CACHE_MIB for v in row)
+                    for row in rows
+                ),
+                f"cache_fit.{field}",
+                f"not one row per context of one answer per slot count, each 0 to "
+                f"{MAX_FIT_CACHE_MIB}",
+            )
 
-    def cache_bytes_at(self, ctx: int, slots: int) -> int | None:
-        """The bytes the caches take at ``ctx`` per slot over ``slots`` slots:
-        the cheapest answer at or above both, which holds them since neither
+    def at(self, ctx: int, slots: int) -> tuple[int, int] | None:
+        """The bytes the caches take at ``ctx`` per slot over ``slots`` slots,
+        and the excess a run of blocks holds beyond its share, both from the
+        cheapest answer at or above both, which holds them since neither
         context nor slots shrinks a cache. None when no answer reaches them."""
         first = next((j for j, s in enumerate(self.slots) if s >= slots), None)
         if first is None:
             return None
         found = [
-            min(row[first:])
-            for c, row in zip(self.ctx, self.cache_mib, strict=True)
+            (total, excess)
+            for c, totals, excesses in zip(
+                self.ctx, self.cache_mib, self.excess_mib, strict=True
+            )
             if c >= ctx
+            for total, excess in zip(totals[first:], excesses[first:], strict=True)
         ]
-        return min(found) * BYTES_PER_MIB if found else None
+        if not found:
+            return None
+        total, excess = min(found)
+        return total * BYTES_PER_MIB, excess * BYTES_PER_MIB
 
     def body(self) -> dict[str, list[Any]]:
         """The answers as the wire carries them."""
@@ -2053,6 +2069,7 @@ class CacheFit:
             "slots": list(self.slots),
             "ctx": list(self.ctx),
             "cache_mib": [list(row) for row in self.cache_mib],
+            "excess_mib": [list(row) for row in self.excess_mib],
         }
 
 

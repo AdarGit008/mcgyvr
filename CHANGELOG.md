@@ -20,10 +20,15 @@ archived outside this repository, under the same paths.
   to 1048576, doubling, up to the model's trained context, and that context
   padded) over each slot count of `hubwire.FIT_SLOTS` (1, 2, 4, 8, 16), sized by
   `vramfit.kv_bytes` and `vramfit.rs_bytes` at the head's cache type and
-  micro-batch (`rig.inventory.cache_fit`). The field is optional: a model that
-  cannot be sized is sent without it, and so is every model of a hello the
-  answers would make larger than one message (the most models a hello names,
-  with every answer, fit). The published schema gains the `CacheFit` shape.
+  micro-batch (`rig.inventory.cache_fit`), and beside each the most a run of
+  consecutive blocks holds above its even share (`excess_mib`, from each
+  block's own cache row and recurrent state). A card of a layer split holds
+  one run, so the hub charges it its blocks' share plus that excess, never more
+  than the whole answer. The field is optional: a model that cannot be sized is
+  sent without it, and so is every model of a hello the answers would make
+  larger than one message, which the agent then says in one line (64 models of
+  long names and a full weight cache, answered to a 262144-token context, fit).
+  The published schema gains the `CacheFit` shape.
 
 - **The head is started with a named micro-batch, `-ub 512`, and the hub prices
   it at the same flags (I-17c).** The head's cache type and micro-batch are

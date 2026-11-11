@@ -14,6 +14,7 @@ before. Every geometry here is invented.
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import math
 from pathlib import Path
@@ -53,13 +54,14 @@ SLIDING: dict[str, Any] = {
     "sliding_window": 1024,
     "kv_layers": _layers(48, swa={i for i in range(48) if i % 6 != 5}),
 }
-# Three of every four blocks are recurrent: only the attention ones cache.
+# Three of every four blocks are recurrent: only every fourth one caches.
 RECURRENT: dict[str, Any] = {
     "arch": "qwen3next",
     "n_layer": 48,
     "n_ctx_train": 262144,
-    "kv_layers": _layers(12),
+    "kv_layers": [{**r, "layer": 4 * r["layer"] + 3} for r in _layers(12)],
     "n_recurrent": 36,
+    "recurrent_blocks": [b for b in range(48) if b % 4 != 3],
     "ssm_inner_size": 4096,
     "ssm_state_size": 128,
     "ssm_conv_kernel": 4,
@@ -80,6 +82,26 @@ def _expected(row: dict[str, Any], ctx: int, slots: int) -> int:
     return math.ceil((cache + state) / MIB)
 
 
+def _block_costs(row: dict[str, Any], ctx: int, slots: int) -> list[int]:
+    """What each block holds at the point, priced one block at a time."""
+    costs = [0] * row["n_layer"]
+    for layer in row["kv_layers"]:
+        costs[layer["layer"]] += vramfit.kv_bytes(
+            row,
+            ctx * slots,
+            n_seq_max=slots,
+            n_ubatch=hubwire.HEAD_UBATCH,
+            cache_type_k=hubwire.HEAD_KV_CACHE_TYPE,
+            cache_type_v=hubwire.HEAD_KV_CACHE_TYPE,
+            layers=[layer],
+        )["total"]
+    for block in row.get("recurrent_blocks", ()):
+        costs[block] += vramfit.rs_bytes(
+            row, n_seq_max=slots, recurrent_layers_on_device=1
+        )["total"]
+    return costs
+
+
 @pytest.mark.parametrize("row", [DENSE, SLIDING, RECURRENT], ids=lambda r: r["arch"])
 def test_each_answer_is_the_products_own_sizing_on_the_wires_grid(
     row: dict[str, Any],
@@ -97,6 +119,33 @@ def test_each_answer_is_the_products_own_sizing_on_the_wires_grid(
     fit.validate()
 
 
+@pytest.mark.parametrize("row", [DENSE, SLIDING, RECURRENT], ids=lambda r: r["arch"])
+def test_no_run_of_blocks_holds_more_than_its_share_and_the_answered_excess(
+    row: dict[str, Any],
+) -> None:
+    """A card of a layer split holds one run of blocks. Every run, priced block
+    by block, is within its even share of the answer plus the excess the rig
+    answered beside it; a model of blocks alike has none."""
+    fit = inventory.cache_fit(row)
+    assert fit is not None
+    n = row["n_layer"]
+    for ctx, slots in ((8192, 1), (32768, 4), (fit.ctx[-1], 16)):
+        answer = fit.at(ctx, slots)
+        assert answer is not None
+        total, excess = answer
+        costs = _block_costs(row, ctx, slots)
+        worst = max(
+            sum(costs[i:j]) - (j - i) * total / n
+            for i in range(n)
+            for j in range(i + 1, n + 1)
+        )
+        assert worst <= excess, (ctx, slots, worst / MIB, excess / MIB)
+        if row is DENSE:
+            assert excess == 0
+        else:
+            assert excess > 0
+
+
 def test_a_sliding_model_is_answered_below_flat_and_a_recurrent_one_above() -> None:
     """The flat figure (every caching layer at the full context, nothing else)
     is what a hub planned on before the answers: too much for a model whose
@@ -110,11 +159,11 @@ def test_a_sliding_model_is_answered_below_flat_and_a_recurrent_one_above() -> N
     sliding, recurrent = inventory.cache_fit(SLIDING), inventory.cache_fit(RECURRENT)
     assert sliding is not None and recurrent is not None
     # five layers in six hold a window, so well under a quarter of the flat figure
-    held = sliding.cache_bytes_at(65536, 4)
-    assert held is not None and held / MIB < flat_mib(SLIDING, 65536, 4) / 4
+    held = sliding.at(65536, 4)
+    assert held is not None and held[0] / MIB < flat_mib(SLIDING, 65536, 4) / 4
     # the recurrent blocks' state comes on top of the attention layers' cache
-    held = recurrent.cache_bytes_at(8192, 4)
-    assert held is not None and held / MIB > flat_mib(RECURRENT, 8192, 4)
+    held = recurrent.at(8192, 4)
+    assert held is not None and held[0] / MIB > flat_mib(RECURRENT, 8192, 4)
 
 
 def test_a_model_of_no_trained_context_is_answered_up_to_the_wires_most() -> None:
@@ -129,7 +178,7 @@ def test_a_trained_context_off_the_grid_is_answered_padded_as_the_engine_pads_it
     fit = inventory.cache_fit({**DENSE, "n_ctx_train": 40000})
     assert fit is not None
     assert fit.ctx[-1] == hubwire.context_per_sequence(40000, 1) == 40192
-    assert fit.cache_bytes_at(40000, 1) == fit.cache_mib[-1][0] * MIB
+    assert fit.at(40000, 1) == (fit.cache_mib[-1][0] * MIB, 0)
 
 
 @pytest.mark.parametrize(
@@ -139,9 +188,18 @@ def test_a_trained_context_off_the_grid_is_answered_padded_as_the_engine_pads_it
         {k: v for k, v in DENSE.items() if k != "kv_layers"},
         {**SLIDING, "kv_layers": [{**r, "is_swa": None} for r in SLIDING["kv_layers"]]},
         {**RECURRENT, "ssm_state_size": None},
+        {k: v for k, v in RECURRENT.items() if k != "recurrent_blocks"}
+        | {"n_layer": 60},
         {**DENSE, "kv_layers": [{"layer": 0, "k_elems": "x", "v_elems": 1}]},
     ],
-    ids=["no-layers", "no-rows", "unknown-split", "no-state-size", "bad-widths"],
+    ids=[
+        "no-layers",
+        "no-rows",
+        "unknown-split",
+        "no-state-size",
+        "recurrent-unplaced",
+        "bad-widths",
+    ],
 )
 def test_a_model_that_cannot_be_sized_is_answered_nothing(row: dict[str, Any]) -> None:
     assert inventory.cache_fit(row) is None
@@ -149,28 +207,42 @@ def test_a_model_that_cannot_be_sized_is_answered_nothing(row: dict[str, Any]) -
 
 def test_the_cheapest_answer_at_or_above_is_picked_and_none_beyond_the_last() -> None:
     fit = hubwire.CacheFit(
-        slots=(1, 2, 4), ctx=(2048, 4096), cache_mib=((1, 2, 4), (2, 4, 8))
+        slots=(1, 2, 4),
+        ctx=(2048, 4096),
+        cache_mib=((1, 2, 4), (2, 4, 8)),
+        excess_mib=((0, 1, 2), (1, 2, 3)),
     )
-    assert fit.cache_bytes_at(2048, 1) == 1 * MIB
-    assert fit.cache_bytes_at(3000, 3) == 8 * MIB  # 4096 x 4, both rounded up
-    assert fit.cache_bytes_at(1, 2) == 2 * MIB
-    assert fit.cache_bytes_at(4097, 1) is None
-    assert fit.cache_bytes_at(2048, 5) is None
+    assert fit.at(2048, 1) == (1 * MIB, 0)
+    assert fit.at(3000, 3) == (8 * MIB, 3 * MIB)  # 4096 x 4, both rounded up
+    assert fit.at(1, 2) == (2 * MIB, 1 * MIB)
+    assert fit.at(4097, 1) is None
+    assert fit.at(2048, 5) is None
+
+
+def _fit(
+    slots: tuple[int, ...],
+    ctx: tuple[int, ...],
+    cache: tuple[tuple[int, ...], ...],
+    excess: tuple[tuple[int, ...], ...] | None = None,
+) -> hubwire.CacheFit:
+    """Answers of these axes, the excess 0 beside each unless named."""
+    if excess is None:
+        excess = tuple(tuple(0 for _ in row) for row in cache)
+    return hubwire.CacheFit(slots=slots, ctx=ctx, cache_mib=cache, excess_mib=excess)
 
 
 @pytest.mark.parametrize(
     ("fit", "field"),
     [
-        (hubwire.CacheFit(slots=(2, 1), ctx=(2048,), cache_mib=((1, 2),)), "slots"),
-        (hubwire.CacheFit(slots=(1,), ctx=(4096, 2048), cache_mib=((1,), (2,))), "ctx"),
-        (hubwire.CacheFit(slots=(17,), ctx=(2048,), cache_mib=((1,),)), "slots"),
-        (hubwire.CacheFit(slots=(1,), ctx=(2048,), cache_mib=((1, 2),)), "cache_mib"),
-        (
-            hubwire.CacheFit(slots=(1,), ctx=(2048, 4096), cache_mib=((1,),)),
-            "cache_mib",
-        ),
-        (hubwire.CacheFit(slots=(1,), ctx=(2048,), cache_mib=((-1,),)), "cache_mib"),
-        (hubwire.CacheFit(slots=(), ctx=(2048,), cache_mib=((),)), "slots"),
+        (_fit((2, 1), (2048,), ((1, 2),)), "slots"),
+        (_fit((1,), (4096, 2048), ((1,), (2,))), "ctx"),
+        (_fit((17,), (2048,), ((1,),)), "slots"),
+        (_fit((1,), (2048,), ((1, 2),)), "cache_mib"),
+        (_fit((1,), (2048, 4096), ((1,),)), "cache_mib"),
+        (_fit((1,), (2048,), ((-1,),)), "cache_mib"),
+        (_fit((), (2048,), ((),)), "slots"),
+        (_fit((1,), (2048,), ((1,),), excess=((1, 1),)), "excess_mib"),
+        (_fit((1,), (2048,), ((1,),), excess=((-1,),)), "excess_mib"),
     ],
 )
 def test_answers_off_their_shape_are_refused_naming_the_field(
@@ -217,7 +289,8 @@ def test_the_hello_carries_the_answers_as_the_published_schema_says() -> None:
     assert shape["slots"]["items"]["maximum"] == hubwire.MAX_SLOTS
     assert shape["ctx"]["maxItems"] == hubwire.MAX_FIT_CONTEXTS
     assert shape["ctx"]["items"]["maximum"] == hubwire.MAX_CTX
-    assert shape["cache_mib"]["items"]["items"]["maximum"] == hubwire.MAX_FIT_CACHE_MIB
+    for field in ("cache_mib", "excess_mib"):
+        assert shape[field]["items"]["items"]["maximum"] == hubwire.MAX_FIT_CACHE_MIB
     bare = json.loads(_hello((p.ModelInfo(name="m.gguf", size_bytes=1),)))
     assert hubwire.CACHE_FIT_FIELD not in bare["body"]["models"][0]
 
@@ -244,19 +317,29 @@ def _most_models(fit: hubwire.CacheFit) -> tuple[p.ModelInfo, ...]:
 
 
 def test_the_most_models_a_hello_names_each_carry_their_answers() -> None:
-    """Every context of the grid (no trained context to stop at) and a cache
-    larger than any shipped model's: the hello still fits one message."""
-    fit = inventory.cache_fit({**DENSE, "n_ctx_train": None, "kv_layers": _layers(512)})
-    assert fit is not None and len(fit.ctx) == len(hubwire.FIT_CTX)
-    text = _hello(_most_models(fit))
+    """The most models a hello names, each of 64-character names and the
+    largest header figures, beside a full weight cache, each answered up to a
+    262144-token trained context with a non-zero excess: the hello still fits
+    one message and every model keeps its answers."""
+    fit = inventory.cache_fit({**SLIDING, "n_ctx_train": 262144})
+    assert fit is not None and any(any(row) for row in fit.excess_mib)
+    models = tuple(
+        dataclasses.replace(m, name=f"{i:03d}" + "m" * 56 + ".gguf")
+        for i, m in enumerate(_most_models(fit))
+    )
+    digests = tuple(f"sha256:{i:064x}" for i in range(p.MAX_MODELS))
+    text = _hello(models, weight_cache=digests)
     assert len(text.encode()) <= p.MAX_MESSAGE_BYTES
     said = json.loads(text)["body"]["models"]
     assert all(m[hubwire.CACHE_FIT_FIELD] == fit.body() for m in said)
 
 
-def test_a_hello_the_answers_would_make_too_large_goes_without_them() -> None:
+def test_a_hello_the_answers_would_make_too_large_goes_without_them(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
     """Answers of the widest figures beside a full weight cache would pass the
-    message limit: the hello goes with every model and none of the answers."""
+    message limit: the hello goes with every model and none of the answers, and
+    the agent says so in one line."""
     widest = _layers(4096, k=8192, v=8192)
     fit = inventory.cache_fit({**DENSE, "n_ctx_train": None, "kv_layers": widest})
     assert fit is not None
@@ -266,6 +349,9 @@ def test_a_hello_the_answers_would_make_too_large_goes_without_them() -> None:
     said = json.loads(text)["body"]["models"]
     assert len(said) == p.MAX_MODELS
     assert all(hubwire.CACHE_FIT_FIELD not in m for m in said)
+    (line,) = capsys.readouterr().err.splitlines()
+    assert f"cache answers of {p.MAX_MODELS} model(s)" in line
+    assert "flat figures" in line
 
 
 def test_a_files_scanned_header_reaches_the_hello_with_its_answers(

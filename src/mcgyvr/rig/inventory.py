@@ -74,6 +74,41 @@ def kv_bytes_per_token(row: Mapping[str, Any], kv_type: str) -> int | None:
     return total if 1 <= total <= protocol.MAX_KV_BYTES_PER_TOKEN else None
 
 
+def _blocks(row: Mapping[str, Any]) -> tuple[int, list[int]] | None:
+    """The model's block count and its recurrent blocks: those the scan names
+    (``recurrent_blocks``), else the blocks no caching row names when they are
+    as many as it counts. None when the recurrent blocks cannot be placed."""
+    layers: list[dict[str, Any]] = row["kv_layers"]
+    caching = {int(layer["layer"]) for layer in layers}
+    count = _count(row, "n_layer", protocol.MAX_LAYERS)
+    blocks = max(count or 0, max(caching) + 1)
+    recurrent = row.get("recurrent_blocks")
+    n_recurrent = row.get("n_recurrent") or 0
+    if isinstance(recurrent, list) and len(recurrent) == n_recurrent:
+        found = [int(b) for b in recurrent]
+    else:
+        found = [b for b in range(blocks) if b not in caching]
+        if len(found) != n_recurrent:
+            return None
+    if any(not 0 <= b < blocks for b in found):
+        return None
+    return blocks, found
+
+
+def _run_excess(costs: list[int], total: int) -> int:
+    """The most any run of consecutive ``costs`` holds above its even share of
+    ``total`` (``total`` over the blocks, a block each), in bytes: the largest
+    sum of ``cost - share`` over a run, 0 when none is above. Each block's cost
+    and the total are rounded down apart, so up to a byte a block of the sum is
+    rounding, not excess."""
+    share = total / len(costs)
+    best = run = 0.0
+    for cost in costs:
+        run = max(0.0, run + cost - share)
+        best = max(best, run)
+    return max(0, math.ceil(best) - len(costs))
+
+
 def cache_fit(row: Mapping[str, Any]) -> hubwire.CacheFit | None:
     """What the model's caches and recurrent state take on the grid a hub plans
     on, by the product's own sizing (``vramfit.kv_bytes`` and
@@ -82,9 +117,12 @@ def cache_fit(row: Mapping[str, Any]) -> hubwire.CacheFit | None:
     Answered for every slot count of :data:`hubwire.FIT_SLOTS` and every context
     of :data:`hubwire.FIT_CTX` up to the model's trained context, and at that
     context too (padded as the engine pads it), so a hub can plan any context
-    the model takes. None when the row cannot be sized -- no caching layers, a
-    sliding split the header leaves unknown, recurrent blocks of no stated size
-    -- and the hub then sizes the model from its flat figures.
+    the model takes. Beside each total, the most a run of consecutive blocks
+    holds above its even share of it (:class:`hubwire.CacheFit`), from each
+    block's own cache row and recurrent state, which a card of a layer split
+    holds. None when the row cannot be sized -- no caching layers, a sliding
+    split the header leaves unknown, recurrent blocks of no stated size or
+    place -- and the hub then sizes the model from its flat figures.
     """
     layers = row.get("kv_layers")
     if not isinstance(layers, list) or not layers:
@@ -97,26 +135,60 @@ def cache_fit(row: Mapping[str, Any]) -> hubwire.CacheFit | None:
     grid = {c for c in hubwire.FIT_CTX if c <= top}
     contexts = sorted(grid | {hubwire.context_per_sequence(top, 1)})
     kv_type = pooled.KV_CACHE_TYPE
-    rows: list[tuple[int, ...]] = []
+
+    def cache(n_ctx: int, slots: int, rows: list[dict[str, Any]] | None) -> int:
+        return vramfit.kv_bytes(
+            geometry,
+            n_ctx,
+            n_seq_max=slots,
+            n_ubatch=pooled.HEAD_UBATCH,
+            cache_type_k=kv_type,
+            cache_type_v=kv_type,
+            layers=rows,
+        )["total"]
+
+    totals: list[tuple[int, ...]] = []
+    excesses: list[tuple[int, ...]] = []
     try:
+        placed = _blocks(row)
+        if placed is None:
+            return None
+        blocks, recurrent = placed
+        # blocks whose caches are alike cost alike: each kind priced once
+        kinds: dict[int, tuple[Any, ...]] = {}
+        examples: dict[tuple[Any, ...], dict[str, Any]] = {}
+        for layer in layers:
+            kind = (layer.get("is_swa"), layer["k_elems"], layer["v_elems"])
+            kinds[int(layer["layer"])] = kind
+            examples.setdefault(kind, layer)
         for ctx in contexts:
-            answers = []
+            row_totals, row_excess = [], []
             for slots in hubwire.FIT_SLOTS:
-                cache = vramfit.kv_bytes(
-                    geometry,
-                    ctx * slots,
-                    n_seq_max=slots,
-                    n_ubatch=pooled.HEAD_UBATCH,
-                    cache_type_k=kv_type,
-                    cache_type_v=kv_type,
-                )["total"]
-                state = vramfit.rs_bytes(geometry, n_seq_max=slots)["total"]
-                answers.append(-(-(cache + state) // hubwire.BYTES_PER_MIB))
-            rows.append(tuple(answers))
+                n_ctx = ctx * slots
+                whole = cache(n_ctx, slots, None)
+                whole += vramfit.rs_bytes(geometry, n_seq_max=slots)["total"]
+                priced = {k: cache(n_ctx, slots, [r]) for k, r in examples.items()}
+                costs = [0] * blocks
+                for block, kind in kinds.items():
+                    costs[block] += priced[kind]
+                if recurrent:
+                    state = vramfit.rs_bytes(
+                        geometry, n_seq_max=slots, recurrent_layers_on_device=1
+                    )["total"]
+                    for block in recurrent:
+                        costs[block] += state
+                excess = _run_excess(costs, whole)
+                row_totals.append(-(-whole // hubwire.BYTES_PER_MIB))
+                row_excess.append(-(-excess // hubwire.BYTES_PER_MIB))
+            totals.append(tuple(row_totals))
+            excesses.append(tuple(row_excess))
     except (KeyError, TypeError, ValueError):
         return None
     fit = hubwire.CacheFit(
-        slots=hubwire.FIT_SLOTS, ctx=tuple(contexts), cache_mib=tuple(rows)
+        slots=hubwire.FIT_SLOTS,
+        ctx=tuple(contexts),
+        cache_mib=tuple(totals),
+        excess_mib=tuple(excesses),
     )
     try:
         fit.validate()
