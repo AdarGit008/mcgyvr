@@ -482,7 +482,7 @@ def test_every_declared_source_is_covered_not_only_the_laddered_ones() -> None:
         assert capacity.in_flight("spare") == 1
 
 
-ORCHESTRATOR = """\
+PROPOSER = """\
 users: 4
 deployment: local-only
 units:
@@ -492,16 +492,16 @@ units:
     rig: local
 ladder:
 - orch
-orchestrator:
+proposer:
   unit: orch
   model: qwen2.5-coder:7b
 """
 
 
-def test_the_local_orchestrator_reserves_one_slot_for_the_role() -> None:
-    """The serving plan runs the orchestrator unit at `users` slots, and one
+def test_the_local_proposer_reserves_one_slot_for_the_role() -> None:
+    """The serving plan runs the proposer unit at `users` slots, and one
     of them stays the orchestration role's: the ladder sees `users - 1`."""
-    capacity = Capacity.of(parse(ORCHESTRATOR))
+    capacity = Capacity.of(parse(PROPOSER))
 
     assert capacity.limits["orch"] == 3
     assert capacity.limit("orch") == 3
@@ -510,22 +510,22 @@ def test_the_local_orchestrator_reserves_one_slot_for_the_role() -> None:
     assert capacity.total == 4
 
 
-def test_the_orchestrators_endpoint_agrees_with_its_reserved_capacity() -> None:
+def test_the_proposers_endpoint_agrees_with_its_reserved_capacity() -> None:
     """`hold` checks an endpoint against the declaration it was built with,
     so the role's endpoint must carry the served width, not the one slot the
     role is bounded to."""
-    pool = unit_map(parse(ORCHESTRATOR))
-    role = pool.role("orchestrator")
+    pool = unit_map(parse(PROPOSER))
+    role = pool.role("proposer")
 
     assert role is not None
     assert role.endpoint.max_parallel == 4
 
 
-def test_a_hybrid_or_chat_setup_reserves_no_orchestrator_slot() -> None:
+def test_a_hybrid_or_chat_setup_reserves_no_proposer_slot() -> None:
     """The rule is in one place: hybrid and chat provision nothing, so a bound
-    local orchestrator unit is an ordinary ladder rung with no reserved slot."""
-    hybrid = ORCHESTRATOR.replace("deployment: local-only", "deployment: hybrid")
-    chat = ORCHESTRATOR.replace(
+    local proposer unit is an ordinary ladder rung with no reserved slot."""
+    hybrid = PROPOSER.replace("deployment: local-only", "deployment: hybrid")
+    chat = PROPOSER.replace(
         "deployment: local-only",
         "deployment: local-only\nuse_case: chat",
     )
@@ -538,7 +538,7 @@ def test_a_hybrid_or_chat_setup_reserves_no_orchestrator_slot() -> None:
 RIDE = "hitchhike-0f3c9a1e2b4d4c6f8a0b1c2d3e4f5a6b"
 
 PROPOSER_WITH_HITCHHIKE = f"""\
-{ORCHESTRATOR}hitchhike:
+{PROPOSER}hitchhike:
   {RIDE}:
     address: http://hub.example/v1
     model: hitchhike@0f3c9a1e2b4d4c6f8a0b1c2d3e4f5a6b

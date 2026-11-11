@@ -1,4 +1,4 @@
-"""Attach the orchestrator to a git repository.
+"""Attach mcgyvr to a git repository.
 
 ``attach`` resolves a caller-supplied source — a local checkout or a clonable
 URL — into an :class:`AttachedRepo`, which records the repository root, the
@@ -49,7 +49,7 @@ class AttachError(Exception):
 
 @dataclass(frozen=True)
 class AttachedRepo:
-    """A repository the orchestrator has attached to, together with the
+    """A repository mcgyvr has attached to, together with the
     revision and working-tree state it started from. Frozen: an instance
     describes a moment rather than a live handle."""
 
@@ -167,7 +167,7 @@ def _attach_local(path: Path, source: str) -> AttachedRepo:
         "rev-parse",
         "--show-toplevel",
         on_error=(
-            f"{source!r} is not a git repository: the orchestrator needs a "
+            f"{source!r} is not a git repository: mcgyvr needs a "
             "starting revision, so a local path must be a git checkout"
         ),
     ).strip()

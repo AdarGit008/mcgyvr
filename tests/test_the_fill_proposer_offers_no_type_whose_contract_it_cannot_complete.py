@@ -21,7 +21,7 @@ from mcgyvr.catalog import TaskType
 from mcgyvr.catalog import catalog as load_catalog
 from mcgyvr.decision import Choice, ChoiceAnswer, Decision, Question
 from mcgyvr.decompose.decompose import Evidence
-from mcgyvr.delegate import ClassifierProposer
+from mcgyvr.delegate import FillProposer
 from mcgyvr.repo.index import build_index
 from mcgyvr.repo.read import explore
 from mcgyvr.repo.resolve import resolve
@@ -87,7 +87,7 @@ def test_code_is_offered_alongside_the_other_types(tmp_path: Path) -> None:
     # A kind that judges no change, invented since the shipped catalog has
     # none (tests/ungated.py).
     evidence = _evidence(tmp_path, (ungated.ungated(), *_types("code")))
-    proposals = ClassifierProposer(classify=classify)(evidence)
+    proposals = FillProposer(classify=classify)(evidence)
     kind = seen[0]["task_type"]
     assert isinstance(kind, Choice)
     assert list(kind.options) == ["task_type:0", "task_type:1"]
@@ -100,7 +100,7 @@ def test_an_empty_vocabulary_is_a_refusal_not_a_contract(tmp_path: Path) -> None
     """No types on offer means nothing to ask; no token is spent."""
     seen, classify = _answering({})
     evidence = _evidence(tmp_path, ())
-    assert ClassifierProposer(classify=classify)(evidence) == ()
+    assert FillProposer(classify=classify)(evidence) == ()
     assert seen == []  # nothing to ask; no token spent
 
 
@@ -113,5 +113,5 @@ def test_the_state_names_only_what_is_offered(tmp_path: Path) -> None:
         return inner(state, questions)
 
     evidence = _evidence(tmp_path, _types("code"))
-    ClassifierProposer(classify=classify)(evidence)
+    FillProposer(classify=classify)(evidence)
     assert captured[0]["task_types"] == ["code"]

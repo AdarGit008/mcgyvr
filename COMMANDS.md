@@ -3,10 +3,10 @@
 # mcgyvr commands
 
 Every verb and flag the `mcgyvr` parser defines, listed from the parser itself; `mcgyvr VERB -h` prints
-the same help. The bare verb, `mcgyvr PROMPT [flags]`, plans a prompt and runs it with `direct`'s flags.
-Where a flag's help says *the usual setup*, that is $MCGYVR_CONFIG, else the live fleet folder under
-$MCGYVR_HOME/fleets (default ~/.mcgyvr/fleets) that $MCGYVR_HOME/live.json (default ~/.mcgyvr/live.json)
-names — a directory holding fleet.yaml and policy.yaml.
+the same help. The bare verb, `mcgyvr PROMPT [flags]` (delegate), decomposes a prompt into contracts and
+runs them with `direct`'s flags. Where a flag's help says *the usual setup*, that is $MCGYVR_CONFIG, else
+the live fleet folder under $MCGYVR_HOME/fleets (default ~/.mcgyvr/fleets) that $MCGYVR_HOME/live.json
+(default ~/.mcgyvr/live.json) names — a directory holding fleet.yaml and policy.yaml.
 
 - `mcgyvr` — Offload scoped coding work to a configurable worker ladder.
   - `--version` — the product version, and the path of the config a run here would use.
@@ -82,10 +82,10 @@ names — a directory holding fleet.yaml and policy.yaml.
     writing the default ladder. The decision runs on the first detected backend; every number in the file
     stays measured or the schema's, never the model's.
   - `--use-case USE_CASE` — which use case this install serves: mcgyvr-code (mcgyvr between the model and
-    you: the gate, repair, reviewer, ladder and the rest, each switchable), or code, chat or agent (the
+    you: the gate, repair, verifier, ladder and the rest, each switchable), or code, chat or agent (the
     model served raw); default: mcgyvr-code.
-  - `--deployment MODEL` — how mcgyvr is run: hybrid (an API-tier orchestrator drives it) or local-only
-    (mcgyvr is the backend and provisions a local orchestrator for mcgyvr-code); default: hybrid.
+  - `--deployment MODEL` — how mcgyvr is run: hybrid (an API-tier session agent drives it) or local-only
+    (mcgyvr is the backend and provisions a local proposer for mcgyvr-code); default: hybrid.
   - `--jev UNIT` — dedicate VRAM to a Jev unit: the written unit every typed decision asks, never slept
     or woken (an opt-in; no model is picked for you).
   - `--accept-unsampled` — lock the fleet setup binds approved on no evidence, and name it live: setup
@@ -188,12 +188,12 @@ names — a directory holding fleet.yaml and policy.yaml.
   - `--repo PATH` — the repository to work against: a local git checkout, or a URL to clone
     (https/git/file) (default: .).
   - `--config PATH` — config that binds the ladder the contracts climb and, for a prompt, the proposer
-    that plans it (default: the usual setup).
+    that decomposes it (default: the usual setup).
   - `--into DIR` — clone a URL repo into DIR and keep it, instead of a temp dir.
   - `--budget TOKENS` — cap the deterministic read of the prompt at TOKENS estimated tokens before the
     proposer is asked (default: the decompose default). No meaning under `direct`, which reads no prompt:
     refused there.
-  - `--output DIR` — stop once the contracts are planned: write each one that passed vetting to
+  - `--output DIR` — stop once the contracts are decomposed: write each one that passed vetting to
     DIR/<id>.json and run none of them, so `mcgyvr direct DIR` can run them later. Without it a prompt's
     contracts are printed on stdout and run from a temporary directory, and `direct` runs its files where
     they are.
@@ -208,7 +208,7 @@ names — a directory holding fleet.yaml and policy.yaml.
     `delivery.commit` says.
   - `--branch NAME` — commit each accepted change onto branch NAME; implies --commit.
   - `--record DIR` — also journal each run under DIR, as a complete second copy.
-  - `--log PATH` — write how this command ended to PATH as one JSON record (mcgyvr.delegate_log/1, schema
+  - `--log PATH` — write how this command ended to PATH as one JSON record (mcgyvr.delegate_log/2, schema
     in mcgyvr.delegate_log), on every exit once the arguments are read, a crash included: its `kind`, the
     exit code, the contracts and refusals, and the facts behind a failure. For a script that called
     mcgyvr; stderr is unchanged.
@@ -217,12 +217,12 @@ names — a directory holding fleet.yaml and policy.yaml.
     runs nothing.
   - `--result PATH` — where \*you\* read the result file, when the set is one contract (`direct` with one
     file); mcgyvr keeps its own copy under the journal directory either way. Refused for more than one
-    contract, and for a prompt, whose contracts are not known before it is planned.
+    contract, and for a prompt, whose contracts are not known before it is decomposed.
   - `--notes-from RESULT` — start a contract's climb with the failure notes of an earlier run of it:
     RESULT is that run's result file, and seeds the contract in the set whose id it names; give it once
     per contract. Its records are checked (same contract, the notes schema, repo-relative paths) and
     shown to the first attempt under a banner naming the earlier run, under `retry_notes: climb`; the
     result's `seeded` says what was read and handed. For a rerun on another ladder or machine. Refused
-    for a prompt, whose contracts are proposed new and whose re-plans carry their own notes.
+    for a prompt, whose contracts are proposed new and whose re-decompositions carry their own notes.
 - `mcgyvr use NAME` — switch the use case a setup serves: mcgyvr-code, code, chat, agent.
   - `--config PATH` — setup whose use case to switch (default: the usual setup).

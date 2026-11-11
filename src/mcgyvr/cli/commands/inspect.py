@@ -200,7 +200,7 @@ def _ladder_show(args: argparse.Namespace) -> int:
         for skip in pool.hitchhike_skipped:
             print(f"  {skip.name:<20} skipped\n      ↳ {skip.reason}")
 
-    for role in ("orchestrator", "verifier", JEV_ROLE):
+    for role in ("proposer", "verifier", JEV_ROLE):
         try:
             model = pool.role_model(role)
         except UnitUnavailableError as exc:

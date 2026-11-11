@@ -1,4 +1,4 @@
-"""An orchestrator reply cut off at its cap is named as cut off, not as "not JSON".
+"""A proposer reply cut off at its cap is named as cut off, not as "not JSON".
 
 A reply the backend stopped at a length limit is read by its stop reason before
 its text: a proposal array cut off mid-entry opens as valid JSON, and calling it
@@ -20,7 +20,7 @@ import mcgyvr.delegate as delegate
 from mcgyvr.config import parse
 from mcgyvr.decompose.decompose import Evidence
 from mcgyvr.delegate import (
-    OrchestratorReplyCutOffError,
+    ProposerReplyCutOffError,
     UnreadableProposalError,
     proposer_for,
 )
@@ -39,7 +39,7 @@ units:
     width: 1
 ladder:
 - planner
-orchestrator:
+proposer:
   unit: planner
   model: planner-model
 """
@@ -100,7 +100,7 @@ def _answer(text: str, stop: StopReason, raw: str, **extra: object) -> Completio
     )
 
 
-def test_a_truncated_orchestrator_reply_is_named_as_cut_off_not_as_not_json(
+def test_a_truncated_proposer_reply_is_named_as_cut_off_not_as_not_json(
     monkeypatch: pytest.MonkeyPatch, evidence: Evidence
 ) -> None:
     answer = _answer(
@@ -112,7 +112,7 @@ def test_a_truncated_orchestrator_reply_is_named_as_cut_off_not_as_not_json(
         cap_basis="the most unit 'planner' can give: its `output_tokens` is 2000",
     )
 
-    with pytest.raises(OrchestratorReplyCutOffError) as raised:
+    with pytest.raises(ProposerReplyCutOffError) as raised:
         _propose(monkeypatch, evidence, answer)
 
     said = str(raised.value)
@@ -134,7 +134,7 @@ def test_a_truncated_reply_with_no_token_count_still_names_its_cap(
 ) -> None:
     answer = _answer(CUT_OFF, StopReason.TRUNCATED, "length")
 
-    with pytest.raises(OrchestratorReplyCutOffError) as raised:
+    with pytest.raises(ProposerReplyCutOffError) as raised:
         _propose(monkeypatch, evidence, answer)
 
     said = str(raised.value)
@@ -150,5 +150,5 @@ def test_a_complete_but_malformed_reply_still_gets_the_not_json_error(
     with pytest.raises(UnreadableProposalError) as raised:
         _propose(monkeypatch, evidence, answer)
 
-    assert not isinstance(raised.value, OrchestratorReplyCutOffError)
+    assert not isinstance(raised.value, ProposerReplyCutOffError)
     assert "not JSON" in str(raised.value)

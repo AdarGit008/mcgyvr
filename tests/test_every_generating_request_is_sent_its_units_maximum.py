@@ -237,7 +237,7 @@ def _wire(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
     return posted
 
 
-@pytest.mark.parametrize("role", ["orchestrator", "verifier"])
+@pytest.mark.parametrize("role", ["proposer", "verifier"])
 def test_a_role_request_that_states_no_cap_is_sent_the_units_maximum(
     role: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -262,8 +262,7 @@ def test_the_decomposer_and_the_reviewer_are_sent_the_units_maximum(
     from mcgyvr.verify import reviewer_for
 
     setup = (
-        WINDOWED
-        + "orchestrator:\n  unit: local_coder\nverifier:\n  unit: local_coder\n"
+        WINDOWED + "proposer:\n  unit: local_coder\nverifier:\n  unit: local_coder\n"
     )
     pool = unit_map(parse_config(setup))
     posted = _wire(monkeypatch)

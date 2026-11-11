@@ -1,12 +1,12 @@
-"""The local role units — orchestrator and verifier — are served, not just bound.
+"""The local role units — proposer and verifier — are served, not just bound.
 
 Before the use-case expansion, `units_for` served only the ladder, so a role
 bound to a local unit was sized nowhere and `emit` wrote no launch spec for it.
 The rule is that both role units enter the serving plan when
-they are local: the orchestrator joins the ladder as its dearest rung, and the
+they are local: the proposer joins the ladder as its dearest rung, and the
 verifier is served beside the ladder without joining it.
 
-The orchestrator unit's width is the user count when nobody wrote a width on
+The proposer unit's width is the user count when nobody wrote a width on
 it: the slot count it is served at is `users`.
 """
 
@@ -50,7 +50,7 @@ units:
     hf_cache: '{HF_CACHE}'
     launch:
       kv_cache_dtype_k: auto
-  orchestrator:
+  proposer:
     address: http://box1:8002
     model: '{SEVEN_B}'
     rig: box1
@@ -70,8 +70,8 @@ units:
       kv_cache_dtype_k: auto
 ladder:
 - cheap
-orchestrator:
-  unit: orchestrator
+proposer:
+  unit: proposer
 verifier:
   enabled: true
   unit: verifier
@@ -86,16 +86,16 @@ def served() -> dict[int, tuple[str, ...]]:
     }
 
 
-def test_the_local_orchestrator_unit_is_served() -> None:
+def test_the_local_proposer_unit_is_served() -> None:
     """A role bound to a local unit is brought up, not left sized nowhere."""
-    assert served()[8002] == ("orchestrator",)
+    assert served()[8002] == ("proposer",)
 
 
 def test_the_local_verifier_unit_is_served_beside_the_ladder() -> None:
     assert served()[8003] == ("verifier",)
 
 
-def test_the_orchestrator_units_width_is_the_user_count_when_unwritten() -> None:
+def test_the_proposer_units_width_is_the_user_count_when_unwritten() -> None:
     widths = {
         unit.port: unit.width.value
         for unit in units_for(parse(FLEET), SCANS, specs=(), ctx_per_slot=None)
@@ -103,7 +103,7 @@ def test_the_orchestrator_units_width_is_the_user_count_when_unwritten() -> None
     assert widths[8002] == 4
 
 
-def test_a_written_width_on_the_orchestrator_wins_over_users() -> None:
+def test_a_written_width_on_the_proposer_wins_over_users() -> None:
     fleet = """\
 users: 4
 deployment: local-only
@@ -121,7 +121,7 @@ units:
       kv_cache_dtype_v: f16
 ladder:
 - orch
-orchestrator:
+proposer:
   unit: orch
 """
     widths = {
@@ -134,12 +134,12 @@ orchestrator:
 RESIDENT_RIG = {"box1": rig("box1", vram_mib=12288)}
 
 # A scalar (declared) working set, so the card claim is exactly the number
-# written: the orchestrator claims 6 GB, the ladder 2 GB, on a 12 GB card.
+# written: the proposer claims 6 GB, the ladder 2 GB, on a 12 GB card.
 RESIDENT_FLEET = """\
 users: 2
 deployment: local-only
 units:
-  orchestrator:
+  proposer:
     address: http://box1:8080
     model: heavy
     rig: box1
@@ -161,21 +161,21 @@ units:
       kv_cache_dtype_v: f16
 ladder:
 - cheap
-orchestrator:
-  unit: orchestrator
+proposer:
+  unit: proposer
 """
 
 
-def test_the_orchestrator_is_sized_first_and_the_ladder_gets_what_is_left() -> None:
-    """Resident first: the orchestrator sees the whole card; the ladder the rest."""
+def test_the_proposer_is_sized_first_and_the_ladder_gets_what_is_left() -> None:
+    """Resident first: the proposer sees the whole card; the ladder the rest."""
     units = units_for(parse(RESIDENT_FLEET), RESIDENT_RIG, specs=(), ctx_per_slot=None)
     by_port = {unit.port: unit for unit in units}
     assert by_port[8080].fit.card_free_gb == 12.0
     assert by_port[8081].fit.card_free_gb == 6.0
 
 
-def test_the_orchestrator_and_its_ladder_co_reside_not_alternate() -> None:
-    """The orchestrator's claim is already inside the ladder's reduced figure,
+def test_the_proposer_and_its_ladder_co_reside_not_alternate() -> None:
+    """The proposer's claim is already inside the ladder's reduced figure,
     so the two are one launch spec, never mutually-exclusive alternatives."""
     units = units_for(parse(RESIDENT_FLEET), RESIDENT_RIG, specs=(), ctx_per_slot=None)
     specs = launch_specs(units)
@@ -199,21 +199,21 @@ def _with(line: str) -> str:
     raise AssertionError("no users line to insert after")  # pragma: no cover
 
 
-def test_a_local_only_chat_setup_serves_no_orchestrator() -> None:
-    """Chat is a raw endpoint, so even a bound local orchestrator unit is not
+def test_a_local_only_chat_setup_serves_no_proposer() -> None:
+    """Chat is a raw endpoint, so even a bound local proposer unit is not
     provisioned — the plan's rule, wired into the serving plan."""
     fleet = _with("use_case: chat")
     units = units_for(parse(fleet), SCANS, specs=(), ctx_per_slot=None)
     assert 8002 not in {unit.port for unit in units}, (
-        "chat provisions no orchestrator, bound or not"
+        "chat provisions no proposer, bound or not"
     )
 
 
-def test_a_hybrid_setup_serves_no_local_orchestrator() -> None:
-    """Hybrid has an API-tier orchestrator, so a local orchestrator unit is not
+def test_a_hybrid_setup_serves_no_local_proposer() -> None:
+    """Hybrid has an API-tier proposer, so a local proposer unit is not
     provisioned even when one is bound and keyless."""
     fleet = _with("deployment: hybrid")
     units = units_for(parse(fleet), SCANS, specs=(), ctx_per_slot=None)
     assert 8002 not in {unit.port for unit in units}, (
-        "hybrid provisions no local orchestrator"
+        "hybrid provisions no local proposer"
     )

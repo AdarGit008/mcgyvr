@@ -1,13 +1,13 @@
 """Splitting a typed proposal until it is on one file and jev says it cannot be split.
 
-Classifier authoring proposes once for a request (`delegate.ClassifierProposer`);
+Fill authoring proposes once for a request (`delegate.FillProposer`);
 `RefiningProposer` then breaks that proposal down again and again, until every
 proposal it hands on holds two things: it is on one file, and jev answered that
 it cannot be split further.
 
 * A proposal whose `allow` scope names more files than its target is split into
   one proposal per file, without asking: each file's proposal is asked of the
-  classifier again with that file as its target and only scope, shown the
+  fill proposer again with that file as its target and only scope, shown the
   sentences of the request about that file — those that name it or one of its
   definitions, and those that name no file at all. A file no sentence is about
   is not guessed at: the request is declined.
@@ -41,7 +41,7 @@ bound to raise, never a silent stop, and is returned after every proposal so
 cannot give, a Yes the survey has no partition for, or none of the partitions
 picked — nothing is guessed: the whole request comes back empty, and the prose
 proposer stands in for it as before. Every question goes through the
-classifier's `ask`, which records the decision in the classifier's shadow sink,
+fill proposer's `ask`, which records the decision in the fill proposer's shadow sink,
 when one is wired, with the model that answered; `mcgyvr PROMPT --log PATH`
 wires `PATH.decisions.jsonl`.
 """
@@ -127,7 +127,7 @@ _PATH_WORD = re.compile(r"[\w./-]+")
 
 
 class Asker(Classifier, Protocol):
-    """The typed classifier refine drives: it proposes, and it asks one question."""
+    """The fill proposer refine drives: it proposes, and it asks one question."""
 
     def ask(self, state: Any, set: CandidateSet, question: Question) -> Any | None: ...
 
@@ -263,9 +263,9 @@ class _Node:
 
 @dataclass(frozen=True)
 class RefiningProposer:
-    """The classifier, refined until one file per proposal and jev says no further.
+    """The fill proposer, refined until one file per proposal and jev says no further.
 
-    `classifier` proposes and asks (`delegate.ClassifierProposer`);
+    `fill` proposes and asks (`delegate.FillProposer`);
     `max_splits` is how many split rounds one file may go through, after which
     a proposal stops as it stands, and `max_fanout` how many parts one split
     may have. As a `Proposer` it returns the leaves, then the refusals the
@@ -277,7 +277,7 @@ class RefiningProposer:
     max_fanout: int = MAX_REFINE_FANOUT_DEFAULT
 
     def __call__(self, evidence: Evidence) -> Sequence[Proposal | Refusal]:
-        """The `Proposer` seam: a decline is `()`, so the prose proposer stands in.
+        """The `Proposer` seam: a decline is `()`, so the draft proposer stands in.
 
         A refused proposal is not asked again here: the top rung corrects it
         (`decompose`'s `fix`).
@@ -421,7 +421,7 @@ class RefiningProposer:
 
         A part split by failing test is the proposal itself with the part's task
         and its one test: what else jev chose stands. Any other is asked of the
-        classifier with the type, target, scope and task decided, and the
+        fill proposer with the type, target, scope and task decided, and the
         definition too when the part is held to one.
         """
         parent = node.proposal

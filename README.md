@@ -3,9 +3,9 @@
 Offload scoped coding work from your agent to a configurable worker ladder.
 
 mcgyvr runs scoped coding work as *contracts* — one target, one task, one way
-to judge it. `mcgyvr "<prompt>"` has the proposer your setup binds plan a prompt
-into contracts; `mcgyvr direct FILE... | DIR` takes contracts you or your session
-model wrote. Either way each contract is vetted, run on a deterministic tool or up
+to judge it. `mcgyvr "<prompt>"` (delegate) decomposes a prompt into contracts
+through the proposer your setup binds; `mcgyvr direct FILE... | DIR` takes
+contracts you or your session model wrote. Either way each contract is vetted, run on a deterministic tool or up
 a ladder of local and API models, in the order its dependency tree allows, and
 only what the deterministic gate accepts is kept, as a change in your working
 tree. It never commits unless told to, and it never writes anything else into
@@ -103,7 +103,7 @@ Without the questions: `--host` binds backends on another machine, `--api
 model=<id>,address=<url>,api_key_env=<VAR>` binds a hosted unit (the key stays
 in your environment), `--use-case` and `--priority` choose what the ladder is
 composed for. `mcgyvr-code` puts mcgyvr between the model and you, every stage
-(gate, repair, reviewer, ladder, re-plan and the rest) under its own switch in
+(gate, repair, verifier, ladder, re-decompose and the rest) under its own switch in
 `policy.yaml`; `code`, `chat` and `agent` serve the model raw. `mcgyvr use NAME`
 switches it later. `mcgyvr fleet use|probe|alerts` names another promoted fleet
 live, probes the live one against its lock, and lists pulled combinations.
@@ -112,9 +112,10 @@ live, probes the live one against its lock, and lists pulled combinations.
 
 - **The `/mcgyvr` skill.** An agent writes a contract, checks it with
   `mcgyvr contract CONTRACT.yaml`, runs it with
-  `mcgyvr direct CONTRACT.yaml --repo DIR` on the live fleet, and replans on what
-  the run reports. A request in words goes to `mcgyvr "<prompt>" --session ID`,
-  which plans the contracts and runs them.
+  `mcgyvr direct CONTRACT.yaml --repo DIR` on the live fleet, and rewrites the
+  contract on what the run reports. A request in words goes to
+  `mcgyvr "<prompt>" --session ID` (delegate), which decomposes it into contracts
+  and runs them.
 
 Read-only introspection: `mcgyvr config`, `mcgyvr ladder show`,
 `mcgyvr catalog`, `mcgyvr sandbox`, `mcgyvr capabilities` and `mcgyvr usage`
@@ -134,7 +135,7 @@ cheapest-first until a rung passes the gate or a ceiling stops it.
 - **Config schema** (`src/mcgyvr/config.py`) — a setup declares `units`
   (address, model, engine, key variable name, limits), the ordered `ladder`
   work climbs cheapest-first, `sandbox` (mode, fallback, network), `delivery`,
-  `verifier`, `orchestrator`, and the journal. Unknown, missing, or mis-typed
+  `verifier`, `proposer`, and the journal. Unknown, missing, or mis-typed
   keys are refused, and credentials are recorded as environment-variable
   names, never values.
 - **Task catalog** (`data/task-catalog.json`) — the vocabulary of what mcgyvr

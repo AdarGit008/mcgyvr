@@ -19,9 +19,9 @@ draw that left its target unchanged refused before the gate runs
 (``gate_in_sandbox``), a format-only
 rejection tidied and gated again (``_cleaned``), a rejected tree repaired by
 the deterministic tools and gated again (``_repair_and_regate``), the
-reviewer's JEV check asked of the winning draw alone (``_typed_checks``).
-A reviewer is never woken: a card is slept and woken for the climb's pressure
-alone, and the reviewer is chosen from the rungs that are up
+verifier's JEV check asked of the winning draw alone (``_typed_checks``).
+A verifier is never woken: a card is slept and woken for the climb's pressure
+alone, and the verifier is chosen from the rungs that are up
 (:func:`mcgyvr.verify.reviewers_for`). ``task_ceiling``, ``acceptance_for`` and
 ``gate_adapters`` are the seams that turn a contract and a config into the
 inputs those rungs take.
@@ -56,9 +56,9 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 
 
 def _jev_for(builder: str, reviewing: Reviewer | None) -> JevCheck | None:
-    """The reviewer's JEV check, or ``None`` when it is not the one to ask.
+    """The verifier's JEV check, or ``None`` when it is not the one to ask.
 
-    The check is asked only of a reviewer that was settled and whose model
+    The check is asked only of a verifier that was settled and whose model
     identity differs from the builder's: a model is not shown its own build to
     judge. ``None`` here means the typed rung does not run at all, which is why
     the caller carries the value as ``JevCheck | None`` rather than as an empty
@@ -76,7 +76,7 @@ def _typed_checks(
     bound: Accepted,
     jev: JevCheck | None,
 ) -> tuple[GateResult, Accepted]:
-    """Ask the reviewer's JEV check of the winning draw, once it was accepted.
+    """Ask the verifier's JEV check of the winning draw, once it was accepted.
 
     The check reads the workspace's change, so the winner is written back into a
     reset sandbox first: whichever tree the sandbox was left holding, the text

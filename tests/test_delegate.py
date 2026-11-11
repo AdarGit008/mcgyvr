@@ -1,9 +1,9 @@
-"""Delegated mode: the orchestrator role turns a reply into proposals.
+"""Delegated mode: the proposer role turns a reply into proposals.
 
 These hold the three things the feature's acceptance names — a proposer built
-on the orchestrator role reads a model reply as proposals, ``decompose`` emits
+on the proposer role reads a model reply as proposals, ``decompose`` emits
 validated contracts through that proposer end-to-end, and a keyless install
-answers with the documented "no orchestrator role" instead of a traceback.
+answers with the documented "no proposer role" instead of a traceback.
 
 The only thing substituted is the model: ``dispatch_role`` is patched at the
 same seam the verifier's tests patch, so the role lookup, the prompt builder
@@ -39,8 +39,8 @@ from mcgyvr.repo.read import explore
 from mcgyvr.repo.resolve import resolve
 from mcgyvr.runner import Completion, StopReason
 
-#: A keyless local ladder with no orchestrator block — the ordinary install
-#: that must answer "no orchestrator role" rather than fail.
+#: A keyless local ladder with no proposer block — the ordinary install
+#: that must answer "no proposer role" rather than fail.
 LADDER = """\
 units:
   local_qwen-7b:
@@ -52,17 +52,17 @@ ladder:
 - local_qwen-7b
 """
 
-#: The same install with the orchestrator role bound to a usable source.
-ORCHESTRATOR = (
+#: The same install with the proposer role bound to a usable source.
+PROPOSER = (
     LADDER
     + """
-orchestrator:
+proposer:
   unit: local_qwen-7b
   model: qwen2.5-coder:14b
 """
 )
 
-#: A reply the orchestrator role might send: one well-formed proposal.
+#: A reply the proposer role might send: one well-formed proposal.
 DOCSTRING_REPLY = json.dumps(
     [
         {
@@ -236,7 +236,7 @@ def test_proposer_for_dispatches_to_the_role_and_parses_the_reply(
 ) -> None:
     import mcgyvr.delegate as delegate
 
-    pool = unit_map(parse(cfg(ORCHESTRATOR)))
+    pool = unit_map(parse(cfg(PROPOSER)))
     seen: list[str] = []
 
     def fake_dispatch_role(unit_map, role, request, *, capacity=None):  # type: ignore[no-untyped-def]
@@ -262,7 +262,7 @@ def test_proposer_for_dispatches_to_the_role_and_parses_the_reply(
     assert "listing.py" in seen[0]
 
 
-def test_the_orchestrator_dispatch_states_no_cap_of_its_own(
+def test_the_proposer_dispatch_states_no_cap_of_its_own(
     repo: Index, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The decomposition picks no number: it leaves the cap to the runner, which
@@ -270,7 +270,7 @@ def test_the_orchestrator_dispatch_states_no_cap_of_its_own(
     units_maximum.py``)."""
     import mcgyvr.delegate as delegate
 
-    pool = unit_map(parse(cfg(ORCHESTRATOR)))
+    pool = unit_map(parse(cfg(PROPOSER)))
     seen: list[int | None] = []
 
     def fake_dispatch_role(unit_map, role, request, *, capacity=None):  # type: ignore[no-untyped-def]
@@ -294,7 +294,7 @@ def test_decompose_emits_validated_contracts_through_the_role(
     import mcgyvr.contract as contract_module
     import mcgyvr.delegate as delegate
 
-    config = parse(cfg(ORCHESTRATOR))
+    config = parse(cfg(PROPOSER))
     pool = unit_map(config)
     asked: list[str] = []
 
@@ -314,7 +314,7 @@ def test_decompose_emits_validated_contracts_through_the_role(
     assert contract.target == "listing.py"
     # The emitted document is exactly what direct mode accepts.
     assert contract_module.loads(result.documents[0]) == contract
-    assert asked, "the orchestrator role was never asked"
+    assert asked, "the proposer role was never asked"
     assert "document listing" in asked[0]
 
 
@@ -346,7 +346,7 @@ def test_a_keyless_install_says_a_setup_is_all_it_lacks(
     said = capsys.readouterr().err
     assert NO_SETUP in said
     # The default path scaffolds: a bare install is not told to bind a model.
-    assert "orchestrator.model" not in said
+    assert "proposer.model" not in said
 
 
 def test_the_bare_verb_writes_contracts_from_the_role(
@@ -365,7 +365,7 @@ def test_the_bare_verb_writes_contracts_from_the_role(
     git(repo, "commit", "-q", "-m", "seed")
 
     config = tmp_path / "mcgyvr.yaml"
-    config.write_text(cfg(ORCHESTRATOR), encoding="utf-8")
+    config.write_text(cfg(PROPOSER), encoding="utf-8")
     out = tmp_path / "contracts"
 
     def fake_dispatch_role(unit_map, role, request, *, capacity=None):  # type: ignore[no-untyped-def]

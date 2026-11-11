@@ -1,8 +1,8 @@
 """The typed proposer: relevance decided by single-token choices, not prose.
 
 The Jev-class counterpart to :func:`~mcgyvr.delegate.proposer_for`: where that
-proposer asks the orchestrator role for a free-text JSON reply and parses it
-back into proposals, :class:`~mcgyvr.delegate.ClassifierProposer` asks the jev
+proposer asks the proposer role for a free-text JSON reply and parses it
+back into proposals, :class:`~mcgyvr.delegate.FillProposer` asks the jev
 role one typed ``Choice`` per field — ``task_type``, ``target``, ``symbol``,
 ``interface``, ``deps``, ``allow`` — in dependency order, and builds one
 proposal from the answers. The model decides relevance — which kind of work,
@@ -31,8 +31,8 @@ from mcgyvr.decompose.candidates import collapse, enumerate_candidates
 from mcgyvr.decompose.decompose import Evidence, Proposal
 from mcgyvr.delegate import (
     MIN_CONFIDENCE,
-    ClassifierProposer,
-    classifier_proposer_for,
+    FillProposer,
+    fill_proposer_for,
 )
 from mcgyvr.ladder_map import Protocol, unit_map
 from mcgyvr.repo.index import Index, build_index
@@ -41,7 +41,7 @@ from mcgyvr.repo.resolve import resolve
 from mcgyvr.runner import Completion, StopReason
 from tests import ungated
 
-#: A keyless local ladder with no orchestrator block.
+#: A keyless local ladder with no proposer block.
 LADDER = """\
 units:
   local_qwen-7b:
@@ -53,11 +53,11 @@ ladder:
 - local_qwen-7b
 """
 
-#: The same install with the orchestrator role bound to a usable source.
-ORCHESTRATOR = (
+#: The same install with the proposer role bound to a usable source.
+PROPOSER = (
     LADDER
     + """
-orchestrator:
+proposer:
   unit: local_qwen-7b
   model: qwen2.5-coder:14b
 """
@@ -154,12 +154,12 @@ pytestmark = pytest.mark.usefixtures("ungated_catalog")
 # --- the typed-decision path ----------------------------------------------
 
 
-def test_a_classifier_proposer_asks_choices_and_builds_a_proposal(
+def test_a_fill_proposer_asks_choices_and_builds_a_proposal(
     repo: Index,
 ) -> None:
     """One Choice per field, keyed by candidate id, folds into one proposal."""
     seen: list[tuple[Any, Mapping[str, Question]]] = []
-    propose = ClassifierProposer(classify=_rank0(seen))
+    propose = FillProposer(classify=_rank0(seen))
     proposals = propose(evidence_for(repo, "document listing", (AGENT,)))
 
     (proposal,) = proposals
@@ -199,12 +199,12 @@ def test_a_classifier_proposer_asks_choices_and_builds_a_proposal(
     }
 
 
-def test_a_classifier_proposer_offers_the_catalog_vocabulary_and_candidates(
+def test_a_fill_proposer_offers_the_catalog_vocabulary_and_candidates(
     repo: Index,
 ) -> None:
     """The model is shown only the servable types and the ranked shortlist."""
     seen: list[tuple[Any, Mapping[str, Question]]] = []
-    propose = ClassifierProposer(classify=_rank0(seen))
+    propose = FillProposer(classify=_rank0(seen))
     proposals = propose(evidence_for(repo, "document the pagination helper", (AGENT,)))
 
     assert len(proposals) == 1
@@ -218,7 +218,7 @@ def test_a_classifier_proposer_offers_the_catalog_vocabulary_and_candidates(
 # --- the low-confidence refusal -------------------------------------------
 
 
-def test_a_classifier_proposer_refuses_when_the_task_type_is_uncertain(
+def test_a_fill_proposer_refuses_when_the_task_type_is_uncertain(
     repo: Index,
 ) -> None:
     def classify(state: Any, questions: Mapping[str, Question]) -> Decision:
@@ -227,11 +227,11 @@ def test_a_classifier_proposer_refuses_when_the_task_type_is_uncertain(
         confidence = MIN_CONFIDENCE - 0.1 if field == "task_type" else 0.9
         return decision_of({field: answer(next(iter(question.options)), confidence)})
 
-    propose = ClassifierProposer(classify=classify)
+    propose = FillProposer(classify=classify)
     assert propose(evidence_for(repo, "document listing", (AGENT,))) == ()
 
 
-def test_a_classifier_proposer_refuses_when_the_target_is_uncertain(
+def test_a_fill_proposer_refuses_when_the_target_is_uncertain(
     repo: Index,
 ) -> None:
     def classify(state: Any, questions: Mapping[str, Question]) -> Decision:
@@ -240,11 +240,11 @@ def test_a_classifier_proposer_refuses_when_the_target_is_uncertain(
         confidence = MIN_CONFIDENCE - 0.1 if field == "target" else 0.9
         return decision_of({field: answer(next(iter(question.options)), confidence)})
 
-    propose = ClassifierProposer(classify=classify)
+    propose = FillProposer(classify=classify)
     assert propose(evidence_for(repo, "document listing", (AGENT,))) == ()
 
 
-def test_a_classifier_proposer_degrades_when_the_symbol_is_uncertain(
+def test_a_fill_proposer_degrades_when_the_symbol_is_uncertain(
     repo: Index,
 ) -> None:
     """A low-confidence symbol leaves rank-0 — the first definition — not a refusal."""
@@ -256,11 +256,11 @@ def test_a_classifier_proposer_degrades_when_the_symbol_is_uncertain(
         confidence = MIN_CONFIDENCE - 0.1 if field == "symbol" else 0.9
         return decision_of({field: answer(next(iter(question.options)), confidence)})
 
-    propose = ClassifierProposer(classify=classify)
+    propose = FillProposer(classify=classify)
     assert propose(evidence) == (collapse(enumerate_candidates(evidence)),)
 
 
-def test_a_classifier_proposer_refuses_when_nothing_matched(
+def test_a_fill_proposer_refuses_when_nothing_matched(
     repo: Index,
 ) -> None:
     """No candidate and no vocabulary mean there is nothing to choose among."""
@@ -270,7 +270,7 @@ def test_a_classifier_proposer_refuses_when_nothing_matched(
         called.append(True)
         return decision_of({})
 
-    propose = ClassifierProposer(classify=classify)
+    propose = FillProposer(classify=classify)
     resolution = resolve(repo, "nothing matches this query at all")
     evidence = Evidence(
         prompt="nothing matches this query at all",
@@ -286,19 +286,19 @@ def test_a_classifier_proposer_refuses_when_nothing_matched(
 # --- the factory, through the below-seam bridge ----------------------------
 
 
-def test_classifier_proposer_for_degrades_without_a_jev_unit(
+def test_fill_proposer_for_degrades_without_a_jev_unit(
     repo: Index, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Without jev the factory returns the rank-0 proposer and asks nothing."""
     import mcgyvr.decision as decision
 
-    pool = unit_map(parse(cfg(ORCHESTRATOR)))
+    pool = unit_map(parse(cfg(PROPOSER)))
 
     def fail(*args: Any, **kwargs: Any) -> Any:
-        raise AssertionError("no typed question goes to the orchestrator without jev")
+        raise AssertionError("no typed question goes to the proposer without jev")
 
     monkeypatch.setattr(decision, "_post_json", fail)
-    propose = classifier_proposer_for(pool)
+    propose = fill_proposer_for(pool)
     assert propose is not None
     evidence = evidence_for(repo, "document listing", (AGENT,))
     assert propose(evidence) == (collapse(enumerate_candidates(evidence)),)

@@ -2,7 +2,7 @@
 
 `skills/mcgyvr/SETUP.md` says of every role block's `model`: "absent means the
 unit's own". The pool honoured that for the verifier and dropped every other
-role silently — an `orchestrator: {unit: x}` resolved to no binding at all, so
+role silently — a `proposer: {unit: x}` resolved to no binding at all, so
 `mcgyvr PROMPT` reported the role unconfigured while the file plainly bound
 it. One rule for every role, in one place: a bound unit with no model named is
 the unit's model.
@@ -39,8 +39,8 @@ def test_a_named_model_still_wins(role: str) -> None:
     assert pool.role_model(role) == "coder-14b"
 
 
-def test_a_delegate_orchestrator_bound_by_unit_alone_is_configured() -> None:
+def test_a_delegate_proposer_bound_by_unit_alone_is_configured() -> None:
     from mcgyvr.delegate import proposer_for
 
-    pool = unit_map(parse(SETUP + "orchestrator:\n  unit: cheap\n"))
+    pool = unit_map(parse(SETUP + "proposer:\n  unit: cheap\n"))
     assert proposer_for(pool) is not None

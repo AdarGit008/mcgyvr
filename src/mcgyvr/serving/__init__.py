@@ -374,7 +374,7 @@ class Unit:
     #: support.
     image: str | None = None
     extra: tuple[str, ...] = ()
-    #: The VRAM the orchestrator unit claims on its host before anything
+    #: The VRAM the proposer unit claims on its host before anything
     #: else there is sized: units_for() places it first, hands its fit to
     #: _remaining_scan() so later units on that host see what is left, and
     #: records the figure here so the claim is visible on the unit itself.
@@ -859,28 +859,28 @@ def units_for(
     roles: dict[UnitKey, dict[str, list[str]]] = {}
 
     users = config.get("users", 1)
-    # Whether this config provisions its own orchestrator: local-only, a
+    # Whether this config provisions its own proposer: local-only, a
     # use case that has one, and a user count. It decides whether the
-    # orchestrator's unit is served here and sized at the user count.
-    provision = config.provisions_local_orchestrator
+    # proposer's unit is served here and sized at the user count.
+    provision = config.provisions_local_proposer
 
     def _local(name: str | None) -> bool:
         unit = config.units.get(name) if name else None
         return unit is not None and not unit.requires_credential
 
     # The rungs the ladder serves, plus the unit of a locally provisioned
-    # orchestrator when the ladder does not already name it. Each name
+    # proposer when the ladder does not already name it. Each name
     # must resolve to a unit with a scanned host and a known model spec,
     # or nothing is emitted at all.
     served = list(config.ladder.names)
-    orchestrator_name = config.get("orchestrator.unit")
+    proposer_name = config.get("proposer.unit")
     if (
         provision
-        and orchestrator_name
-        and _local(orchestrator_name)
-        and orchestrator_name not in served
+        and proposer_name
+        and _local(proposer_name)
+        and proposer_name not in served
     ):
-        served.append(orchestrator_name)
+        served.append(proposer_name)
     role_extra: list[str] = []
     verifier_name = (
         config.get("verifier.unit") if config.get("verifier.enabled") else None
@@ -896,7 +896,7 @@ def units_for(
     ):
         role_extra.append(jev_name)
 
-    orchestrator_key: UnitKey | None = None
+    proposer_key: UnitKey | None = None
     for name in (*served, *role_extra):
         unit = config.units.get(name)
         if unit is None:
@@ -926,8 +926,8 @@ def units_for(
             engine=unit.engine or DEFAULT_ENGINE,
             port=port_of(unit.address),
         )
-        if provision and name == orchestrator_name:
-            orchestrator_key = key
+        if provision and name == proposer_name:
+            proposer_key = key
         grouped.setdefault(key, []).append(name)
         roles.setdefault(key, {}).setdefault(unit.role, []).append(name)
         if unit.window is not None:
@@ -952,8 +952,8 @@ def units_for(
             # Units naming one process may each state a width: the widest
             # wins, so the process is sized for the slots they all ask for.
             widths[key] = max(widths.get(key, 0), unit.width)
-        elif provision and name == orchestrator_name and _local(orchestrator_name):
-            # The orchestrator's own width is the user count this
+        elif provision and name == proposer_name and _local(proposer_name):
+            # The proposer's own width is the user count this
             # deployment provisions for, when its unit states none.
             widths[key] = max(widths.get(key, 0), users)
         shards = unit.launch.get(SHARDS_KEY)
@@ -1026,11 +1026,11 @@ def units_for(
         key: _starts_asleep(key, stated, key in splits) for key, stated in roles.items()
     }
 
-    # The orchestrator is sized first so its claim on its host's card is
+    # The proposer is sized first so its claim on its host's card is
     # subtracted before anything else there is sized; the rest keep the
     # order the config listed them in.
     ordered = list(grouped.items())
-    ordered.sort(key=lambda pair: pair[0] != orchestrator_key)
+    ordered.sort(key=lambda pair: pair[0] != proposer_key)
     built: list[Unit] = []
     claimed: dict[str, float] = {}
     reduced = dict(scans)
@@ -1042,7 +1042,7 @@ def units_for(
         sized = _sized(key, rungs, scan, reduced)
         if asleep[key]:
             sized[0] = replace(sized[0], asleep=True)
-        if key == orchestrator_key:
+        if key == proposer_key:
             claimed[key.host] = sized[0].fit.vram_gb
             sized[0] = replace(sized[0], resident_claim_gb=sized[0].fit.vram_gb)
         built.extend(sized)

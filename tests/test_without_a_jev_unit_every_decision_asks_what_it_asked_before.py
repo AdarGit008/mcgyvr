@@ -8,7 +8,7 @@ decision goes to exactly the unit it went to before the block existed —
 * a picked reviewer's verdict and gate questions to the dearer rung that
   reviews, the one serving a model other than the builder's;
 * the wake judge's judgment to the fast rung, the cheapest resident one;
-* the typed proposer's choices to `orchestrator.unit`.
+* the typed proposer's choices to `proposer.unit`.
 
 The wire is faked at `mcgyvr.decision._post_json`; what is asserted is the
 address and model of every request, so a decision that strayed to another
@@ -24,7 +24,7 @@ import pytest
 import mcgyvr.decision as decision
 from mcgyvr import wake_judge
 from mcgyvr.config import Config, parse
-from mcgyvr.delegate import ClassifierProposer, classifier_proposer_for
+from mcgyvr.delegate import FillProposer, fill_proposer_for
 from mcgyvr.gate.jev import jev_check_for
 from mcgyvr.ladder_map import UnitMap, unit_map
 from mcgyvr.verify import Reviewer, decider_for, reviewers_for
@@ -55,7 +55,7 @@ units:
 ladder:
 - small
 - big
-orchestrator:
+proposer:
   unit: orch
   model: example-planner:7b
 """
@@ -150,8 +150,8 @@ def test_the_typed_proposer_degrades_to_rank0_without_a_jev_unit(
 ) -> None:
     sent = _wire(monkeypatch)
     _, pool = _loaded(UNITS + jev)
-    proposer = classifier_proposer_for(pool)
+    proposer = fill_proposer_for(pool)
     assert proposer is not None
-    assert not isinstance(proposer, ClassifierProposer)
+    assert not isinstance(proposer, FillProposer)
     assert not hasattr(proposer, "classify"), "no model is asked without jev"
     assert sent == []

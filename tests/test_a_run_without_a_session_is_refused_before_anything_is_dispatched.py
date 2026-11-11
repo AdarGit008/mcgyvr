@@ -1,6 +1,6 @@
 """A run without a session is refused before anything is dispatched.
 
-Every row of the live journal names the orchestrator that produced it, and a
+Every row of the live journal names the proposer that produced it, and a
 name that is only whatever ``--session`` said traces a row to a string and
 no further. So a run fails loud when nobody can be
 named, and that the name is a *session* — the Claude Code or Pi transcript that

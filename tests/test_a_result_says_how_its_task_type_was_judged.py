@@ -57,7 +57,7 @@ def test_code_with_no_reviewer_says_how_to_configure_one() -> None:
     verdict = judge(loads(CODE), LOCAL, GateResult())
     assert verdict.assurance is Assurance.UNVERIFIED
     assert verdict.detail.startswith(
-        "unverified: no reviewer is configured — set `verifier.unit`"
+        "unverified: no verifier is configured — set `verifier.unit`"
     ), verdict.detail
 
 

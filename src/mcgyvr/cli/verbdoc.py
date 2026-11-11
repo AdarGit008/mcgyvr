@@ -131,7 +131,8 @@ def render(parser: argparse.ArgumentParser | None = None) -> str:
         *wrap(
             "Every verb and flag the `mcgyvr` parser defines, listed from the "
             "parser itself; `mcgyvr VERB -h` prints the same help. The bare verb, "
-            "`mcgyvr PROMPT [flags]`, plans a prompt and runs it with `direct`'s "
+            "`mcgyvr PROMPT [flags]` (delegate), decomposes a prompt into contracts "
+            "and runs them with `direct`'s "
             "flags. Where a flag's help says *the usual setup*, that is "
             f"{CONFIG_DEFAULT_HELP}.",
             rest="",

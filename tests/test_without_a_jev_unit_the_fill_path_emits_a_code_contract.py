@@ -1,4 +1,4 @@
-"""Without a jev unit, `authoring: classifier` still emits a `code` contract.
+"""Without a jev unit, `authoring: fill` still emits a `code` contract.
 
 With no jev unit opted in, the classifier path asks no model: it collapses the
 first candidate of every field. The collapse is a whole proposal: since the
@@ -19,7 +19,7 @@ import pytest
 import mcgyvr.decision as decision
 from mcgyvr.config import parse
 from mcgyvr.decompose.decompose import Evidence, Proposal, decompose
-from mcgyvr.delegate import classifier_proposer_for, proposer_by_authoring
+from mcgyvr.delegate import fill_proposer_for, proposer_by_authoring
 from mcgyvr.ladder_map import unit_map
 from mcgyvr.repo.index import Index, build_index
 
@@ -66,8 +66,8 @@ def test_the_no_jev_collapse_emits_a_code_contract(
         raise AssertionError("the collapse proposed, so prose is not asked")
 
     monkeypatch.setattr(decision, "_post_json", no_model)
-    typed = classifier_proposer_for(unit_map(parse(LADDER)))
-    propose = proposer_by_authoring("classifier", typed=typed, prose=prose)
+    typed = fill_proposer_for(unit_map(parse(LADDER)))
+    propose = proposer_by_authoring("fill", typed=typed, prose=prose)
     assert propose is not None
 
     result = decompose(repo, "document listing", propose=propose)

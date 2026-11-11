@@ -390,7 +390,7 @@ class Capacity:
 
         Every unit the ladder names and every hitchhike rung is bounded, whether or not
         a ladder rung reaches it, and each starts from the width the config
-        declares. A local orchestrator that mcgyvr provisions itself keeps one
+        declares. A local proposer that mcgyvr provisions itself keeps one
         slot back for the role, so the ladder is offered one fewer than the unit
         serves; where the unit states no width it is served at `users`, one per
         user it answers. The declared width is the bound, and none is confirmed:
@@ -399,25 +399,23 @@ class Capacity:
         limits: dict[str, int] = {}
         declarations: dict[str, int] = {}
         reserved: dict[str, int] = {}
-        orchestrator_name = config.get("orchestrator.unit")
+        proposer_name = config.get("proposer.unit")
         # The unit the orchestration role runs on, where the config names one.
         # Looked up in `units` rather than taken on trust, so the role's own
         # attributes — above all whether it needs a credential — can be read
         # before the role is recognised. A name that is not a unit leaves this
         # `None`.
-        orchestrator_unit = (
-            config.units.get(orchestrator_name) if orchestrator_name else None
-        )
+        proposer_unit = config.units.get(proposer_name) if proposer_name else None
         # The role is recognised only where mcgyvr provisions the unit itself,
         # since a hybrid or raw-use-case setup has none of its own here, and
         # only where the unit needs no credential, since one that does is not a
         # process this config starts. Otherwise the unit is an ordinary rung with
         # no slot kept back.
-        role_orchestrator = (
-            orchestrator_name
-            if config.provisions_local_orchestrator
-            and orchestrator_unit is not None
-            and not orchestrator_unit.requires_credential
+        role_proposer = (
+            proposer_name
+            if config.provisions_local_proposer
+            and proposer_unit is not None
+            and not proposer_unit.requires_credential
             else None
         )
         users = int(config.get("users", 1))
@@ -427,13 +425,13 @@ class Capacity:
         bounded = {**config.units, **config.hitchhike}
         for name, unit in bounded.items():
             declared = unit.width or 1
-            if name == role_orchestrator:
+            if name == role_proposer:
                 # The role's unit is served at one slot per user where it states
                 # no width, because the serving plan starts it that way; a width
                 # it does state is the number it was started with and stands.
                 declared = unit.width or users
             declarations[name] = declared
-            if name == role_orchestrator:
+            if name == role_proposer:
                 ladder = max(declared - 1, 1)
                 reserved[name] = declared - ladder
                 limits[name] = ladder

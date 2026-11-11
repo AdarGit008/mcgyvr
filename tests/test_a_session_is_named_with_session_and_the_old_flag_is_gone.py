@@ -80,6 +80,9 @@ def test_the_bare_verb_refuses_the_old_flag_too(
         main(["do it", "--orchestrator", "agent-d"])
 
     assert exit_.value.code == 2
+    assert "--orchestrator is gone: name the session with --session ID" in (
+        capsys.readouterr().err
+    )
 
 
 def test_the_bare_verb_takes_session_into_the_same_place_direct_does() -> None:

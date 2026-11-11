@@ -58,7 +58,7 @@ class Field:
     #: unset.
     bind_hint: str = ""
     #: A contract key's audience: whether the worker reads it, or only the
-    #: orchestrator.
+    #: session agent.
     worker_facing: bool = False
     #: A contract key's extra sentence, quoted after its doc when it is missing.
     hint: str = ""

@@ -9,7 +9,7 @@ Which run ends when is driven by events and barriers, never by sleeping.
 
 What is held at N>1 is what holds at N=1: a contract lands when HEAD holds its
 commit, a dependent never starts before what it waits on has settled (#779),
-one whose provider failed is held `blocked` (#779), a spent one is re-planned
+one whose provider failed is held `blocked` (#779), a spent one is re-decomposed
 (#782), and the `--log` record says how the batch ended (#792). With no
 `--jobs` or `--jobs 1` there is no pool: every run is on the calling thread,
 and the two write the same output, results and log. One batch at the end runs
@@ -200,7 +200,7 @@ def batch(
     *,
     jobs: int | None = 2,
     config: Any = None,
-    replan: Any = None,
+    redecompose: Any = None,
     book: Any = None,
     later: tuple[Contract, ...] = (),
 ) -> tuple[int, Runs, Path]:
@@ -227,7 +227,7 @@ def batch(
         # Width enough for every test that does not test the cap itself.
         monkeypatch.setattr(command, "_fleet_width", lambda _config: 8)
     exit_code = command._run_delegated(
-        args, repo, dec, [], cast(Config, config), replan=replan, book=book
+        args, repo, dec, [], cast(Config, config), redecompose=redecompose, book=book
     )
     return exit_code, runs, journal
 
@@ -508,8 +508,8 @@ def test_a_contract_whose_provider_failed_is_held_blocked_as_at_one_job(
     assert held[1] == held[2]
 
 
-class Orchestrator:
-    """Stands in for re-planning: answers with `proposes`."""
+class Proposer:
+    """Stands in for re-decomposing: answers with `proposes`."""
 
     def __init__(self, *proposes: Contract) -> None:
         self.proposes = proposes
@@ -523,7 +523,7 @@ class Orchestrator:
         )
 
 
-def test_a_spent_contract_is_replanned_and_its_dependent_runs_after_the_replacement(
+def test_a_spent_contract_is_redecomposed_and_its_dependent_runs_after_the_replacement(
     repo: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     narrow = code("code-narrow", "pkg/a.py")
@@ -532,13 +532,13 @@ def test_a_spent_contract_is_replanned_and_its_dependent_runs_after_the_replacem
         code("code-d", "pkg/c.py", depends_on=("code-p",)),
         code("code-s", "pkg/b.py"),
     )
-    orchestrator = Orchestrator(narrow)
+    proposer = Proposer(narrow)
     plans = {"code-p": Plan(outcome="ladder_spent")}
     policy = Policy(
         {
             "journal.dir": str(tmp_path / "journal"),
             "dependents": "hold",
-            "max_replans": 1,
+            "max_redecompositions": 1,
         }
     )
     monkeypatch.setattr(command, "_fleet_width", lambda _config: 8)
@@ -550,16 +550,16 @@ def test_a_spent_contract_is_replanned_and_its_dependent_runs_after_the_replacem
         contracts,
         plans,
         config=policy,
-        replan=orchestrator,
+        redecompose=proposer,
         later=(narrow,),
     )
 
     assert exit_code == 0, runs.log
-    (spent,) = orchestrator.shown
+    (spent,) = proposer.shown
     assert spent.contract.id == "code-p"
     assert runs.log.index("end code-narrow") < runs.log.index("start code-d")
     (result,) = results(journal, "code-p")
-    assert result["replanned"]["contracts"] == ["code-narrow"]
+    assert result["redecomposed"]["contracts"] == ["code-narrow"]
     rows = states(journal)
     assert rows["code-narrow"]["state"] == "landed"
     assert rows["code-d"]["state"] == "landed"

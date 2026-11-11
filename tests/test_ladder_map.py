@@ -276,7 +276,7 @@ def test_declared_capacity_reaches_the_seam_for_the_semaphore_to_use(
 def test_an_unbound_role_is_an_ordinary_none_not_a_failure() -> None:
     pool = unit_map(parse(SINGLE_SOURCE))
     assert pool.role("verifier") is None
-    assert pool.role("orchestrator") is None
+    assert pool.role("proposer") is None
 
 
 def test_a_bound_role_resolves_through_the_seam_like_a_rung() -> None:

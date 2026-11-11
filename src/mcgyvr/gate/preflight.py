@@ -164,7 +164,7 @@ def check_contract_fits(
     contract fits.
     """
     # `estimate_tokens` is imported where it is used rather than at module
-    # scope, so this module's import list carries no orchestrator dependency.
+    # scope, so this module's import list carries no proposer dependency.
     # The count is model-free on purpose: pre-flight runs before any model is
     # called, so no question here may be answered by spending a request on it.
     from mcgyvr.repo.read import estimate_tokens

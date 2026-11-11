@@ -725,7 +725,7 @@ def test_dispatch_role_runs_a_role_and_returns_none_when_there_is_not_one(
     verified = dispatch_role(ladder, "verifier", ASK)
     assert verified is not None
     assert verified.model == "qwen2.5-coder:14b"
-    assert dispatch_role(ladder, "orchestrator", ASK) is None
+    assert dispatch_role(ladder, "proposer", ASK) is None
 
 
 def test_a_role_on_a_local_unit_is_given_the_time_its_unit_states(

@@ -34,7 +34,7 @@ against a repository. Two properties are load-bearing:
    keys, `.netrc`, cloud and SSH credential folders, registry logins), and
    the run names what it left behind.
 2. **Provider credentials never enter a task sandbox.** API keys are read
-   from the environment by the orchestrator process only; a task container
+   from the environment by the mcgyvr process only; a task container
    receives the repository and the worker endpoint, never a key. A checker
    the gate runs on the host (ruff, and in tempdir mode the checkers above)
    is handed the same filtered environment, so nothing it runs reaches a key
