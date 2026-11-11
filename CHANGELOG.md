@@ -1139,9 +1139,8 @@ entries name development tooling, flags and records outside this repository.
   a worker's only peer was the head, so a worker -> worker ring link could
   never form. With `"ring_links": true` in its lending settings (off, and
   unwritten, by default; a native rig never) a rig names the new feature
-  `ring_peers` (`hubwire.FEATURE_RING_PEERS`, the first feature name defined
-  in `hubwire`), and a `tunnel_up` peer may carry `ring`
-  (`hubwire.RING_FIELD`: `dial_ports`, `accept_ports`). Such a peer is
+  `ring_peers` (`hubwire.FEATURE_RING_PEERS`), and a `tunnel_up` peer may
+  carry `ring` (`hubwire.RING_FIELD`: `dial_ports`, `accept_ports`). Such a peer is
   optional: it is walked beside the head under the same deadline, given up
   the moment the head has settled, never relayed, left out of the tunnel when
   it has nothing the rig may aim at, and reported `none` without failing the

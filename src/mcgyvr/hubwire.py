@@ -108,7 +108,7 @@ is here:
   as :data:`RPC_PROTO_FIELD`) and which workers a head may take
   (:func:`rpc_compatible`);
 * a session's optional worker <-> worker ring links: the feature a rig names
-  for them (:data:`FEATURE_RING_PEERS`, the first feature name defined here),
+  for them (:data:`FEATURE_RING_PEERS`),
   the ``tunnel_up`` peer field carrying one (:data:`RING_FIELD`) and its bound
   (:data:`MAX_RING_PORTS`);
 * the llama.cpp builds a rig can start for a session (:class:`Runtime`, its
@@ -314,7 +314,9 @@ MAX_FEATURES = 16
 #: and serves rides, runs several sessions at once one per card, honors a
 #: worker card's backend name, and forwards its tunnel ports on its router.
 #: An agent lists the ones it does; this product's rig names every one but
-#: ``backend_select`` (``mcgyvr.rig.session.FEATURES``).
+#: ``backend_select``, ``ring_peers`` and ``runtime_select``
+#: (``mcgyvr.rig.session.FEATURES``), the last two only beside them: when its
+#: owner turned the ring links on, and when it offers a ring build.
 FEATURE_PROBE = "probe"
 FEATURE_TRAVERSAL = "traversal"
 FEATURE_HEAD_SLOTS = "head_slots"
