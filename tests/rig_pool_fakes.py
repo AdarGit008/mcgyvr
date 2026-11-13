@@ -82,6 +82,14 @@ class FakeDocker:
     #: were looked at (PEERS_SCRIPT runs).
     listen_keys: set[str] = field(default_factory=set)
     looks: int = 0
+    #: Whether a ping goes where WireGuard would send it: the endpoint the peer
+    #: was last heard from (``shaken``), as WireGuard roams to it, rather than
+    #: where the tunnel was last pointed.
+    ping_follows_endpoint: bool = False
+    #: Where each peer is heard from on its next looks once it has been
+    #: aimed, one entry a look (the last one stays): a peer still sending from
+    #: where it was, which WireGuard roams the tunnel back to.
+    heard_once_aimed: dict[str, list[tuple[str, int]]] = field(default_factory=dict)
     nets: dict[str, str] = field(default_factory=dict)
     shaken: dict[str, tuple[str, int]] = field(default_factory=dict)
     peers_said: str | None = None
@@ -161,7 +169,8 @@ class FakeDocker:
         with self.lock:
             aim = next(
                 (
-                    self.aims.get(key, self.dials_in.get(key))
+                    (self.shaken.get(key) if self.ping_follows_endpoint else None)
+                    or self.aims.get(key, self.dials_in.get(key))
                     for key, nets in self.nets.items()
                     if any(
                         ipaddress.ip_address(host) in ipaddress.ip_network(net)
@@ -181,6 +190,10 @@ class FakeDocker:
             return self.peers_said
         lines = ["now 1700000000"]
         with self.lock:
+            self.looks += 1
+            for key, heard in self.heard_once_aimed.items():
+                if key in self.aims and heard:
+                    self.shaken[key] = heard.pop(0) if len(heard) > 1 else heard[0]
             for key, aim in self.aims.items():
                 if key not in self.shaken and (
                     self.answering is None or aim in self.answering
@@ -192,7 +205,6 @@ class FakeDocker:
                 )
                 host, port = self.shaken.get(key, self.aims[key])
                 lines.append(f"endpoint {key}\t{host}:{port}")
-            self.looks += 1
             for key, came_from in self.dials_in.items():
                 if key in self.aims or key not in self.listen_keys:
                     continue

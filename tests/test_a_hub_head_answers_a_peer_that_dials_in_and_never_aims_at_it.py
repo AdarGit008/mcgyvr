@@ -18,13 +18,17 @@ with a configured peer's key and learns the peer's address from it. The walk
 never pokes, aims or punches for it: it waits for the peer's handshake (the
 handshake time, not an endpoint alone), however late it comes, checks the path
 with the full-size ping, and reports it ``inbound`` at the address it came
-from. One that has not dialled in within its attempt moves to its relay, and is
-then walked and reported as any relayed peer; with no relay it is waited for
-until the deadline. A peer no path reaches is no path, one whose path is too
-narrow is ``path_too_narrow``, as for any peer. Only the session's head takes
-one, and only in a container: a worker refuses it, and a native tunnel (which
-lets in only the hosts it aims at) refuses it as not capable. Such a head needs
-all of its tunnel ports reachable: four, from its ``listen_port``.
+from, only once a ping came back over it (never on a stale handshake). One that
+has not dialled in within its attempt, or whose dial-in is too narrow, moves to
+its relay, and is then walked and reported as any relayed peer; a too-narrow
+dial-in that WireGuard roams back to meanwhile is not taken as its path. With no
+relay it is waited for until the deadline. Pings here go where WireGuard sends
+them, to the endpoint it last heard the peer from. A peer no path reaches is no
+path, one whose path is too narrow is ``path_too_narrow``, as for any peer.
+Only the session's head takes one, and only in a container: a worker refuses
+it, and a native tunnel (which lets in only the hosts it aims at) refuses it as
+not capable. Such a head needs all of its tunnel ports reachable: four, from
+its ``listen_port``.
 """
 
 from __future__ import annotations
@@ -358,6 +362,8 @@ def pool(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[fakes.Pool
 
     monkeypatch.setattr(session, "named_features", with_hub_head)
     made = fakes.make_pool(tmp_path)
+    # a ping goes where WireGuard sends it: to the endpoint it roamed to
+    made.docker.ping_follows_endpoint = True
     yield made
     made.sessions.close()
 
@@ -557,6 +563,76 @@ def test_a_peer_that_dials_in_too_narrow_moves_to_its_relay(
     (path,) = pool.up("t1", **body)["body"]["peers"]
     assert path["path"] == "relay"
     assert len(pool.relayed) == 1
+
+
+def test_a_dial_in_heard_again_after_the_move_to_the_relay_is_not_the_path(
+    pool: fakes.Pool,
+) -> None:
+    # the dial-in is too narrow and the head moves to the relay; the worker has
+    # not moved yet, so its next two packets still come direct and WireGuard
+    # roams the head back there; then the worker is on the relay too
+    pool.docker.dials_in = {KEY: DIALS_FROM}
+    pool.docker.narrow = {DIALS_FROM}
+    pool.docker.heard_once_aimed = {KEY: [DIALS_FROM, DIALS_FROM, RELAYED]}
+    _head(pool)
+    body = _up_body(_peer(relay=RELAY), attempt_s=5, connect_timeout_s=10)
+    (path,) = pool.up("t1", **body)["body"]["peers"]
+    assert path["path"] == "relay"
+    assert path["endpoint"]["host"] == RELAY_HOST
+    # the narrow dial-in was measured once, and named as the dial-in
+    spent = [line for line in pool.logged if "small ping" in line]
+    assert len(spent) == 1 and "its dial-in" in spent[0], spent
+    assert f"{DIALS_FROM[0]}:{DIALS_FROM[1]}" in spent[0]
+
+
+def test_a_too_narrow_relay_after_a_too_narrow_dial_in_names_each(
+    pool: fakes.Pool,
+) -> None:
+    pool.docker.dials_in = {KEY: DIALS_FROM}
+    pool.docker.narrow = {DIALS_FROM, RELAYED}
+    _head(pool)
+    body = _up_body(_peer(relay=RELAY), attempt_s=5, connect_timeout_s=10)
+    assert pool.ask("tunnel_up", "t1", **body) is None
+    pool.wait_for("error")
+    (refused,) = pool.box.of_type("error")
+    assert refused["body"]["code"] == SessionCode.PATH_TOO_NARROW
+    assert refused["body"]["message"].startswith("its relay answered a small ping")
+    spent = [line for line in pool.logged if "small ping" in line]
+    assert len(spent) == 2
+    assert "its dial-in" in spent[0] and f"{DIALS_FROM[0]}:" in spent[0]
+    assert "its relay" in spent[1] and f"{RELAY_HOST}:" in spent[1]
+
+
+def test_a_too_narrow_dial_in_after_the_move_to_the_relay_leaves_it_on_the_relay(
+    pool: fakes.Pool,
+) -> None:
+    # no dial-in within the attempt, so the head binds its relay; then the worker's
+    # direct dial-in lands, too narrow; then the relay carries it
+    pool.docker.narrow = {DIALS_FROM}
+    pool.docker.heard_once_aimed = {KEY: [DIALS_FROM, RELAYED]}
+    _head(pool)
+    body = _up_body(_peer(relay=RELAY), connect_timeout_s=10)
+    (path,) = pool.up("t1", **body)["body"]["peers"]
+    assert path["path"] == "relay"
+    spent = [line for line in pool.logged if "small ping" in line]
+    assert len(spent) == 1 and "its dial-in" in spent[0], spent
+    assert f"{DIALS_FROM[0]}:{DIALS_FROM[1]}" in spent[0]
+
+
+def test_a_stale_handshake_is_not_taken_as_the_relay_answering(
+    pool: fakes.Pool,
+) -> None:
+    # the head moves to the relay just as the worker's direct handshake lands:
+    # WireGuard shows the relay it was pointed at and a handshake time, but the
+    # relay carries nothing; the worker's next packet roams the head back direct
+    pool.docker.answering = {DIALS_FROM}
+    pool.docker.heard_once_aimed = {KEY: [RELAYED, RELAYED, DIALS_FROM]}
+    _head(pool)
+    body = _up_body(_peer(relay=RELAY), connect_timeout_s=10)
+    (path,) = pool.up("t1", **body)["body"]["peers"]
+    assert len(pool.relayed) == 1
+    assert path["path"] == "inbound"
+    assert path["endpoint"]["host"] == DIALS_FROM[0]
 
 
 def test_a_head_refuses_listen_peers_beside_a_peer_it_aims_at(

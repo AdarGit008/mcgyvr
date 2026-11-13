@@ -2237,13 +2237,26 @@ class Sessions:
                     and seen.handshakes.get(key, 0) > 0
                     else None
                 )
+                if shaken is not None and self._narrow_dial_in(walk, shaken):
+                    # the dial-in was too narrow and the walk moved to the relay: a
+                    # packet still coming in direct (WireGuard follows it there) is
+                    # not the relay answering, and is not taken as the path
+                    shaken = None
                 ping = self._ping(session, walk) if shaken is not None else None
                 if ping is not None and ping.narrow:
                     assert shaken is not None
                     self._spend(session, walk, ping, shaken)
                     changed = True
-                elif shaken is not None and (
-                    not walk.narrowed or (ping is not None and ping.full)
+                elif (
+                    shaken is not None
+                    and (not walk.narrowed or (ping is not None and ping.full))
+                    and (
+                        # a listen peer only on a ping that came back over the path
+                        # it is reported on, never on a handshake alone
+                        not walk.peer.listen
+                        or ping is not None
+                        or walk.peer.tunnel_host is None
+                    )
                 ):
                     walk.held = shaken
                     walk.result = self._confirmed(walk, shaken)
@@ -2369,20 +2382,19 @@ class Sessions:
         """Give up on an endpoint that answered small pings but lost the full-size ones.
 
         The path's MTU is too small for the tunnel, so the walk moves on — to the next
-        candidate or the relay (a listen peer, which dialled in from `shaken`,
-        the endpoint its handshake came from, moves to its relay), or, for the
-        relay or a listen peer without one, to no path — and the reason is kept
-        for the log and for the refusal the hub is sent.
+        candidate or the relay, or, for the relay, to no path (a listen peer,
+        measured at `shaken`, the endpoint its handshake came from, where
+        WireGuard sends: :meth:`_spend_listen`) — and the reason is kept for the
+        log and for the refusal the hub is sent.
         """
-        assert walk.aim is not None or walk.peer.listen
-        host, port = walk.aim if walk.aim is not None else shaken
-        what = (
-            "its relay"
-            if walk.relayed
-            else "its dial-in"
-            if walk.peer.listen
-            else "a candidate"
-        )
+        if walk.peer.listen:
+            # named by where the ping went: WireGuard sends to the endpoint
+            host, port = shaken
+            what = "its relay" if self._on_relay(walk, host) else "its dial-in"
+        else:
+            assert walk.aim is not None
+            host, port = walk.aim
+            what = "its relay" if walk.relayed else "a candidate"
         walk.why = (
             f"{what} answered a small ping and lost every full-size one "
             f"({ping.size} bytes of data): the path's MTU is too small for "
@@ -2393,7 +2405,9 @@ class Sessions:
             f"{walk.why}"
         )
         walk.narrowed = True
-        if walk.relayed or (walk.peer.listen and walk.peer.relay is None):
+        if walk.peer.listen:
+            self._spend_listen(walk, host)
+        elif walk.relayed:
             walk.aim = None
             walk.result = sessionwire.PeerPath(rig_id=walk.peer.rig_id, path="none")
         else:
@@ -2402,6 +2416,38 @@ class Sessions:
         # The walk ended with no path right after a narrow endpoint, so the report
         # refuses with ``path_too_narrow``, not with a plain no path.
         walk.too_narrow = walk.result is not None
+
+    def _spend_listen(self, walk: _Walk, host: str) -> None:
+        """Where a listen walk goes once the path at `host` proved too narrow:
+        nowhere when that was its relay, or its dial-in with no relay to move
+        to (or one that would not bind); to its relay when it is not on it
+        yet; and when it already is, it stays there, the dial-in left out
+        from now on (:meth:`_narrow_dial_in`)."""
+        if self._on_relay(walk, host) or walk.peer.relay is None:
+            walk.aim = None
+            walk.result = sessionwire.PeerPath(rig_id=walk.peer.rig_id, path="none")
+        elif not walk.relayed:
+            self._next_aim(walk)
+            walk.since = self._clock()
+        elif walk.aim is None:
+            walk.result = sessionwire.PeerPath(rig_id=walk.peer.rig_id, path="none")
+
+    @staticmethod
+    def _on_relay(walk: _Walk, host: str) -> bool:
+        """Whether this walk is on its relay and `host` is the relay's."""
+        relay = walk.peer.relay
+        return walk.relayed and relay is not None and host == str(relay.host)
+
+    def _narrow_dial_in(self, walk: _Walk, shaken: tuple[str, int]) -> bool:
+        """Whether `shaken` is a listen peer's too-narrow dial-in heard again
+        after its walk moved to the relay: anywhere but the relay."""
+        return (
+            walk.peer.listen
+            and walk.narrowed
+            and walk.relayed
+            and walk.peer.relay is not None
+            and not self._on_relay(walk, shaken[0])
+        )
 
     def _confirmed(
         self, walk: _Walk, endpoint: tuple[str, int]
@@ -2418,9 +2464,7 @@ class Sessions:
         """
         host, port = endpoint
         relay = walk.peer.relay
-        if walk.peer.listen and not (
-            walk.relayed and relay is not None and host == str(relay.host)
-        ):
+        if walk.peer.listen and not self._on_relay(walk, host):
             came_from = sessionwire._ipv4(host)
             return sessionwire.PeerPath(
                 rig_id=walk.peer.rig_id,

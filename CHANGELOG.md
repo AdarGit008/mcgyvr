@@ -1093,9 +1093,10 @@ entries name development tooling, flags and records outside this repository.
   The walk never pokes, aims or punches for such a peer: it waits for the
   peer's handshake, checks the path with the full-size ping and reports it on
   the new path `inbound` (`hubwire.TUNNEL_INBOUND_PATH`) at the address the
-  handshake came from; a peer that has not dialled in within its attempt
+  handshake came from, and only once a ping came back over that path; a peer
+  that has not dialled in within its attempt, or whose dial-in is too narrow,
   moves to its relay, if it has one, and is then walked and reported as any
-  relayed peer. Only the session's head takes one: a worker refuses it as
+  relayed peer (a too-narrow dial-in heard again there is not its path). Only the session's head takes one: a worker refuses it as
   `bad_message`, and a native head (whose helper lets in only the hosts it
   aims at) as `not_capable`. Such a head needs every one of its tunnel ports
   (`listen_port` to `listen_port` + 3, 51820 to 51823 by default; one per
