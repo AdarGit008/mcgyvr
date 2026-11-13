@@ -104,6 +104,12 @@ class Sharing:
     container may use. `ram_mb` is the host memory lent and `cpu_cores` the
     cores lent to whole models a head serves, 0 for none. A head serves models
     from `models_dir`, and `endpoints` names the hosts a tunnel is reached on.
+    `listen_port` is the first of the :data:`TUNNEL_PORTS` UDP ports the
+    sessions listen on, one each (:meth:`tunnel_ports`; 51820 to 51823 when
+    the settings name no other), so the rig runs at most that many sessions
+    at once. A head whose peers dial in to it (``tunnel_up`` peers marked
+    ``listen``) is reached only if every one of those ports is reachable from
+    the internet on the hosts `endpoints` names.
     `launcher` is ``docker`` (the sessions run in containers) or ``native``: on
     macOS and Windows a native rig runs its sessions on the host, through the
     ``mcgyvr-wg`` helper, with the pinned llama.cpp build and no image, and

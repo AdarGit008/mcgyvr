@@ -73,8 +73,15 @@ class FakeDocker:
     aims: dict[str, tuple[str, int]] = field(default_factory=dict)
     #: The listen peers that dial in, by key, and the endpoint each one's
     #: handshake comes from once the tunnel is up (a peer dials in only to a
-    #: tunnel that has it).
+    #: tunnel that has it, as a listen peer). Its endpoint shows from the
+    #: first look, its handshake time only after ``dial_after`` looks, so a
+    #: test sees a peer that dials in late, or an endpoint with no handshake.
     dials_in: dict[str, tuple[str, int]] = field(default_factory=dict)
+    dial_after: int = 0
+    #: The keys the tunnel script left as listen peers, and how often the peers
+    #: were looked at (PEERS_SCRIPT runs).
+    listen_keys: set[str] = field(default_factory=set)
+    looks: int = 0
     nets: dict[str, str] = field(default_factory=dict)
     shaken: dict[str, tuple[str, int]] = field(default_factory=dict)
     peers_said: str | None = None
@@ -116,8 +123,8 @@ class FakeDocker:
             with self.lock:
                 for at in range(2, len(args) - 4, 5):
                     self.nets[args[at]] = args[at + 4]
-                    if args[at + 1] == tunnel.LISTEN_HOST and args[at] in self.dials_in:
-                        self.shaken[args[at]] = self.dials_in[args[at]]
+                    if args[at + 1] == tunnel.LISTEN_HOST:
+                        self.listen_keys.add(args[at])
             self._aim(args[2:], 5, lambda a: True)
         if script == pooled.PATH_SCRIPT:
             self._aim(args[1:], 5, lambda a: a[4] == "1")
@@ -185,13 +192,18 @@ class FakeDocker:
                 )
                 host, port = self.shaken.get(key, self.aims[key])
                 lines.append(f"endpoint {key}\t{host}:{port}")
-            for key in self.dials_in:
-                if key in self.aims or key not in self.shaken:
+            self.looks += 1
+            for key, came_from in self.dials_in.items():
+                if key in self.aims or key not in self.listen_keys:
                     continue
                 # a listen peer, pointed nowhere: WireGuard knows where it is
-                # once its handshake came in from there
-                host, port = self.shaken[key]
-                lines.append(f"handshake {key}\t1700000000")
+                # from its initiation, and its handshake time once it completes
+                if self.looks > self.dial_after:
+                    self.shaken.setdefault(key, came_from)
+                host, port = self.shaken.get(key, came_from)
+                lines.append(
+                    f"handshake {key}\t{1700000000 if key in self.shaken else 0}"
+                )
                 lines.append(f"endpoint {key}\t{host}:{port}")
         return "\n".join(lines) + "\n"
 

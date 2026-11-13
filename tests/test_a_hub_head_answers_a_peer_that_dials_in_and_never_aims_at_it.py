@@ -6,20 +6,25 @@ by a rig that names ``hub_head``, and no rig names it yet, so a peer marked
 ``listen`` is read, planned, written to the tunnel and walked exactly as the
 same peer without the mark.
 
-For a rig that names it, a listen peer is planned with its key, keepalive and
-allowed addresses (held to every rule a peer's are) and nothing to aim at: its
-endpoints and its relay are never taken. The tunnel script points it nowhere
-and lets the session's listen port in on eth0 from any address, and out to any,
-once for however many listen peers, in chains the re-aiming never flushes;
-WireGuard answers only a handshake made with a peer's key and learns the
-peer's address from it. The walk never pokes, aims, punches or relays for it:
-it waits for the peer's handshake until the connect deadline, checks the path
+For a rig that names it (with the settings its session was prepared under), a
+listen peer is planned with its key, keepalive and allowed addresses (held to
+every rule a peer's are) and nothing to aim at: its endpoints are never taken,
+and its relay is kept as the last resort. A tunnel mixing listen peers with
+peers it aims at is refused, and a ring peer is never a listen peer. The tunnel
+script points a listen peer nowhere and opens the session's listen port to UDP
+over IPv4 on eth0 from any source, once for however many listen peers, in
+chains the re-aiming never flushes; WireGuard answers only a handshake made
+with a configured peer's key and learns the peer's address from it. The walk
+never pokes, aims or punches for it: it waits for the peer's handshake (the
+handshake time, not an endpoint alone), however late it comes, checks the path
 with the full-size ping, and reports it ``inbound`` at the address it came
-from. A listen peer that never dials in is no path, one whose path is too
+from. One that has not dialled in within its attempt moves to its relay, and is
+then walked and reported as any relayed peer; with no relay it is waited for
+until the deadline. A peer no path reaches is no path, one whose path is too
 narrow is ``path_too_narrow``, as for any peer. Only the session's head takes
 one, and only in a container: a worker refuses it, and a native tunnel (which
-lets in only the hosts it aims at) refuses it as not capable. A ring peer is
-never a listen peer.
+lets in only the hosts it aims at) refuses it as not capable. Such a head needs
+all of its tunnel ports reachable: four, from its ``listen_port``.
 """
 
 from __future__ import annotations
@@ -48,7 +53,8 @@ OTHER_WORKER = "198.51.100.3"
 #: Where the worker's NAT maps its dial-out, the address its handshake comes from:
 #: a carrier-grade NAT's shared address, no LAN one.
 DIALS_FROM = ("100.64.0.77", 40123)
-RELAY = {"host": "203.0.113.50", "port": 3478, "ticket": "T" * 30}
+RELAY_HOST = "203.0.113.50"
+RELAY: dict[str, Any] = {"host": RELAY_HOST, "port": 3478, "ticket": "T" * 30}
 HUB_HEAD = (hubwire.FEATURE_HUB_HEAD,)
 SessionCode = sessionwire.SessionCode
 OWN = (
@@ -115,10 +121,20 @@ def test_a_listen_peer_is_planned_with_its_key_and_its_addresses_alone() -> None
     ]
 
 
-def test_a_listen_peers_endpoints_and_relay_are_never_taken() -> None:
+def test_a_listen_peers_endpoints_are_never_taken_and_its_relay_is_kept() -> None:
     endpoints = [{"host": "192.0.2.20", "port": 51820, "kind": "lan"}]
     (peer,) = _plan(_peer(endpoints=endpoints, relay=RELAY)).peers
-    assert (peer.candidates, peer.relay) == ((), None)
+    assert peer.candidates == ()
+    assert peer.relay is not None
+    assert str(peer.relay.host) == RELAY["host"]
+    # still nothing to aim at in the tunnel script: the relay is taken by the walk
+    assert _plan(_peer(endpoints=endpoints, relay=RELAY)).script_args()[3:5] == [
+        tunnel.LISTEN_HOST,
+        "0",
+    ]
+    # a relay this rig may not aim at is dropped, as any peer's is
+    (mine,) = _plan(_peer(relay={**RELAY, "host": "192.0.2.10"})).peers
+    assert mine.relay is None
 
 
 def test_the_keepalive_the_hub_names_is_the_one_a_listen_peer_keeps() -> None:
@@ -155,9 +171,8 @@ def test_a_ring_peer_is_never_planned_as_a_listen_peer() -> None:
     with pytest.raises(protocol.ProtocolError, match=r"peers\.listen"):
         _read(_up_body(_peer(ring=ring)), HUB_HEAD)
     # ... and the planner refuses it too, whoever built the request
-    needed = _peer(rig_id="rig-other", public_key=OTHER_KEY, listen=False)
+    needed = _peer(rig_id="rig-other", public_key=OTHER_KEY)
     needed["allowed_ips"] = [f"{OTHER_WORKER}/32"]
-    needed["endpoints"] = [{"host": "192.0.2.20", "port": 51820, "kind": "lan"}]
     up = _read(_up_body(_peer(), needed), HUB_HEAD)
     link = sessionwire.RingLink(dial_ports=(50052,), accept_ports=())
     both = dataclasses.replace(
@@ -165,6 +180,22 @@ def test_a_ring_peer_is_never_planned_as_a_listen_peer() -> None:
     )
     with pytest.raises(tunnel.RefusedError, match="a ring peer cannot be a listen"):
         tunnel.plan(both, listen_port=51820, own=OWN)
+
+
+def test_a_tunnel_mixing_listen_peers_with_peers_it_aims_at_is_refused() -> None:
+    lan = [{"host": "192.0.2.20", "port": 51820, "kind": "lan"}]
+    plain = _peer(
+        rig_id="rig-plain",
+        public_key=OTHER_KEY,
+        endpoints=lan,
+        allowed_ips=[f"{OTHER_WORKER}/32"],
+        listen=False,
+    )
+    ring = {**plain, "ring": {"dial_ports": [50052]}}
+    for other in (plain, ring):
+        with pytest.raises(tunnel.RefusedError, match="listen peers beside") as got:
+            _plan(_peer(), other)
+        assert got.value.code == protocol.ErrorCode.BAD_MESSAGE
 
 
 # --- without the feature, nothing changes --------------------------------------
@@ -187,6 +218,18 @@ def test_the_offer_names_the_features_the_tunnel_is_read_by() -> None:
         assert offered.features == session.named_features(
             share, session.rig_builds(share)
         )
+    # a rig that lends nothing names the hitchhike units alone, and has no
+    # session whose frames could be read by any feature
+    idle = fakes.sharing(None, enabled=False)
+    offered = session.offer(idle, fakes.inventory(Path(".")), (), (), fakes.report())
+    assert offered.features == (session.HITCHHIKE_FEATURE,)
+
+
+def test_a_head_that_answers_dial_ins_needs_its_four_tunnel_ports_reachable() -> None:
+    from mcgyvr.rig import sharing
+
+    assert fakes.sharing(None).tunnel_ports() == range(51820, 51824)
+    assert sharing.TUNNEL_PORTS == session.MAX_LIVE_SESSIONS == 4
 
 
 @pytest.mark.parametrize("mark", [True, False, None])
@@ -242,33 +285,22 @@ def _run(folder: Path, script: str, *args: str) -> tuple[list[str], list[str]]:
 def test_the_tunnel_lets_the_listen_port_in_from_anywhere_once_and_aims_nowhere(
     tmp_path: Path,
 ) -> None:
-    lan = [{"host": "192.0.2.20", "port": 51820, "kind": "lan"}]
     plan = _plan(
-        _peer(),
+        _peer(relay=RELAY),
         _peer(
             rig_id="rig-other", public_key=OTHER_KEY, allowed_ips=["198.51.100.3/32"]
         ),
-        _peer(
-            rig_id="rig-plain",
-            public_key="D" * 42 + "A=",
-            endpoints=lan,
-            allowed_ips=["198.51.100.4/32"],
-            listen=False,
-        ),
     )
     calls, rules = _run(tmp_path, pooled.TUNNEL_SCRIPT, *plan.script_args())
-    # the peer it aims at keeps its own rules, and only those, on the wg chains
-    assert [r for r in rules if " wg_in " in r or " wg_out " in r] == [
-        "add rule inet mcgyvr wg_in iifname eth0 ip saddr 192.0.2.20 "
-        "udp dport 51820 accept",
-        "add rule inet mcgyvr wg_out oifname eth0 ip daddr 192.0.2.20 "
-        "udp sport 51820 accept",
-    ]
-    # the listen port, from and to any address, once for both listen peers
+    # nothing is aimed at, so the wg chains stay empty
+    assert [r for r in rules if " wg_in " in r or " wg_out " in r] == []
+    # the listen port, IPv4 from and to any address, once for both listen peers
     eth0 = [r for r in rules if "eth0" in r and " wg_" not in r]
     assert eth0 == [
-        "add rule inet mcgyvr input iifname eth0 udp dport 51820 accept",
-        "add rule inet mcgyvr output oifname eth0 udp sport 51820 accept",
+        "add rule inet mcgyvr input iifname eth0 meta nfproto ipv4 "
+        "udp dport 51820 accept",
+        "add rule inet mcgyvr output oifname eth0 meta nfproto ipv4 "
+        "udp sport 51820 accept",
     ]
     # every accept but those two names an address, and nothing else is opened
     for rule in rules:
@@ -392,17 +424,112 @@ def test_the_head_reaches_the_worker_that_dialled_in_over_the_tunnel(
     assert opened[0] == fakes.SELF and opened[-2:] == (WORKER, "50052")
 
 
-def test_a_peer_that_never_dials_in_is_no_path_at_the_deadline_and_no_relay_is_bound(
+def test_a_peer_that_dials_in_late_is_waited_for_and_its_relay_left_alone(
+    pool: fakes.Pool,
+) -> None:
+    # the worker's handshake comes only at the sixth look: the head keeps waiting,
+    # within its attempt, and never moves to the relay
+    pool.docker.dials_in = {KEY: DIALS_FROM}
+    pool.docker.dial_after = 5
+    _head(pool)
+    body = _up_body(_peer(relay=RELAY), attempt_s=10, connect_timeout_s=20)
+    (path,) = pool.up("t1", **body)["body"]["peers"]
+    assert path["path"] == "inbound"
+    assert pool.docker.looks > 5
+    assert pool.relayed == []
+    assert _scripts(pool, pooled.PATH_SCRIPT) == []
+
+
+def test_a_peer_with_no_relay_is_waited_for_past_its_attempt(
+    pool: fakes.Pool,
+) -> None:
+    assert QUICK_ATTEMPT_S < 0.1
+    pool.docker.dials_in = {KEY: DIALS_FROM}
+    pool.docker.dial_after = 20
+    _head(pool)
+    body = _up_body(_peer(), connect_timeout_s=20)
+    (path,) = pool.up("t1", **body)["body"]["peers"]
+    assert path["path"] == "inbound"
+
+
+def test_a_peer_whose_relay_will_not_bind_is_still_waited_for(
+    pool: fakes.Pool,
+) -> None:
+    pool.relay_port = None
+    pool.docker.dials_in = {KEY: DIALS_FROM}
+    pool.docker.dial_after = 20
+    _head(pool)
+    body = _up_body(_peer(relay=RELAY), connect_timeout_s=20)
+    (path,) = pool.up("t1", **body)["body"]["peers"]
+    assert path["path"] == "inbound"
+    assert len(pool.relayed) == 1
+
+
+def test_an_endpoint_with_no_handshake_is_no_dial_in(pool: fakes.Pool) -> None:
+    # WireGuard may show where an initiation came from before the handshake is
+    # done: only the handshake time says the peer is there
+    pool.docker.dials_in = {KEY: DIALS_FROM}
+    pool.docker.dial_after = 10**9
+    _head(pool)
+    report = pool.up("t1", **_up_body(_peer(), connect_timeout_s=1))
+    assert report["body"]["peers"] == [{"rig_id": "rig-worker", "path": "none"}]
+    assert any(
+        line.startswith(f"endpoint {KEY}\t{DIALS_FROM[0]}")
+        for line in pool.docker._peers().splitlines()
+    )
+
+
+def test_a_peer_with_no_relay_that_never_dials_in_is_no_path_at_the_deadline(
     pool: fakes.Pool,
 ) -> None:
     _head(pool)
-    report = pool.up("t1", **_up_body(_peer(relay=RELAY), connect_timeout_s=1))
+    report = pool.up("t1", **_up_body(_peer(), connect_timeout_s=1))
     assert report["body"]["peers"] == [{"rig_id": "rig-worker", "path": "none"}]
     pool.wait_for("session_status", "failed")
     (failed,) = pool.box.of_type("session_status")[-1:]
     assert failed["body"]["error_code"] == SessionCode.NO_PATH
     assert pool.relayed == []
     assert _scripts(pool, pooled.PATH_SCRIPT) == []
+
+
+RELAYED = (RELAY_HOST, 40001)
+#: The session's attempt when the hub names none: the quick timing's, far
+#: shorter than the looks a late dial-in takes (``FakeDocker.dial_after``).
+QUICK_ATTEMPT_S = fakes.quick_timing().attempt_s
+
+
+def test_a_peer_that_does_not_dial_in_within_its_attempt_is_reached_on_its_relay(
+    pool: fakes.Pool,
+) -> None:
+    pool.docker.answering = {RELAYED}
+    _head(pool)
+    body = _up_body(_peer(relay=RELAY), connect_timeout_s=10)
+    (path,) = pool.up("t1", **body)["body"]["peers"]
+    assert path["path"] == "relay"
+    assert path["endpoint"] == {"host": RELAYED[0], "port": RELAYED[1], "kind": "relay"}
+    (grant,) = pool.relayed
+    assert grant.ticket == RELAY["ticket"]
+    # from there it is walked as any relayed peer: aimed at the relay, and poked
+    assert any(
+        args[1:3] == (KEY, RELAYED[0]) for args in _scripts(pool, pooled.PATH_SCRIPT)
+    )
+    assert any(WORKER in args for args in _scripts(pool, pooled.PEERS_SCRIPT))
+    # and it never punched
+    assert [p for p in pool.docker.python if p[1] == "start"] == []
+
+
+def test_a_peer_neither_dialling_in_nor_answering_on_its_relay_is_no_path(
+    pool: fakes.Pool,
+) -> None:
+    pool.docker.answering = set()
+    _head(pool)
+    body = _up_body(_peer(relay=RELAY), connect_timeout_s=1)
+    report = pool.up("t1", **body)
+    assert report["body"]["peers"] == [{"rig_id": "rig-worker", "path": "none"}]
+    pool.wait_for("session_status", "failed")
+    (failed,) = pool.box.of_type("session_status")[-1:]
+    assert failed["body"]["error_code"] == SessionCode.NO_PATH
+    assert len(pool.relayed) == 1
 
 
 def test_a_peer_that_dials_in_on_a_path_too_narrow_is_refused_as_too_narrow(
@@ -420,10 +547,21 @@ def test_a_peer_that_dials_in_on_a_path_too_narrow_is_refused_as_too_narrow(
     assert any(f"{DIALS_FROM[0]}:{DIALS_FROM[1]}" in line for line in pool.logged)
 
 
-def test_a_head_walks_its_other_peers_as_before_beside_one_that_dials_in(
+def test_a_peer_that_dials_in_too_narrow_moves_to_its_relay(
     pool: fakes.Pool,
 ) -> None:
     pool.docker.dials_in = {KEY: DIALS_FROM}
+    pool.docker.narrow = {DIALS_FROM}
+    _head(pool)
+    body = _up_body(_peer(relay=RELAY), attempt_s=5, connect_timeout_s=10)
+    (path,) = pool.up("t1", **body)["body"]["peers"]
+    assert path["path"] == "relay"
+    assert len(pool.relayed) == 1
+
+
+def test_a_head_refuses_listen_peers_beside_a_peer_it_aims_at(
+    pool: fakes.Pool,
+) -> None:
     _head(pool)
     lan = [{"host": "192.0.2.20", "port": 51820, "kind": "lan"}]
     plain = _peer(
@@ -433,18 +571,50 @@ def test_a_head_walks_its_other_peers_as_before_beside_one_that_dials_in(
         allowed_ips=[f"{OTHER_WORKER}/32"],
         listen=False,
     )
-    report = pool.up("t1", **_up_body(_peer(), plain))
-    assert {p["rig_id"]: p["path"] for p in report["body"]["peers"]} == {
-        "rig-worker": "inbound",
-        "rig-plain": "lan",
-    }
-    # the walk aims and pokes the plain peer alone
-    aimed = _scripts(pool, pooled.PATH_SCRIPT)
-    assert aimed and all(KEY not in args for args in aimed)
-    assert any(OTHER_KEY in args for args in aimed)
-    assert {OTHER_WORKER} == {
-        host for args in _scripts(pool, pooled.PEERS_SCRIPT) for host in args
-    }
+    answer = pool.ask("tunnel_up", "t1", **_up_body(_peer(), plain))
+    assert answer is not None and answer["type"] == "error"
+    assert answer["body"]["code"] == protocol.ErrorCode.BAD_MESSAGE
+    assert "listen peers beside a peer this rig aims at" in answer["body"]["message"]
+    assert _scripts(pool, pooled.TUNNEL_SCRIPT) == []
+
+
+def _hub_head_by_port_forward(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Name ``hub_head`` exactly when the settings allow the port forward: a
+    setting that stands in for the owner's switch the feature will have."""
+    named = session.named_features
+
+    def by_setting(share: Any, builds: Any) -> tuple[str, ...]:
+        extra = (hubwire.FEATURE_HUB_HEAD,) if share.port_forward else ()
+        return (*named(share, builds), *extra)
+
+    monkeypatch.setattr(session, "named_features", by_setting)
+
+
+@pytest.mark.parametrize(("before", "after"), [(True, False), (False, True)])
+def test_a_tunnel_is_read_by_the_features_its_session_was_prepared_with(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, before: bool, after: bool
+) -> None:
+    _hub_head_by_port_forward(monkeypatch)
+    pool = fakes.make_pool(tmp_path, port_forward=before)
+    try:
+        pool.docker.dials_in = {KEY: DIALS_FROM}
+        _head(pool)
+        # the setting changes after the hub planned the session
+        later = fakes.sharing(tmp_path, port_forward=after)
+        pool.sessions.machine = dataclasses.replace(
+            pool.sessions.machine, sharing=lambda: later
+        )
+        answer = pool.ask("tunnel_up", "t1", **_up_body())
+        if before:
+            assert answer is None
+            (path,) = pool.report("t1")["body"]["peers"]
+            assert path["path"] == "inbound"
+        else:
+            # read without the feature: a peer with nothing to aim at, refused
+            assert answer is not None and answer["type"] == "error", answer
+            assert "no endpoint or relay" in answer["body"]["message"]
+    finally:
+        pool.sessions.close()
 
 
 def test_a_worker_refuses_a_peer_that_would_dial_in(pool: fakes.Pool) -> None:

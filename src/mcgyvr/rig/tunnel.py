@@ -112,7 +112,7 @@ class PeerPlan:
     to fall back on when none of them answers, the ring link it is named
     for (None for a peer the session needs), and whether it is a listen peer:
     one that dials in, which this rig never aims at and only answers (it has
-    no candidates and no relay)."""
+    no candidates, and its relay is taken only once it never dialled in)."""
 
     rig_id: str
     public_key: str
@@ -320,9 +320,14 @@ def plan(
 
     A listen peer (:attr:`mcgyvr.rig.sessionwire.TunnelPeer.listen`) is a
     peer the session needs that dials in: its allowed addresses are held to
-    the same rules, but it is never aimed at, so its endpoints and its relay
-    are never taken and it needs neither; WireGuard learns its address from
-    its first handshake. A listen peer that is also a ring peer is refused."""
+    the same rules, but it is never aimed at, so its endpoints are never
+    taken and it needs none; WireGuard learns its address from its first
+    handshake. Its relay, when it has one this rig may reach, is kept as the
+    last resort for a peer that never dials in. A listen peer that is also a
+    ring peer is refused, and so is a tunnel that mixes listen peers with
+    peers it aims at: the tunnel lets its port in from any source for a
+    listen peer, which would also free the others from the sources their
+    rules pin them to."""
     if up.listen_port != listen_port:
         raise RefusedError(
             protocol.ErrorCode.BAD_MESSAGE,
@@ -353,6 +358,13 @@ def plan(
     if all(peer.ring is not None for peer in up.peers):
         raise RefusedError(
             protocol.ErrorCode.BAD_MESSAGE, "peers: only ring peers, none it needs"
+        )
+    if any(peer.listen for peer in up.peers) and not all(
+        peer.listen for peer in up.peers
+    ):
+        raise RefusedError(
+            protocol.ErrorCode.BAD_MESSAGE,
+            "peers: listen peers beside a peer this rig aims at",
         )
     peers = []
     unreached: list[str] = []
@@ -388,6 +400,7 @@ def plan(
                     keepalive_s=peer.keepalive_s,
                     allowed=peer.allowed_ips,
                     candidates=(),
+                    relay=_relay(peer, network, own),
                     listen=True,
                 )
             )

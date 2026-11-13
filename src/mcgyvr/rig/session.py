@@ -706,7 +706,8 @@ def _udpwire_source() -> str:
 @dataclass
 class _Walk:
     """One peer's walk through its candidates and then its relay; a listen
-    peer's is only a wait for its handshake, with ``aim`` None throughout.
+    peer's is a wait for its handshake (``aim`` None), then, if it never came
+    and the peer has one, its relay.
 
     ``aim`` is the endpoint the tunnel is aimed at for this peer now, ``attempt`` how
     long that aim is given, ``held`` the endpoint a handshake came back from, and
@@ -1222,15 +1223,15 @@ class Sessions:
         path reached. A repeated ask gets the report already made, or a place in the
         queue for it. ``None`` means the answer comes later.
 
-        A peer's ``listen`` is read only when this rig names
-        :data:`mcgyvr.hubwire.FEATURE_HUB_HEAD` (:func:`named_features`), and
+        A peer's ``listen`` is read only when this rig named
+        :data:`mcgyvr.hubwire.FEATURE_HUB_HEAD` for the session
+        (:meth:`_features_of`), and
         such a peer is taken only by the session's head running in containers:
         a worker never answers a peer that dials in, and a native tunnel lets
         in only the hosts it aims at.
         """
-        share = self.machine.sharing()
         asked = sessionwire.read_tunnel_up(
-            envelope, features=named_features(share, rig_builds(share))
+            envelope, features=self._features_of(envelope)
         )
         with self._lock:
             session = self._live_named(asked.session_id)
@@ -1590,6 +1591,18 @@ class Sessions:
                 else None
             ),
         )
+
+    def _features_of(self, envelope: protocol.Envelope) -> tuple[str, ...]:
+        """The features a frame about a session is read by: those this rig
+        offered for it (:func:`named_features` of the settings the session was
+        prepared under), or, for a session this rig does not hold, those it
+        names now. So a setting changed after the session was planned does not
+        change how the hub's frames for it are read."""
+        named = envelope.body.get("session_id")
+        with self._lock:
+            held = self._live_named(named) if isinstance(named, str) else None
+            share = held.sharing if held is not None else self.machine.sharing()
+        return named_features(share, rig_builds(share))
 
     def _takes_ring_peers(self) -> bool:
         """Whether this rig names :data:`RING_PEERS_FEATURE`: its owner turned the
@@ -2214,8 +2227,9 @@ class Sessions:
             changed = False
             for walk in open_:
                 key = walk.peer.public_key
-                # A listen peer is never aimed at: it is waited for, and its own
-                # handshake is what brings it, from wherever it dials in.
+                # A listen peer is not aimed at: it is waited for, and its own
+                # handshake is what brings it, from wherever it dials in; the
+                # handshake time, not the endpoint alone, says it came.
                 shaken = (
                     seen.endpoints.get(key)
                     if seen is not None
@@ -2238,13 +2252,23 @@ class Sessions:
                             round(ping.rtt_ms * 1000), sessionwire.MAX_RTT_US
                         )
                     changed = True
-                elif not walk.peer.listen and (
-                    walk.aim is None
-                    or (not walk.relayed and now - walk.since >= walk.attempt)
+                elif (
+                    not walk.peer.listen
+                    and (
+                        walk.aim is None
+                        or (not walk.relayed and now - walk.since >= walk.attempt)
+                    )
+                ) or (
+                    walk.peer.listen
+                    and walk.peer.relay is not None
+                    and not walk.relayed
+                    and now - walk.since >= walk.attempt
                 ):
                     # Neither a handshake nor a ping came back from the aim, so it has
                     # had its time: the walk moves to the next candidate, and then to
-                    # the peer's relay.
+                    # the peer's relay. A listen peer has no candidate: it moves to its
+                    # relay once it has not dialled in for its time, and without one
+                    # it is waited for until the deadline.
                     self._next_aim(walk)
                     walk.since = self._clock()
                     changed = True
@@ -2315,6 +2339,9 @@ class Sessions:
                 walk.aim = (str(relay.host), bound)
                 return
         walk.aim = None
+        if walk.peer.listen and not walk.narrowed:
+            # it may still dial in: it is waited for until the deadline
+            return
         walk.result = sessionwire.PeerPath(rig_id=walk.peer.rig_id, path="none")
 
     def _ping(self, session: _Session, walk: _Walk) -> pooled.PingSeen | None:
@@ -2342,9 +2369,10 @@ class Sessions:
         """Give up on an endpoint that answered small pings but lost the full-size ones.
 
         The path's MTU is too small for the tunnel, so the walk moves on — to the next
-        candidate, or, for the relay or a listen peer (which dialled in from
-        `shaken`, the endpoint its handshake came from), to no path — and the
-        reason is kept for the log and for the refusal the hub is sent.
+        candidate or the relay (a listen peer, which dialled in from `shaken`,
+        the endpoint its handshake came from, moves to its relay), or, for the
+        relay or a listen peer without one, to no path — and the reason is kept
+        for the log and for the refusal the hub is sent.
         """
         assert walk.aim is not None or walk.peer.listen
         host, port = walk.aim if walk.aim is not None else shaken
@@ -2365,7 +2393,7 @@ class Sessions:
             f"{walk.why}"
         )
         walk.narrowed = True
-        if walk.relayed or walk.peer.listen:
+        if walk.relayed or (walk.peer.listen and walk.peer.relay is None):
             walk.aim = None
             walk.result = sessionwire.PeerPath(rig_id=walk.peer.rig_id, path="none")
         else:
@@ -2383,12 +2411,16 @@ class Sessions:
         An endpoint that answered on the peer's relay is a relay path; any other is
         direct and takes its kind and its path from the candidate it was planned as,
         so an address no candidate named is reported as reflexive and direct.
-        A listen peer dialled in, and is reported on
-        :data:`mcgyvr.hubwire.TUNNEL_INBOUND_PATH` at the address its handshake
-        came from: a LAN one as ``lan``, any other as ``reflexive``.
+        A listen peer that answered anywhere but its relay dialled in, and is
+        reported on :data:`mcgyvr.hubwire.TUNNEL_INBOUND_PATH` at the address
+        its handshake came from: a LAN one as ``lan``, any other as
+        ``reflexive``.
         """
         host, port = endpoint
-        if walk.peer.listen:
+        relay = walk.peer.relay
+        if walk.peer.listen and not (
+            walk.relayed and relay is not None and host == str(relay.host)
+        ):
             came_from = sessionwire._ipv4(host)
             return sessionwire.PeerPath(
                 rig_id=walk.peer.rig_id,
@@ -2401,7 +2433,6 @@ class Sessions:
                     else "reflexive",
                 ),
             )
-        relay = walk.peer.relay
         if walk.relayed and relay is not None and host == str(relay.host):
             kind, path = "relay", "relay"
         else:
@@ -2422,13 +2453,14 @@ class Sessions:
         A walk that found an endpoint keeps the tunnel aimed at it exactly, so the
         peer's traffic keeps coming back the way it worked; a walk still looking gets
         a rule for the address aimed at, and the peer's endpoint is moved to it, which
-        is what makes the tunnel try a new candidate. A listen peer is never
-        aimed (the tunnel follows it to wherever it dials in from), so it is
-        left out, and a tunnel of listen peers alone is not aimed at all.
+        is what makes the tunnel try a new candidate. A listen peer is not aimed
+        (the tunnel follows it to wherever it dials in from) until its walk
+        moves to its relay, so until then it is left out, and a tunnel of such
+        peers alone is not aimed at all.
         """
         aims = []
         for walk in walks:
-            if walk.peer.listen:
+            if walk.peer.listen and not walk.relayed:
                 continue
             key = walk.peer.public_key
             if walk.held is not None:

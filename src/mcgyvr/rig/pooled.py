@@ -204,9 +204,10 @@ echo "open"
 #: These rules match the peer's address and the listen port, not its source port.
 #: A listen peer (host :data:`mcgyvr.rig.tunnel.LISTEN_HOST`) dials in from an
 #: address not known beforehand: it is left unaimed, and while the tunnel has one,
-#: the listen port is let in on eth0 from any address and out to any, once, in the
-#: input and output chains (which PATH_SCRIPT never flushes) and in the same
-#: transaction; WireGuard answers only a handshake made with a peer's key.
+#: the listen port accepts UDP over IPv4 on eth0 from any source, and sends to any,
+#: once, in the input and output chains (which PATH_SCRIPT never flushes) and in
+#: the same transaction. WireGuard answers only a handshake made with a configured
+#: peer's key.
 TUNNEL_SCRIPT = (
     r"""set -eu
 self="$1"
@@ -248,8 +249,8 @@ icmp="icmp type { echo-request, echo-reply }"
     shift 5
   done
   if [ "$answers" = 1 ]; then
-    echo "$add input iifname eth0 udp dport $port accept"
-    echo "$add output oifname eth0 udp sport $port accept"
+    echo "$add input iifname eth0 meta nfproto ipv4 udp dport $port accept"
+    echo "$add output oifname eth0 meta nfproto ipv4 udp sport $port accept"
   fi
 }
 table "$@" | nft -f -

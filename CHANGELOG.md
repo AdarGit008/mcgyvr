@@ -1078,23 +1078,29 @@ entries name development tooling, flags and records outside this repository.
 
 - **A hub head answers a tunnel peer that dials in, and never aims at it; no
   rig names the feature yet.** The agent reads `tunnel_up` with the features
-  its offer names (`session.named_features`, now the one place `offer` takes
-  them from), so a peer's `listen` is read only by a rig naming `hub_head`.
+  it named for the session (`session.named_features` of the settings the
+  session was prepared under; `offer` takes its features from the same
+  function), so a peer's `listen` is read only by a rig naming `hub_head`.
   Such a peer is planned with its key, keepalive and allowed addresses, held
-  to every peer's rules, and nothing to aim at: its endpoints and relay are
-  never taken (`tunnel.PeerPlan.listen`, host word `tunnel.LISTEN_HOST`).
-  The tunnel script points it nowhere and, while the tunnel has one, lets the
-  session's listen port in on eth0 from any address and out to any, in the
-  same transaction as the rest of its table; WireGuard answers only a
-  handshake made with a peer's key and learns the peer's address from it.
-  The walk never pokes, aims, punches or relays for it: it waits for the
-  peer's handshake within the connect deadline, checks the path with the
-  full-size ping and reports it on the new path `inbound`
-  (`hubwire.TUNNEL_INBOUND_PATH`) at the address the handshake came from.
-  Only the session's head takes one: a worker refuses it as `bad_message`,
-  and a native head (whose helper lets in only the hosts it aims at) as
-  `not_capable`; a ring peer is never one. Without the feature every tunnel
-  is read, planned, written and walked as before.
+  to every peer's rules, and nothing to aim at: its endpoints are never taken
+  (`tunnel.PeerPlan.listen`, host word `tunnel.LISTEN_HOST`); its relay is
+  kept as the last resort. A tunnel that mixes listen peers with peers it
+  aims at is refused, and a ring peer is never a listen peer. The tunnel
+  script points a listen peer nowhere and, while the tunnel has one, its
+  listen port accepts UDP over IPv4 on eth0 from any source, in the same
+  transaction as the rest of its table; WireGuard answers only a handshake
+  made with a configured peer's key, and learns the peer's address from it.
+  The walk never pokes, aims or punches for such a peer: it waits for the
+  peer's handshake, checks the path with the full-size ping and reports it on
+  the new path `inbound` (`hubwire.TUNNEL_INBOUND_PATH`) at the address the
+  handshake came from; a peer that has not dialled in within its attempt
+  moves to its relay, if it has one, and is then walked and reported as any
+  relayed peer. Only the session's head takes one: a worker refuses it as
+  `bad_message`, and a native head (whose helper lets in only the hosts it
+  aims at) as `not_capable`. Such a head needs every one of its tunnel ports
+  (`listen_port` to `listen_port` + 3, 51820 to 51823 by default; one per
+  live session) reachable from the internet. Without the feature every
+  tunnel is read, planned, written and walked as before.
 
 - **The release can be rehearsed, on GitHub and locally, and publishes nothing
   when it is.** `.github/workflows/release.yml` takes a `workflow_dispatch`
