@@ -619,6 +619,41 @@ def test_a_too_narrow_dial_in_after_the_move_to_the_relay_leaves_it_on_the_relay
     assert f"{DIALS_FROM[0]}:{DIALS_FROM[1]}" in spent[0]
 
 
+def test_a_too_narrow_dial_in_after_a_relay_that_would_not_bind_is_too_narrow(
+    pool: fakes.Pool,
+) -> None:
+    # no dial-in within the attempt, and the relay will not bind, so the head
+    # waits on; then the dial-in lands, too narrow, with nowhere left to go
+    pool.relay_port = None
+    pool.docker.dials_in = {KEY: DIALS_FROM}
+    pool.docker.dial_after = 20
+    pool.docker.narrow = {DIALS_FROM}
+    _head(pool)
+    body = _up_body(_peer(relay=RELAY), connect_timeout_s=20)
+    assert pool.ask("tunnel_up", "t1", **body) is None
+    pool.wait_for("error")
+    (refused,) = pool.box.of_type("error")
+    assert refused["body"]["code"] == SessionCode.PATH_TOO_NARROW
+    assert refused["body"]["message"].startswith("its dial-in answered a small ping")
+    assert len(pool.relayed) == 1
+
+
+def test_a_peer_with_no_tunnel_host_to_ping_is_taken_on_its_handshake(
+    pool: fakes.Pool,
+) -> None:
+    # allowed a network, no single address: the plan takes it, and there is
+    # nothing the walk can ping, so its handshake is all that says it came
+    pool.docker.dials_in = {KEY: DIALS_FROM}
+    _head(pool)
+    (planned,) = _plan(_peer(allowed_ips=["198.51.100.4/30"])).peers
+    assert planned.tunnel_host is None
+    body = _up_body(_peer(allowed_ips=["198.51.100.4/30"]), connect_timeout_s=10)
+    (path,) = pool.up("t1", **body)["body"]["peers"]
+    assert path["path"] == "inbound"
+    assert "rtt_us" not in path
+    assert _scripts(pool, pooled.PING_SCRIPT) == []
+
+
 def test_a_stale_handshake_is_not_taken_as_the_relay_answering(
     pool: fakes.Pool,
 ) -> None:
