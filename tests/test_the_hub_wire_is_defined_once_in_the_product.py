@@ -631,7 +631,8 @@ def test_the_feature_names_are_the_schemas_and_the_rig_names_its_own(
     but ``backend_select`` (its worker starts the same on every backend) in
     :data:`session.FEATURES`, and ``ring_peers`` and ``runtime_select`` only
     beside them, when the owner turned the ring links on and when it offers a
-    ring build (``session.offer``, held by those features' own tests)."""
+    ring build (``session.offer``, held by those features' own tests). It names
+    no ``hub_head`` or ``probe_bulk_2m`` yet: the wire defines them first."""
     from mcgyvr.rig import session
 
     assert len(set(hubwire.FEATURES)) == len(hubwire.FEATURES)
@@ -641,6 +642,8 @@ def test_the_feature_names_are_the_schemas_and_the_rig_names_its_own(
         hubwire.FEATURE_BACKEND_SELECT,
         hubwire.FEATURE_RING_PEERS,
         hubwire.FEATURE_RUNTIME_SELECT,
+        hubwire.FEATURE_HUB_HEAD,
+        hubwire.FEATURE_PROBE_BULK_2M,
     }
 
 

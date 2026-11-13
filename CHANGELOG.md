@@ -1058,6 +1058,24 @@ entries name development tooling, flags and records outside this repository.
 
 ### Added
 
+- **The wire defines the hub head, a head on the hub's host with no card; no rig
+  names it yet.** New in hubwire: the features `hub_head` and `probe_bulk_2m`;
+  `HUB_HEAD_MAX_SLOTS` (64; `MAX_SLOTS` stays 16 for every other head and every
+  unit advert); the `head_start` fields `output_local`, `waves` (2 to 4) and `ubatch`;
+  the `tunnel_up` peer field `listen`, and the `session_status` fields
+  `t_out_ms` and `t_out_threads`, each optional and off when left out;
+  `HUB_PROBE_BULK_BYTES` (2 MiB, beside the 256 KiB `MAX_PROBE_BULK_BYTES`,
+  which the schema now also names as `x-probe-max-bulk-bytes`); and the rules
+  both sides size such a head by: `head_waves_fit` (one wave's slots within one
+  micro-batch), `fit_beyond` (the cache above the largest slot count a rig
+  answers for, grown per slot from that answer), `hub_head_ubatch` (the
+  micro-batch from the round trip and the slowest worker uplink) and
+  `t_out_fits`. The published protocol schema carries them. The rig's readers
+  (`sessionwire.read_head_start`, `read_tunnel_up`, `read_probe_run`) and
+  `probe.Probes` (its longer bulk train, `MAX_TRAIN_BULK_2M`) take the
+  rig's features and read the new fields only when it names the feature; no
+  caller passes one yet, so every rig reads every message as before.
+
 - **The release can be rehearsed, on GitHub and locally, and publishes nothing
   when it is.** `.github/workflows/release.yml` takes a `workflow_dispatch`
   input `dry_run`, true by default: `gh workflow run release.yml --ref

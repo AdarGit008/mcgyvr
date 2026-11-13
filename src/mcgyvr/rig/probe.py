@@ -36,7 +36,7 @@ import socket
 import statistics
 import threading
 import time
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Collection, Sequence
 from dataclasses import dataclass, field
 
 from mcgyvr import hubwire
@@ -57,6 +57,9 @@ MAX_PONGS_PER_S = 500
 #: Most packets one bulk train may hold: the bound a train's packet count and
 #: its sequence numbers are read against.
 MAX_TRAIN = -(-sessionwire.MAX_PROBE_BULK_BYTES // udpwire.PROBE_PACKET_MIN_BYTES)
+#: The same bound for a rig that names :data:`hubwire.FEATURE_PROBE_BULK_2M`,
+#: whose trains go up to :data:`hubwire.HUB_PROBE_BULK_BYTES`.
+MAX_TRAIN_BULK_2M = -(-hubwire.HUB_PROBE_BULK_BYTES // udpwire.PROBE_PACKET_MIN_BYTES)
 #: How long each pass of a probe's loop waits for datagrams before the next.
 SLICE_S = 0.05
 #: How long release waits for a probe's thread to close its socket and free the
@@ -119,7 +122,10 @@ class Probes:
     ``own`` is dropped: that is this rig, and the hub built the pair wrong.
     ``allowed`` is the rule on every other address the hub names, ``lending``
     refuses probes when this rig offers nothing to ride, and ``clock`` drives
-    the ttl, the ping schedule and the bulk rate.
+    the ttl, the ping schedule and the bulk rate. ``features`` are the ones
+    this rig names: with :data:`hubwire.FEATURE_PROBE_BULK_2M` among them a run
+    may ask for, and a peer may send, the longer train (:data:`MAX_TRAIN_BULK_2M`);
+    without it both stay at :data:`MAX_TRAIN`, as before.
     """
 
     def __init__(
@@ -133,8 +139,15 @@ class Probes:
         lending: Callable[[], bool] = lambda: True,
         bind_host: str = "0.0.0.0",
         clock: Callable[[], float] = time.monotonic,
+        features: Collection[str] = (),
     ) -> None:
         self._send = send
+        self._features = tuple(features)
+        self._max_train = (
+            MAX_TRAIN_BULK_2M
+            if hubwire.FEATURE_PROBE_BULK_2M in self._features
+            else MAX_TRAIN
+        )
         self._lending = lending
         self._port = port
         self._hosts = hosts
@@ -239,7 +252,7 @@ class Probes:
         the address rule; a peer left with no candidate is still reported, as
         not reached. The probe's thread then schedules the rounds.
         """
-        asked = sessionwire.read_probe_run(envelope)
+        asked = sessionwire.read_probe_run(envelope, features=self._features)
         with self._lock:
             probe = self._probes.get(asked.probe_id)
             if probe is None or probe.closed.is_set() or not probe.opened:
@@ -437,7 +450,10 @@ class Probes:
             if peer.first is None:
                 peer.first = index
             return
-        if packet.seq in peer.train or not 0 <= packet.seq < packet.stamp <= MAX_TRAIN:
+        if (
+            packet.seq in peer.train
+            or not 0 <= packet.seq < packet.stamp <= self._max_train
+        ):
             return
         peer.train.add(packet.seq)
         peer.train_bytes += packet.size

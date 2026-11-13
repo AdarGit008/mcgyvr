@@ -136,6 +136,17 @@ is here:
   (:func:`card_bytes`, :func:`bytes_on_card`), an MoE spill's host memory
   (:func:`offloaded_expert_bytes`), and the measured runs both planners are held
   to (:data:`FIT_CALIBRATION_RUNS`);
+* the hub head, a head on the hub's host with no card
+  (:data:`FEATURE_HUB_HEAD`): the ``head_start`` fields only such a rig is
+  sent (:data:`HEAD_OUTPUT_LOCAL_FIELD`, :data:`HEAD_WAVES_FIELD`,
+  :data:`HEAD_UBATCH_FIELD`, slots up to :data:`HUB_HEAD_MAX_SLOTS`), the
+  ``tunnel_up`` peer that dials in to it (:data:`TUNNEL_LISTEN_FIELD`), the
+  rule its waves and micro-batch keep (:func:`head_waves_fit`), the
+  micro-batch it runs (:func:`hub_head_ubatch`), what its caches take above
+  the slots a rig answers for (:func:`fit_beyond`), the time its output stage
+  takes that it reports (:data:`T_OUT_MS_FIELD`, :data:`T_OUT_THREADS_FIELD`,
+  :func:`t_out_fits`), and the bulk a probe centred on it sends
+  (:data:`FEATURE_PROBE_BULK_2M`, :data:`HUB_PROBE_BULK_BYTES`);
 * the ``port_map_report`` ``error`` tags of a forward the rig itself refuses
   (:data:`PORT_MAP_NOT_ALLOWED`, :data:`PORT_MAP_PERMANENT_ONLY`), which the
   hub tells apart from a router's refusal, and of a router that forwards the
@@ -203,6 +214,10 @@ LADDER_MAX_PARAMS_B = 100_000
 
 #: Most slots one unit may have: a unit's concurrency, one session per slot.
 MAX_SLOTS = 16
+#: Most slots a hub head runs (:data:`FEATURE_HUB_HEAD`): the bound of
+#: ``head_start.slots`` sent to a rig that names that feature. Every other head
+#: and every unit advert stays at :data:`MAX_SLOTS`.
+HUB_HEAD_MAX_SLOTS = 64
 #: Most units one advert may name.
 MAX_UNITS = 16
 #: An agent sends its advert again at least this often, in seconds.
@@ -314,9 +329,10 @@ MAX_FEATURES = 16
 #: and serves rides, runs several sessions at once one per card, honors a
 #: worker card's backend name, and forwards its tunnel ports on its router.
 #: An agent lists the ones it does; this product's rig names every one but
-#: ``backend_select``, ``ring_peers`` and ``runtime_select``
-#: (``mcgyvr.rig.session.FEATURES``), the last two only beside them: when its
-#: owner turned the ring links on, and when it offers a ring build.
+#: ``backend_select``, ``ring_peers``, ``runtime_select``, ``hub_head`` and
+#: ``probe_bulk_2m`` (``mcgyvr.rig.session.FEATURES``), ``ring_peers`` and
+#: ``runtime_select`` only beside them: when its owner turned the ring links on,
+#: and when it offers a ring build. It names neither of the last two yet.
 FEATURE_PROBE = "probe"
 FEATURE_TRAVERSAL = "traversal"
 FEATURE_HEAD_SLOTS = "head_slots"
@@ -338,6 +354,20 @@ FEATURE_RING_PEERS = "ring_peers"
 #: it together with its builds, never without; the hub names either start
 #: field only to a rig that names it.
 FEATURE_RUNTIME_SELECT = "runtime_select"
+#: The feature a rig names when it can be a hub head: it heads a session with
+#: no card of its own, every layer on workers and the output layer on a CPU
+#: rpc-server on its own loopback. Only to a rig that names it does the hub send
+#: the hub-head fields of ``head_start`` (:data:`HEAD_OUTPUT_LOCAL_FIELD`,
+#: :data:`HEAD_WAVES_FIELD`, :data:`HEAD_UBATCH_FIELD`, slots up to
+#: :data:`HUB_HEAD_MAX_SLOTS`) and ``tunnel_up`` peers with
+#: :data:`TUNNEL_LISTEN_FIELD`, and only such a rig reports its output time
+#: (:data:`T_OUT_MS_FIELD`). On the wire it is still role ``head``
+#: (:data:`RIG_ROLES` stays two). A rig names it only when its owner turned it on.
+FEATURE_HUB_HEAD = "hub_head"
+#: The feature a rig names when it takes a ``probe_run`` bulk of up to
+#: :data:`HUB_PROBE_BULK_BYTES`; a rig without it is sent at most
+#: :data:`MAX_PROBE_BULK_BYTES`.
+FEATURE_PROBE_BULK_2M = "probe_bulk_2m"
 FEATURES: tuple[str, ...] = (
     FEATURE_PROBE,
     FEATURE_TRAVERSAL,
@@ -348,6 +378,8 @@ FEATURES: tuple[str, ...] = (
     FEATURE_PORT_MAP,
     FEATURE_RING_PEERS,
     FEATURE_RUNTIME_SELECT,
+    FEATURE_HUB_HEAD,
+    FEATURE_PROBE_BULK_2M,
 )
 #: The roles a rig may offer in a session: at most both.
 RigRole = Literal["head", "worker"]
@@ -399,6 +431,9 @@ MIN_PROBE_INTERVAL_MS = 10
 MAX_PROBE_INTERVAL_MS = 1000
 DEFAULT_PROBE_INTERVAL_MS = 50
 MAX_PROBE_BULK_BYTES = 256 * 1024
+#: The bulk a rig that names :data:`FEATURE_PROBE_BULK_2M` takes at most: the
+#: train a probe centred on a hub head sends, long enough to read a home uplink.
+HUB_PROBE_BULK_BYTES = 2 * 1024 * 1024
 MIN_PROBE_DEADLINE_MS = 100
 MAX_PROBE_DEADLINE_MS = 15_000
 DEFAULT_PROBE_DEADLINE_MS = 5000
@@ -2459,3 +2494,189 @@ FIT_CALIBRATION_RUNS: tuple[MeasuredRun, ...] = tuple(
         ("moe-three", _MOE, _WORKER, 196608, False),
     )
 )
+
+
+# --- the hub head ------------------------------------------------------------------
+#
+# A hub head (:data:`FEATURE_HUB_HEAD`) heads a session from the hub's own host,
+# with no card: every layer on workers, the output layer on a CPU rpc-server on
+# its own loopback, more slots than a rig head, its slots decoded in waves at a
+# micro-batch sized to the workers' uplink. These are the fields the hub names
+# only to such a rig and the rules both sides size it with; a rig that does not
+# name the feature is sent none of them and runs as before.
+
+#: The ``head_start`` field saying the output layer runs on a CPU rpc-server on
+#: the head's own loopback, which the head names as its last device (the fork's
+#: ``--output-dev``). Left out, null or false: as every head runs today.
+HEAD_OUTPUT_LOCAL_FIELD = "output_local"
+#: The ``head_start`` field naming how many waves the head decodes its slots in
+#: (the fork's ``LLAMA_WAVE_DISPATCH``), :data:`MIN_WAVES` to :data:`MAX_WAVES`
+#: and at most the slots. Left out or null: no waves.
+HEAD_WAVES_FIELD = "waves"
+#: The ``head_start`` field naming the head's micro-batch (``-ub``), 1 to
+#: :data:`HEAD_UBATCH`. Left out or null: :data:`HEAD_UBATCH`.
+HEAD_UBATCH_FIELD = "ubatch"
+#: The ``tunnel_up`` peer field saying this rig does not aim at the peer: the
+#: peer dials in, and this rig answers its handshake and learns its address.
+#: Left out, null or false: the peer is reached as before. Never on a ring peer
+#: (:data:`RING_FIELD`).
+TUNNEL_LISTEN_FIELD = "listen"
+#: The fewest waves that are waves: the fork turns them on at two
+#: (``tools/server/server-context.cpp``, ``wave_dispatch = n_waves >= 2``).
+MIN_WAVES = 2
+#: The most waves, and never more than the slots (each wave holds a slot at
+#: least). The fork runs at most as many waves as its scheduler keeps input
+#: copies, a build constant (``GGML_SCHED_MAX_COPIES``, 4 by default), and asked
+#: for more it runs that many; it then turns wave dispatch off, without a word,
+#: when one wave's slots (``ceil(slots / waves)``) exceed the micro-batch. So a
+#: start may name at most 4, and :func:`head_waves_fit` holds the micro-batch to
+#: the waves the fork will run.
+MAX_WAVES = 4
+#: The ``session_status`` field a hub head reports its output stage's time in:
+#: milliseconds per wave (a number), the time the output layer and the logits
+#: take on its loopback rpc-server. Left out: not measured. A hub reads it as a
+#: planner input; nothing else changes with it.
+T_OUT_MS_FIELD = "t_out_ms"
+#: The ``session_status`` field naming the threads that output stage ran on,
+#: only beside :data:`T_OUT_MS_FIELD`; 1 to :data:`MAX_RESOURCE_CORES`.
+T_OUT_THREADS_FIELD = "t_out_threads"
+#: The longest output time a report may carry, in milliseconds: a sanity bound
+#: (a minute, as :data:`MAX_RTT_US` is for a round trip).
+MAX_T_OUT_MS = MAX_RTT_US // 1000
+
+
+def t_out_fits(t_out_ms: object, t_out_threads: object) -> None:
+    """Raise ValueError, naming the field at fault, unless a ``session_status``
+    may carry this output time: ``t_out_ms`` None or a finite number of 0 to
+    :data:`MAX_T_OUT_MS`, and ``t_out_threads`` None or a whole number of 1 to
+    :data:`MAX_RESOURCE_CORES`, named only beside ``t_out_ms``."""
+    _need(
+        t_out_ms is None
+        or (
+            isinstance(t_out_ms, int | float)
+            and not isinstance(t_out_ms, bool)
+            and 0 <= t_out_ms <= MAX_T_OUT_MS
+        ),
+        T_OUT_MS_FIELD,
+        f"not a number of 0 to {MAX_T_OUT_MS}",
+    )
+    _need(
+        t_out_threads is None
+        or (
+            isinstance(t_out_threads, int)
+            and _is_int(t_out_threads)
+            and 1 <= t_out_threads <= MAX_RESOURCE_CORES
+        ),
+        T_OUT_THREADS_FIELD,
+        f"not a whole number of 1 to {MAX_RESOURCE_CORES}",
+    )
+    _need(
+        t_out_threads is None or t_out_ms is not None,
+        T_OUT_THREADS_FIELD,
+        f"only beside {T_OUT_MS_FIELD}",
+    )
+
+
+def head_waves_fit(*, slots: int, waves: int | None, ubatch: int | None) -> None:
+    """Raise ValueError, naming the field at fault, unless a hub head may run
+    ``slots`` slots in ``waves`` waves at micro-batch ``ubatch``: slots 1 to
+    :data:`HUB_HEAD_MAX_SLOTS`; waves None or :data:`MIN_WAVES` to
+    :data:`MAX_WAVES` and at most the slots; ubatch None (:data:`HEAD_UBATCH`)
+    or 1 to :data:`HEAD_UBATCH`; and one wave's slots within one micro-batch,
+    since the fork turns waves off when they are not (``(n_parallel + n_waves -
+    1) / n_waves > n_ubatch``)."""
+    _need(
+        _is_int(slots) and 1 <= slots <= HUB_HEAD_MAX_SLOTS,
+        "slots",
+        f"not a whole number of 1 to {HUB_HEAD_MAX_SLOTS}",
+    )
+    _need(
+        ubatch is None or (_is_int(ubatch) and 1 <= ubatch <= HEAD_UBATCH),
+        HEAD_UBATCH_FIELD,
+        f"not a whole number of 1 to {HEAD_UBATCH}",
+    )
+    if waves is None:
+        return
+    _need(
+        _is_int(waves) and MIN_WAVES <= waves <= min(MAX_WAVES, slots),
+        HEAD_WAVES_FIELD,
+        f"not a whole number of {MIN_WAVES} to {MAX_WAVES} and the slots",
+    )
+    _need(
+        _ceil_div(slots, waves) <= (HEAD_UBATCH if ubatch is None else ubatch),
+        HEAD_UBATCH_FIELD,
+        "smaller than one wave's slots",
+    )
+
+
+def fit_beyond(fit: CacheFit, ctx: int, slots: int) -> tuple[int, int] | None:
+    """What :meth:`CacheFit.at` answers for a hub head, which may run more
+    slots than a rig answers for: the bytes the caches take at ``ctx`` per slot
+    over ``slots`` slots, and the excess a run of blocks holds beyond its share.
+
+    Up to the largest slot count ``fit`` answers for (16 on :data:`FIT_SLOTS`,
+    fewer when a rig answers fewer) it is ``fit.at(ctx, slots)``. Above, both
+    grow per slot from the answer at that count: that answer in MiB times
+    ``slots`` over the count, rounded up. Each slot holds a cache of its own (no
+    unified cache), of the same padded cells whatever the slot count, and its
+    own recurrent state, so at a fixed context per slot the cache law grows in
+    step with the slots: a total, rounded up and scaled, is never below the
+    law's. The excess is at or above the law's but for its rounding: a rig
+    takes up to a byte a block off it (``mcgyvr.rig.inventory``), which does not
+    scale, so a scaled excess may fall short of the law by under
+    ``slots / widest - 1`` bytes a block (about 150 bytes for 48 blocks from 16
+    to 64 slots), far below the MiB it is rounded to.
+    The answers are at :data:`HEAD_UBATCH`; a smaller micro-batch keeps a
+    sliding cache no larger, so they hold there too. None when no answer at
+    that count reaches ``ctx``. ValueError unless ``slots`` is 1 to
+    :data:`HUB_HEAD_MAX_SLOTS`."""
+    _need(
+        _is_int(slots) and 1 <= slots <= HUB_HEAD_MAX_SLOTS,
+        "slots",
+        f"not a whole number of 1 to {HUB_HEAD_MAX_SLOTS}",
+    )
+    widest = max(fit.slots)
+    if slots <= widest:
+        return fit.at(ctx, slots)
+    found = fit.at(ctx, widest)
+    if found is None:
+        return None
+    total, excess = (
+        _ceil_div(value // BYTES_PER_MIB * slots, widest) * BYTES_PER_MIB
+        for value in found
+    )
+    return total, excess
+
+
+def hub_head_ubatch(
+    *,
+    slots: int,
+    waves: int | None,
+    rtt_us: int,
+    uplink_kbps: int,
+    token_bytes: int,
+) -> int:
+    """The micro-batch a hub head runs (``head_start.ubatch``): the most prompt
+    tokens one wave carries whose activations the slowest worker uplink sends
+    within one round trip, so a long prompt never stalls the decoding slots by
+    more than that, and never below one wave's slots nor above
+    :data:`HEAD_UBATCH`::
+
+        in_flight = floor(rtt x uplink / (8 x token_bytes))
+        ub = max(ceil(slots / waves), min(HEAD_UBATCH, in_flight))
+
+    ``rtt_us`` is the worker <-> head round trip in microseconds, ``uplink_kbps``
+    the slowest worker's uplink in kbit/s, ``token_bytes`` what one token's
+    activations take on that uplink, and ``waves`` None for no waves (one wave
+    of every slot). The answer always passes :func:`head_waves_fit`.
+    ValueError, naming the input at fault, unless each is in its range."""
+    head_waves_fit(slots=slots, waves=waves, ubatch=None)
+    _need(_is_int(rtt_us) and 0 <= rtt_us <= MAX_RTT_US, "rtt_us", "out of range")
+    _need(
+        _is_int(uplink_kbps) and 0 <= uplink_kbps <= MAX_RATE_KBPS,
+        "uplink_kbps",
+        "out of range",
+    )
+    _need(_is_int(token_bytes) and token_bytes >= 1, "token_bytes", "not positive")
+    in_flight = rtt_us * uplink_kbps // (8_000 * token_bytes)
+    return max(_ceil_div(slots, waves or 1), min(HEAD_UBATCH, in_flight))

@@ -19,6 +19,7 @@ from typing import Any
 
 import pytest
 
+from mcgyvr import hubwire
 from tests import rig_schema
 
 TOKEN = "00112233445566778899aabbccddeeff"
@@ -65,7 +66,9 @@ def test_the_bounds_and_shapes_are_the_schemas(schema: dict[str, Any]) -> None:
             w.MAX_PROBE_INTERVAL_MS,
             w.DEFAULT_PROBE_INTERVAL_MS,
         ),
-        ("bulk_bytes", 0, w.MAX_PROBE_BULK_BYTES, 0),
+        # the schema's bound is a rig's that names probe_bulk_2m; any other
+        # reads at most MAX_PROBE_BULK_BYTES (held in the hub head's own test)
+        ("bulk_bytes", 0, hubwire.HUB_PROBE_BULK_BYTES, 0),
         (
             "deadline_ms",
             w.MIN_PROBE_DEADLINE_MS,
@@ -294,7 +297,11 @@ def test_what_the_schema_allows_is_read(schema: dict[str, Any]) -> None:
         ),
         ("probe_open", {"probe_id": "pr", "token": TOKEN, "ttl_s": 4}, "body.ttl_s"),
         ("probe_run", _run_body(count=21), "body.count"),
-        ("probe_run", _run_body(bulk_bytes=256 * 1024 + 1), "body.bulk_bytes"),
+        (
+            "probe_run",
+            _run_body(bulk_bytes=2 * 1024 * 1024 + 1),
+            "body.bulk_bytes",
+        ),
         ("probe_run", _run_body(interval_ms=True), "body.interval_ms"),
         (
             "probe_run",
@@ -337,7 +344,7 @@ def test_what_the_schema_refuses_is_refused_by_its_field(
     from mcgyvr.rig import protocol
     from mcgyvr.rig import sessionwire as w
 
-    readers = {
+    readers: dict[str, Callable[[Any], object]] = {
         "probe_open": w.read_probe_open,
         "probe_run": w.read_probe_run,
         "tunnel_up": w.read_tunnel_up,

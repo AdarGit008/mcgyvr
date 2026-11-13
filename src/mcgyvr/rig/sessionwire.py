@@ -17,7 +17,7 @@ import binascii
 import ipaddress
 import json
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -191,6 +191,10 @@ class TunnelPeer:
     #: The ring link this peer is named for, or None for a peer the session
     #: needs (every peer before :data:`mcgyvr.hubwire.FEATURE_RING_PEERS`).
     ring: RingLink | None = None
+    #: Whether the peer dials in and this rig only answers it
+    #: (:data:`mcgyvr.hubwire.TUNNEL_LISTEN_FIELD`), read only by a rig that
+    #: names :data:`mcgyvr.hubwire.FEATURE_HUB_HEAD`; never on a ring peer.
+    listen: bool = False
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -279,6 +283,17 @@ class HeadStart:
     #: (:data:`mcgyvr.hubwire.HEAD_RING_FIELD`): False runs its head star only,
     #: None (left out) is the build's own default.
     ring: bool | None = None
+    #: The hub-head fields, read only by a rig that names
+    #: :data:`mcgyvr.hubwire.FEATURE_HUB_HEAD` (any other reads the defaults,
+    #: and at most :data:`MAX_SLOTS` slots): the output layer on a CPU
+    #: rpc-server on this rig's loopback
+    #: (:data:`mcgyvr.hubwire.HEAD_OUTPUT_LOCAL_FIELD`), the waves its slots are
+    #: decoded in (:data:`mcgyvr.hubwire.HEAD_WAVES_FIELD`, None for none), and
+    #: its micro-batch (:data:`mcgyvr.hubwire.HEAD_UBATCH_FIELD`, None for
+    #: :data:`mcgyvr.hubwire.HEAD_UBATCH`).
+    output_local: bool = False
+    waves: int | None = None
+    ubatch: int | None = None
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -370,6 +385,10 @@ class _Body:
             ErrorCode.BAD_MESSAGE, f"{self._at}.{field}: {why}", self._re
         )
 
+    def refuse_from(self, exc: ValueError) -> ProtocolError:
+        """Refuse with a rule's own ValueError, which names its field first."""
+        return ProtocolError(ErrorCode.BAD_MESSAGE, f"{self._at}.{exc}", self._re)
+
     def has(self, field: str) -> bool:
         return self._body.get(field) is not None
 
@@ -460,9 +479,9 @@ def _endpoints(body: _Body, field: str) -> tuple[Endpoint, ...]:
     return tuple(found)
 
 
-def _slots(body: _Body) -> int:
+def _slots(body: _Body, most: int = MAX_SLOTS) -> int:
     """Read the optional slots field, defaulting to one slot."""
-    return body.number("slots", 1, MAX_SLOTS, default=DEFAULT_SLOTS)
+    return body.number("slots", 1, most, default=DEFAULT_SLOTS)
 
 
 def _ports(body: _Body, field: str) -> tuple[int, ...]:
@@ -488,6 +507,12 @@ def _ring(peer: _Body) -> RingLink | None:
     if not (found.dial_ports or found.accept_ports):
         raise link.refuse("dial_ports", "no port either way")
     return found
+
+
+def _listen(peer: _Body) -> bool:
+    """Whether a tunnel_up peer dials in (false when the field is left out)."""
+    field = hubwire.TUNNEL_LISTEN_FIELD
+    return peer.flag(field) if peer.has(field) else False
 
 
 def _start(envelope: protocol.Envelope) -> _Body:
@@ -525,9 +550,17 @@ def read_session_prepare(envelope: protocol.Envelope) -> SessionPrepare:
     )
 
 
-def read_tunnel_up(envelope: protocol.Envelope) -> TunnelUp:
-    """Read a tunnel_up body: the head's address, port and peers to reach."""
+def read_tunnel_up(
+    envelope: protocol.Envelope, *, features: Collection[str] = ()
+) -> TunnelUp:
+    """Read a tunnel_up body: the head's address, port and peers to reach.
+
+    A peer's :data:`mcgyvr.hubwire.TUNNEL_LISTEN_FIELD` is read only when
+    ``features`` (the ones this rig names) holds
+    :data:`mcgyvr.hubwire.FEATURE_HUB_HEAD`, and refused on a ring peer;
+    without it the field is left unread, as before."""
     body = _start(envelope)
+    hub_head = hubwire.FEATURE_HUB_HEAD in features
     session_id = body.text("session_id", SESSION_ID)
     address = _cidr(body.text("address", IPV4_CIDR))
     if address is None:
@@ -569,8 +602,11 @@ def read_tunnel_up(envelope: protocol.Envelope) -> TunnelUp:
                     hubwire.SESSION_KEY_SIG_FIELD, hubwire.IDENTITY_SIG, optional=True
                 ),
                 ring=_ring(peer),
+                listen=_listen(peer) if hub_head else False,
             )
         )
+        if peers[-1].listen and peers[-1].ring is not None:
+            raise peer.refuse(hubwire.TUNNEL_LISTEN_FIELD, "on a ring peer")
     _unique(body, "peers", [peer.rig_id for peer in peers])
     keys = [peer.public_key for peer in peers]
     if any(peer.ring is not None and keys.count(peer.public_key) > 1 for peer in peers):
@@ -631,14 +667,22 @@ def read_worker_start(envelope: protocol.Envelope) -> WorkerStart:
     )
 
 
-def read_head_start(envelope: protocol.Envelope) -> HeadStart:
+def read_head_start(
+    envelope: protocol.Envelope, *, features: Collection[str] = ()
+) -> HeadStart:
     """Read a head_start body: the model, its devices and its slots, and the
     build to run and whether its ring may be used, when the hub names them.
 
     Context is the window each slot gets; tensor_split holds one share per
-    device and must not sum to zero.
+    device and must not sum to zero. When ``features`` (the ones this rig
+    names) holds :data:`mcgyvr.hubwire.FEATURE_HUB_HEAD`, the hub-head fields
+    are read too, slots go up to :data:`mcgyvr.hubwire.HUB_HEAD_MAX_SLOTS`, and
+    the slots, waves and micro-batch are held to
+    :func:`mcgyvr.hubwire.head_waves_fit`; without it those fields are left
+    unread and slots stay at most :data:`MAX_SLOTS`, as before.
     """
     body = _start(envelope)
+    hub_head = hubwire.FEATURE_HUB_HEAD in features
     session_id = body.text("session_id", SESSION_ID)
     model = body.nested("model", body.raw("model"))
     name = model.text("name", MODEL_NAME)
@@ -687,6 +731,13 @@ def read_head_start(envelope: protocol.Envelope) -> HeadStart:
     )
     if body.has("split_mode"):
         body.one_of("split_mode", ("layer",))
+    # read in the order of the fields before them, so a bad body is refused
+    # on the same field first
+    gpu_layers = body.number(
+        "n_gpu_layers", 0, MAX_GPU_LAYERS, default=DEFAULT_GPU_LAYERS
+    )
+    slots = _slots(body, hubwire.HUB_HEAD_MAX_SLOTS if hub_head else MAX_SLOTS)
+    output_local, waves, ubatch = _hub_head(body, slots) if hub_head else _NO_HUB_HEAD
     return HeadStart(
         session_id=session_id,
         model=name,
@@ -694,17 +745,46 @@ def read_head_start(envelope: protocol.Envelope) -> HeadStart:
         ctx=ctx,
         devices=tuple(devices),
         tensor_split=tuple(shares),
-        n_gpu_layers=body.number(
-            "n_gpu_layers", 0, MAX_GPU_LAYERS, default=DEFAULT_GPU_LAYERS
-        ),
-        slots=_slots(body),
+        n_gpu_layers=gpu_layers,
+        slots=slots,
         runtime_id=_runtime_id(body),
         ring=(
             body.flag(hubwire.HEAD_RING_FIELD)
             if body.has(hubwire.HEAD_RING_FIELD)
             else None
         ),
+        output_local=output_local,
+        waves=waves,
+        ubatch=ubatch,
     )
+
+
+#: What a head_start's hub-head fields read as when they are left out, and for
+#: a rig that does not name :data:`mcgyvr.hubwire.FEATURE_HUB_HEAD`.
+_NO_HUB_HEAD: tuple[bool, int | None, int | None] = (False, None, None)
+
+
+def _hub_head(body: _Body, slots: int) -> tuple[bool, int | None, int | None]:
+    """A head_start's hub-head fields: the output on the loopback, the waves
+    and the micro-batch, each refused unless of its kind and range, and all
+    three held to :func:`mcgyvr.hubwire.head_waves_fit` with the slots."""
+    local = hubwire.HEAD_OUTPUT_LOCAL_FIELD
+    output_local = body.flag(local) if body.has(local) else False
+    waves = (
+        body.number(hubwire.HEAD_WAVES_FIELD, hubwire.MIN_WAVES, hubwire.MAX_WAVES)
+        if body.has(hubwire.HEAD_WAVES_FIELD)
+        else None
+    )
+    ubatch = (
+        body.number(hubwire.HEAD_UBATCH_FIELD, 1, hubwire.HEAD_UBATCH)
+        if body.has(hubwire.HEAD_UBATCH_FIELD)
+        else None
+    )
+    try:
+        hubwire.head_waves_fit(slots=slots, waves=waves, ubatch=ubatch)
+    except ValueError as exc:
+        raise body.refuse_from(exc) from exc
+    return output_local, waves, ubatch
 
 
 def read_session_query(envelope: protocol.Envelope) -> SessionQuery:
@@ -738,9 +818,21 @@ def read_probe_open(envelope: protocol.Envelope) -> ProbeOpen:
     )
 
 
-def read_probe_run(envelope: protocol.Envelope) -> ProbeRun:
-    """Read a probe_run body: the peers to echo with and how hard to hit them."""
+def read_probe_run(
+    envelope: protocol.Envelope, *, features: Collection[str] = ()
+) -> ProbeRun:
+    """Read a probe_run body: the peers to echo with and how hard to hit them.
+
+    The bulk goes up to :data:`mcgyvr.hubwire.HUB_PROBE_BULK_BYTES` when
+    ``features`` (the ones this rig names) holds
+    :data:`mcgyvr.hubwire.FEATURE_PROBE_BULK_2M`, else to
+    :data:`MAX_PROBE_BULK_BYTES`, as before."""
     body = _start(envelope)
+    bulk = (
+        hubwire.HUB_PROBE_BULK_BYTES
+        if hubwire.FEATURE_PROBE_BULK_2M in features
+        else MAX_PROBE_BULK_BYTES
+    )
     peers = []
     for item in body.items("peers", 1, MAX_PEERS):
         peer = body.nested("peers", item)
@@ -766,7 +858,7 @@ def read_probe_run(envelope: protocol.Envelope) -> ProbeRun:
             MAX_PROBE_INTERVAL_MS,
             default=DEFAULT_PROBE_INTERVAL_MS,
         ),
-        bulk_bytes=body.number("bulk_bytes", 0, MAX_PROBE_BULK_BYTES, default=0),
+        bulk_bytes=body.number("bulk_bytes", 0, bulk, default=0),
         deadline_ms=body.number(
             "deadline_ms",
             MIN_PROBE_DEADLINE_MS,
@@ -1073,8 +1165,12 @@ def session_status(
     role: str | None = None,
     error_code: str | None = None,
     log_excerpt: str = "",
+    t_out_ms: float | None = None,
+    t_out_threads: int | None = None,
 ) -> str:
-    """Build a session_status: the state, plus role, error and log."""
+    """Build a session_status: the state, plus role, error and log, and a hub
+    head's output time (:func:`mcgyvr.hubwire.t_out_fits`), each left out when
+    None."""
     _need(bool(SESSION_ID.fullmatch(session_id)), "session_id: not a session id")
     _need(state in STATES, "state: not a session state")
     body: dict[str, Any] = {"session_id": session_id, "state": state}
@@ -1086,6 +1182,11 @@ def session_status(
         body["error_code"] = error_code
     if log_excerpt:
         body["log_excerpt"] = printable_tail(log_excerpt)
+    hubwire.t_out_fits(t_out_ms, t_out_threads)
+    if t_out_ms is not None:
+        body[hubwire.T_OUT_MS_FIELD] = float(t_out_ms)
+    if t_out_threads is not None:
+        body[hubwire.T_OUT_THREADS_FIELD] = t_out_threads
     return _frame("session_status", body, re)
 
 
