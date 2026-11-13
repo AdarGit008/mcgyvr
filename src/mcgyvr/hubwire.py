@@ -140,7 +140,8 @@ is here:
   (:data:`FEATURE_HUB_HEAD`): the ``head_start`` fields only such a rig is
   sent (:data:`HEAD_OUTPUT_LOCAL_FIELD`, :data:`HEAD_WAVES_FIELD`,
   :data:`HEAD_UBATCH_FIELD`, slots up to :data:`HUB_HEAD_MAX_SLOTS`), the
-  ``tunnel_up`` peer that dials in to it (:data:`TUNNEL_LISTEN_FIELD`), the
+  ``tunnel_up`` peer that dials in to it (:data:`TUNNEL_LISTEN_FIELD`, reported
+  on :data:`TUNNEL_INBOUND_PATH`), the
   rule its waves and micro-batch keep (:func:`head_waves_fit`), the
   micro-batch it runs (:func:`hub_head_ubatch`), what its caches take above
   the slots a rig answers for (:func:`fit_beyond`), the time its output stage
@@ -2521,6 +2522,12 @@ HEAD_UBATCH_FIELD = "ubatch"
 #: Left out, null or false: the peer is reached as before. Never on a ring peer
 #: (:data:`RING_FIELD`).
 TUNNEL_LISTEN_FIELD = "listen"
+#: The ``tunnel_report`` path a rig names for a listen peer
+#: (:data:`TUNNEL_LISTEN_FIELD`) once that peer's handshake came in and a
+#: full-size packet crossed it: the peer dialled in and this rig answered. A
+#: report's ``path`` is an open set of tags, so a hub that does not name this
+#: one reads it as it reads any path it does not know.
+TUNNEL_INBOUND_PATH = "inbound"
 #: The fewest waves that are waves: the fork turns them on at two
 #: (``tools/server/server-context.cpp``, ``wave_dispatch = n_waves >= 2``).
 MIN_WAVES = 2

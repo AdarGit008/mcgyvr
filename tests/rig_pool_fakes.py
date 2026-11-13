@@ -71,6 +71,10 @@ class FakeDocker:
     #: The endpoints whose path carries a small ping and loses a full-size one.
     narrow: set[tuple[str, int]] = field(default_factory=set)
     aims: dict[str, tuple[str, int]] = field(default_factory=dict)
+    #: The listen peers that dial in, by key, and the endpoint each one's
+    #: handshake comes from once the tunnel is up (a peer dials in only to a
+    #: tunnel that has it).
+    dials_in: dict[str, tuple[str, int]] = field(default_factory=dict)
     nets: dict[str, str] = field(default_factory=dict)
     shaken: dict[str, tuple[str, int]] = field(default_factory=dict)
     peers_said: str | None = None
@@ -98,7 +102,7 @@ class FakeDocker:
             self.containers_ever.append(self.containers[name])
 
     def run_script(self, name: str, script: str, *args: str) -> str:
-        from mcgyvr.rig import pooled
+        from mcgyvr.rig import pooled, tunnel
 
         with self.lock:
             self.scripts.append((name, script, args))
@@ -112,6 +116,8 @@ class FakeDocker:
             with self.lock:
                 for at in range(2, len(args) - 4, 5):
                     self.nets[args[at]] = args[at + 4]
+                    if args[at + 1] == tunnel.LISTEN_HOST and args[at] in self.dials_in:
+                        self.shaken[args[at]] = self.dials_in[args[at]]
             self._aim(args[2:], 5, lambda a: True)
         if script == pooled.PATH_SCRIPT:
             self._aim(args[1:], 5, lambda a: a[4] == "1")
@@ -130,7 +136,7 @@ class FakeDocker:
         with self.lock:
             for at in range(0, len(args) - width + 1, width):
                 one = args[at : at + width]
-                if one[1] != "-" and aims(one):
+                if one[1] not in ("-", "listen") and aims(one):
                     aim = (one[1], int(one[2]))
                     if one[0] in self.shaken and self.aims.get(one[0]) != aim:
                         # WireGuard keeps its handshake and sends where it
@@ -148,7 +154,7 @@ class FakeDocker:
         with self.lock:
             aim = next(
                 (
-                    self.aims.get(key)
+                    self.aims.get(key, self.dials_in.get(key))
                     for key, nets in self.nets.items()
                     if any(
                         ipaddress.ip_address(host) in ipaddress.ip_network(net)
@@ -178,6 +184,14 @@ class FakeDocker:
                     f"handshake {key}\t{1700000000 if key in self.shaken else 0}"
                 )
                 host, port = self.shaken.get(key, self.aims[key])
+                lines.append(f"endpoint {key}\t{host}:{port}")
+            for key in self.dials_in:
+                if key in self.aims or key not in self.shaken:
+                    continue
+                # a listen peer, pointed nowhere: WireGuard knows where it is
+                # once its handshake came in from there
+                host, port = self.shaken[key]
+                lines.append(f"handshake {key}\t1700000000")
                 lines.append(f"endpoint {key}\t{host}:{port}")
         return "\n".join(lines) + "\n"
 

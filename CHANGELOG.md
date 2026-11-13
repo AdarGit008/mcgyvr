@@ -1076,6 +1076,26 @@ entries name development tooling, flags and records outside this repository.
   rig's features and read the new fields only when it names the feature; no
   caller passes one yet, so every rig reads every message as before.
 
+- **A hub head answers a tunnel peer that dials in, and never aims at it; no
+  rig names the feature yet.** The agent reads `tunnel_up` with the features
+  its offer names (`session.named_features`, now the one place `offer` takes
+  them from), so a peer's `listen` is read only by a rig naming `hub_head`.
+  Such a peer is planned with its key, keepalive and allowed addresses, held
+  to every peer's rules, and nothing to aim at: its endpoints and relay are
+  never taken (`tunnel.PeerPlan.listen`, host word `tunnel.LISTEN_HOST`).
+  The tunnel script points it nowhere and, while the tunnel has one, lets the
+  session's listen port in on eth0 from any address and out to any, in the
+  same transaction as the rest of its table; WireGuard answers only a
+  handshake made with a peer's key and learns the peer's address from it.
+  The walk never pokes, aims, punches or relays for it: it waits for the
+  peer's handshake within the connect deadline, checks the path with the
+  full-size ping and reports it on the new path `inbound`
+  (`hubwire.TUNNEL_INBOUND_PATH`) at the address the handshake came from.
+  Only the session's head takes one: a worker refuses it as `bad_message`,
+  and a native head (whose helper lets in only the hosts it aims at) as
+  `not_capable`; a ring peer is never one. Without the feature every tunnel
+  is read, planned, written and walked as before.
+
 - **The release can be rehearsed, on GitHub and locally, and publishes nothing
   when it is.** `.github/workflows/release.yml` takes a `workflow_dispatch`
   input `dry_run`, true by default: `gh workflow run release.yml --ref

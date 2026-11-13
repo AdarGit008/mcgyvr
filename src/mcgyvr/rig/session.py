@@ -705,7 +705,8 @@ def _udpwire_source() -> str:
 
 @dataclass
 class _Walk:
-    """One peer's walk through its candidates and then its relay.
+    """One peer's walk through its candidates and then its relay; a listen
+    peer's is only a wait for its handshake, with ``aim`` None throughout.
 
     ``aim`` is the endpoint the tunnel is aimed at for this peer now, ``attempt`` how
     long that aim is given, ``held`` the endpoint a handshake came back from, and
@@ -1220,8 +1221,17 @@ class Sessions:
         done — with the paths it found, or with a refusal naming the first peer no
         path reached. A repeated ask gets the report already made, or a place in the
         queue for it. ``None`` means the answer comes later.
+
+        A peer's ``listen`` is read only when this rig names
+        :data:`mcgyvr.hubwire.FEATURE_HUB_HEAD` (:func:`named_features`), and
+        such a peer is taken only by the session's head running in containers:
+        a worker never answers a peer that dials in, and a native tunnel lets
+        in only the hosts it aims at.
         """
-        asked = sessionwire.read_tunnel_up(envelope)
+        share = self.machine.sharing()
+        asked = sessionwire.read_tunnel_up(
+            envelope, features=named_features(share, rig_builds(share))
+        )
         with self._lock:
             session = self._live_named(asked.session_id)
             if session is None:
@@ -1257,6 +1267,22 @@ class Sessions:
                         envelope.id,
                         protocol.ErrorCode.BAD_MESSAGE,
                         "peers: a ring peer, and this rig is the session's head",
+                    )
+            if any(peer.listen for peer in asked.peers):
+                if session.role != "head":
+                    # Only the head answers a peer that dials in; a worker only
+                    # ever dials out.
+                    return sessionwire.refusal(
+                        envelope.id,
+                        protocol.ErrorCode.BAD_MESSAGE,
+                        "peers: a listen peer, and this rig is not the session's head",
+                    )
+                if session.host is not self._docker_host:
+                    return sessionwire.refusal(
+                        envelope.id,
+                        SessionCode.NOT_CAPABLE,
+                        "peers: a listen peer, and this rig's native tunnel lets in "
+                        "only the hosts it aims at",
                     )
             unvetted, dropped = self._vet_peers(asked)
             if unvetted is not None:
@@ -2188,16 +2214,19 @@ class Sessions:
             changed = False
             for walk in open_:
                 key = walk.peer.public_key
+                # A listen peer is never aimed at: it is waited for, and its own
+                # handshake is what brings it, from wherever it dials in.
                 shaken = (
                     seen.endpoints.get(key)
                     if seen is not None
-                    and walk.aim is not None
+                    and (walk.aim is not None or walk.peer.listen)
                     and seen.handshakes.get(key, 0) > 0
                     else None
                 )
                 ping = self._ping(session, walk) if shaken is not None else None
                 if ping is not None and ping.narrow:
-                    self._spend(session, walk, ping)
+                    assert shaken is not None
+                    self._spend(session, walk, ping, shaken)
                     changed = True
                 elif shaken is not None and (
                     not walk.narrowed or (ping is not None and ping.full)
@@ -2209,8 +2238,9 @@ class Sessions:
                             round(ping.rtt_ms * 1000), sessionwire.MAX_RTT_US
                         )
                     changed = True
-                elif walk.aim is None or (
-                    not walk.relayed and now - walk.since >= walk.attempt
+                elif not walk.peer.listen and (
+                    walk.aim is None
+                    or (not walk.relayed and now - walk.since >= walk.attempt)
                 ):
                     # Neither a handshake nor a ping came back from the aim, so it has
                     # had its time: the walk moves to the next candidate, and then to
@@ -2302,16 +2332,29 @@ class Sessions:
         except pooled.PoolError:
             return None
 
-    def _spend(self, session: _Session, walk: _Walk, ping: pooled.PingSeen) -> None:
+    def _spend(
+        self,
+        session: _Session,
+        walk: _Walk,
+        ping: pooled.PingSeen,
+        shaken: tuple[str, int],
+    ) -> None:
         """Give up on an endpoint that answered small pings but lost the full-size ones.
 
         The path's MTU is too small for the tunnel, so the walk moves on — to the next
-        candidate, or, for the relay, to no path — and the reason is kept for the log
-        and for the refusal the hub is sent.
+        candidate, or, for the relay or a listen peer (which dialled in from
+        `shaken`, the endpoint its handshake came from), to no path — and the
+        reason is kept for the log and for the refusal the hub is sent.
         """
-        assert walk.aim is not None
-        host, port = walk.aim
-        what = "its relay" if walk.relayed else "a candidate"
+        assert walk.aim is not None or walk.peer.listen
+        host, port = walk.aim if walk.aim is not None else shaken
+        what = (
+            "its relay"
+            if walk.relayed
+            else "its dial-in"
+            if walk.peer.listen
+            else "a candidate"
+        )
         walk.why = (
             f"{what} answered a small ping and lost every full-size one "
             f"({ping.size} bytes of data): the path's MTU is too small for "
@@ -2322,7 +2365,7 @@ class Sessions:
             f"{walk.why}"
         )
         walk.narrowed = True
-        if walk.relayed:
+        if walk.relayed or walk.peer.listen:
             walk.aim = None
             walk.result = sessionwire.PeerPath(rig_id=walk.peer.rig_id, path="none")
         else:
@@ -2340,8 +2383,24 @@ class Sessions:
         An endpoint that answered on the peer's relay is a relay path; any other is
         direct and takes its kind and its path from the candidate it was planned as,
         so an address no candidate named is reported as reflexive and direct.
+        A listen peer dialled in, and is reported on
+        :data:`mcgyvr.hubwire.TUNNEL_INBOUND_PATH` at the address its handshake
+        came from: a LAN one as ``lan``, any other as ``reflexive``.
         """
         host, port = endpoint
+        if walk.peer.listen:
+            came_from = sessionwire._ipv4(host)
+            return sessionwire.PeerPath(
+                rig_id=walk.peer.rig_id,
+                path=hubwire.TUNNEL_INBOUND_PATH,
+                endpoint=sessionwire.Endpoint(
+                    host=host,
+                    port=port,
+                    kind="lan"
+                    if came_from is not None and tunnel.is_lan(came_from)
+                    else "reflexive",
+                ),
+            )
         relay = walk.peer.relay
         if walk.relayed and relay is not None and host == str(relay.host):
             kind, path = "relay", "relay"
@@ -2363,10 +2422,14 @@ class Sessions:
         A walk that found an endpoint keeps the tunnel aimed at it exactly, so the
         peer's traffic keeps coming back the way it worked; a walk still looking gets
         a rule for the address aimed at, and the peer's endpoint is moved to it, which
-        is what makes the tunnel try a new candidate.
+        is what makes the tunnel try a new candidate. A listen peer is never
+        aimed (the tunnel follows it to wherever it dials in from), so it is
+        left out, and a tunnel of listen peers alone is not aimed at all.
         """
         aims = []
         for walk in walks:
+            if walk.peer.listen:
+                continue
             key = walk.peer.public_key
             if walk.held is not None:
                 host, port = walk.held
@@ -2377,7 +2440,8 @@ class Sessions:
             else:
                 aims.append(Aim(key, None, 0, exact=False, moved=False))
             walk.moved = False
-        session.host.aim(session.tunnel_name, session.listen_port, aims)
+        if aims:
+            session.host.aim(session.tunnel_name, session.listen_port, aims)
 
     def _report(self, session: _Session, walks: Sequence[_Walk]) -> None:
         """Settle the walk: report the paths found, or fail the session with no path.
@@ -2934,6 +2998,27 @@ def chosen_build(
     return why
 
 
+def named_features(
+    share: sharing_module.Sharing, builds: Sequence[RigBuild]
+) -> tuple[str, ...]:
+    """The features a rig that lends something names in its offer, given the
+    builds it offers (:func:`rig_builds`): :data:`NATIVE_FEATURES` on a native
+    rig, else :data:`FEATURES`, either without ``port_map`` unless the owner
+    allowed the port forward; then ``ring_peers`` when the owner turned the
+    ring links on on a rig that is not native, and ``runtime_select`` when it
+    offers builds. The frames it reads by its features read these."""
+    native = share.native_here()
+    return (
+        tuple(
+            name
+            for name in (NATIVE_FEATURES if native else FEATURES)
+            if name != PORT_MAP_FEATURE or share.port_forward
+        )
+        + ((RING_PEERS_FEATURE,) if share.ring_links and not native else ())
+        + ((RUNTIME_SELECT_FEATURE,) if builds else ())
+    )
+
+
 def offer(
     share: sharing_module.Sharing,
     held: inventory.Inventory,
@@ -2984,13 +3069,7 @@ def offer(
         ),
         models=held.models if "head" in roles else (),
         sessions=running,
-        features=tuple(
-            name
-            for name in (NATIVE_FEATURES if native else FEATURES)
-            if name != PORT_MAP_FEATURE or share.port_forward
-        )
-        + ((RING_PEERS_FEATURE,) if share.ring_links and not native else ())
-        + ((RUNTIME_SELECT_FEATURE,) if builds else ()),
+        features=named_features(share, builds),
         rpc_proto=(
             builds[0].wire.rpc_proto if builds else PINNED_RPC_PROTO if pinned else None
         ),

@@ -26,6 +26,7 @@ from pathlib import Path
 
 from mcgyvr import hubwire
 from mcgyvr.rig.sessionwire import WIREGUARD_KEY
+from mcgyvr.rig.tunnel import LISTEN_HOST
 from mcgyvr.sandbox.image import DockerResult, DockerRunner, subprocess_runner
 
 #: Docker labels on every container this module starts; `owned` reads them back.
@@ -201,7 +202,13 @@ echo "open"
 #: (leaving it unaimed when the host is "-") with its allowed-ips and keepalive.
 #: It prints "up" once all of that is in place; PATH_SCRIPT re-aims peers later.
 #: These rules match the peer's address and the listen port, not its source port.
-TUNNEL_SCRIPT = r"""set -eu
+#: A listen peer (host :data:`mcgyvr.rig.tunnel.LISTEN_HOST`) dials in from an
+#: address not known beforehand: it is left unaimed, and while the tunnel has one,
+#: the listen port is let in on eth0 from any address and out to any, once, in the
+#: input and output chains (which PATH_SCRIPT never flushes) and in the same
+#: transaction; WireGuard answers only a handshake made with a peer's key.
+TUNNEL_SCRIPT = (
+    r"""set -eu
 self="$1"
 port="$2"
 shift 2
@@ -219,13 +226,18 @@ fi
 own="${self%/*}"
 add="add rule inet mcgyvr"
 icmp="icmp type { echo-request, echo-reply }"
-table() {
+"""
+    + f'listen_host="{LISTEN_HOST}"\n'
+    + r"""table() {
   echo "flush chain inet mcgyvr stun_in"
   echo "flush chain inet mcgyvr stun_out"
   echo "flush chain inet mcgyvr wg_in"
   echo "flush chain inet mcgyvr wg_out"
+  answers=0
   while [ "$#" -ge 5 ]; do
-    if [ "$2" != "-" ]; then
+    if [ "$2" = "$listen_host" ]; then
+      answers=1
+    elif [ "$2" != "-" ]; then
       echo "$add wg_in iifname eth0 ip saddr $2 udp dport $port accept"
       echo "$add wg_out oifname eth0 ip daddr $2 udp sport $port accept"
     fi
@@ -235,12 +247,16 @@ table() {
     done
     shift 5
   done
+  if [ "$answers" = 1 ]; then
+    echo "$add input iifname eth0 udp dport $port accept"
+    echo "$add output oifname eth0 udp sport $port accept"
+  fi
 }
 table "$@" | nft -f -
 wg set wg0 listen-port "$port"
 ip address add "$self" dev wg0
 while [ "$#" -ge 5 ]; do
-  if [ "$2" = "-" ]; then
+  if [ "$2" = "-" ] || [ "$2" = "$listen_host" ]; then
     wg set wg0 peer "$1" allowed-ips "$5" persistent-keepalive "$4"
   else
     wg set wg0 peer "$1" allowed-ips "$5" endpoint "$2:$3" \
@@ -250,6 +266,7 @@ while [ "$#" -ge 5 ]; do
 done
 echo "up"
 """
+)
 
 #: Move peers to the candidate addresses the walkers are testing. The arguments are the
 #: listen port, then five words per peer: public key, host or "-", port, a mode word

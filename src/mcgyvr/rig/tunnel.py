@@ -72,6 +72,11 @@ PATHS = {
 #: The candidate kinds walked by the birthday dance (``Sessions._birthday``),
 #: which a ring peer is never aimed at.
 BIRTHDAY_KINDS = frozenset({hubwire.BIRTHDAY_KIND, hubwire.BIRTHDAY_BURST_KIND})
+#: The word :meth:`TunnelPlan.script_args` gives in place of a listen peer's
+#: endpoint host (:attr:`PeerPlan.listen`): the tunnel script lets the listen
+#: port in from any address for it and points it nowhere. Never an address, so
+#: no other peer is ever given it.
+LISTEN_HOST = "listen"
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -104,8 +109,10 @@ class RelayAim:
 class PeerPlan:
     """A peer as the tunnel is told about it: its key, its keepalive interval,
     the addresses it is allowed, the candidates to aim at in order, a relay
-    to fall back on when none of them answers, and the ring link it is named
-    for (None for a peer the session needs)."""
+    to fall back on when none of them answers, the ring link it is named
+    for (None for a peer the session needs), and whether it is a listen peer:
+    one that dials in, which this rig never aims at and only answers (it has
+    no candidates and no relay)."""
 
     rig_id: str
     public_key: str
@@ -114,6 +121,7 @@ class PeerPlan:
     candidates: tuple[Candidate, ...]
     relay: RelayAim | None = None
     ring: sessionwire.RingLink | None = None
+    listen: bool = False
 
     @property
     def tunnel_host(self) -> ipaddress.IPv4Address | None:
@@ -139,14 +147,15 @@ class TunnelPlan:
     def script_args(self) -> list[str]:
         """The arguments the tunnel script is run with: this end's address and
         listen port, then five per peer — its public key, the first candidate's
-        address and port ("-" and "0" when it has none), its keepalive in
-        seconds, and its allowed addresses joined by commas."""
+        address and port ("-" and "0" when it has none, :data:`LISTEN_HOST`
+        and "0" for a listen peer), its keepalive in seconds, and its allowed
+        addresses joined by commas."""
         args = [str(self.address), str(self.listen_port)]
         for peer in self.peers:
             first = peer.candidates[0] if peer.candidates else None
             args += [
                 peer.public_key,
-                str(first.host) if first else "-",
+                LISTEN_HOST if peer.listen else str(first.host) if first else "-",
                 str(first.port) if first else "0",
                 str(peer.keepalive_s),
                 ",".join(str(net) for net in peer.allowed),
@@ -307,7 +316,13 @@ def plan(
     never worth the dance), and with no other endpoint this rig may aim at it
     is left out of the plan, never configured, rather than refusing the
     tunnel the session needs. So is a ring peer named in `drop` (one the
-    identity check refused), once its addresses are checked like any peer's."""
+    identity check refused), once its addresses are checked like any peer's.
+
+    A listen peer (:attr:`mcgyvr.rig.sessionwire.TunnelPeer.listen`) is a
+    peer the session needs that dials in: its allowed addresses are held to
+    the same rules, but it is never aimed at, so its endpoints and its relay
+    are never taken and it needs neither; WireGuard learns its address from
+    its first handshake. A listen peer that is also a ring peer is refused."""
     if up.listen_port != listen_port:
         raise RefusedError(
             protocol.ErrorCode.BAD_MESSAGE,
@@ -360,6 +375,23 @@ def plan(
                     f"peer {peer.rig_id}: allowed another peer's address",
                 )
             taken.append(net)
+        if peer.listen:
+            if peer.ring is not None:
+                raise RefusedError(
+                    protocol.ErrorCode.BAD_MESSAGE,
+                    f"peer {peer.rig_id}: a ring peer cannot be a listen peer",
+                )
+            peers.append(
+                PeerPlan(
+                    rig_id=peer.rig_id,
+                    public_key=peer.public_key,
+                    keepalive_s=peer.keepalive_s,
+                    allowed=peer.allowed_ips,
+                    candidates=(),
+                    listen=True,
+                )
+            )
+            continue
         found = candidates(peer, network, own)
         relay = _relay(peer, network, own) if peer.ring is None else None
         if peer.ring is not None:
