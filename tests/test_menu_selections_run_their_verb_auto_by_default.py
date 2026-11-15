@@ -9,6 +9,7 @@ command handlers.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Any
 
 import pytest
@@ -26,7 +27,12 @@ def test_setup_defaults_to_auto_and_runs_the_full_pipeline(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     calls: list[dict[str, Any]] = []
-    monkeypatch.setattr(setup_cmd, "run_menu_setup", lambda **kw: calls.append(kw) or 0)
+
+    def run_menu_setup(**kw: Any) -> int:
+        calls.append(kw)
+        return 0
+
+    monkeypatch.setattr(setup_cmd, "run_menu_setup", run_menu_setup)
     monkeypatch.setattr(menu, "pick", lambda *a, **k: "auto")
 
     assert menu._setup_menu(lambda argv: 0) == 0
@@ -37,7 +43,12 @@ def test_setup_manual_picks_a_stage_and_stops_there(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     calls: list[dict[str, Any]] = []
-    monkeypatch.setattr(setup_cmd, "run_menu_setup", lambda **kw: calls.append(kw) or 0)
+
+    def run_menu_setup(**kw: Any) -> int:
+        calls.append(kw)
+        return 0
+
+    monkeypatch.setattr(setup_cmd, "run_menu_setup", run_menu_setup)
     answers = iter(["manual", "start"])
     monkeypatch.setattr(menu, "pick", lambda *a, **k: next(answers))
 
@@ -48,9 +59,9 @@ def test_setup_manual_picks_a_stage_and_stops_there(
 def test_emit_defaults_to_writing_and_offers_check(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    seen: list[list[str]] = []
+    seen: list[Sequence[str]] = []
 
-    def main(argv: list[str]) -> int:
+    def main(argv: Sequence[str]) -> int:
         seen.append(argv)
         return 0
 
@@ -66,9 +77,9 @@ def test_emit_defaults_to_writing_and_offers_check(
 def test_serve_picks_a_direction_and_the_rig(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    seen: list[list[str]] = []
+    seen: list[Sequence[str]] = []
 
-    def main(argv: list[str]) -> int:
+    def main(argv: Sequence[str]) -> int:
         seen.append(argv)
         return 0
 
@@ -82,9 +93,9 @@ def test_serve_picks_a_direction_and_the_rig(
 def test_a_generic_verb_with_subcommands_is_a_nested_pick(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    seen: list[list[str]] = []
+    seen: list[Sequence[str]] = []
 
-    def main(argv: list[str]) -> int:
+    def main(argv: Sequence[str]) -> int:
         seen.append(argv)
         return 0
 
