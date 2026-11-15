@@ -24,6 +24,12 @@ import yaml
 
 from mcgyvr import cli
 from mcgyvr.cli.commands.setup import (
+    CONTEXT_QUANT_QUESTION,
+    CONTEXT_SIZE_QUESTION,
+    DEPLOYMENT_QUESTION,
+    FANOUT_QUESTION,
+    MODEL_QUESTION,
+    SLEEP_WAKE_QUESTION,
     _ask_setup_use_case,
     _setup_pick_unit,
     _setup_placements,
@@ -35,7 +41,13 @@ from mcgyvr.fleet.roots import data_home, fleets_dir, live_file
 from tests import setup_door as sd
 
 USE_CASE = "Use case — [m] mcgyvr-code, [k] code, [c] chat, [a] agent: "
+DEPLOYMENT = DEPLOYMENT_QUESTION
 JEV = "Dedicate a unit to Jev, which answers typed decisions? [y/n] "
+FANOUT = FANOUT_QUESTION
+SLEEP_WAKE = SLEEP_WAKE_QUESTION
+CONTEXT_SIZE = CONTEXT_SIZE_QUESTION
+CONTEXT_QUANT = CONTEXT_QUANT_QUESTION
+MODEL = MODEL_QUESTION
 START = "Start the serving containers"
 LOCK = "Lock the fleet and name it live?"
 
@@ -62,9 +74,9 @@ def _planned_after(monkeypatch: pytest.MonkeyPatch, asked: list[str]) -> list[in
     at: list[int] = []
     planned = _setup_placements
 
-    def placements(rigs: Any, scans: Any, use_case: str) -> Any:
+    def placements(rigs: Any, scans: Any, use_case: str, **kwargs: Any) -> Any:
         at.append(len(asked))
-        return planned(rigs, scans, use_case)
+        return planned(rigs, scans, use_case, **kwargs)
 
     monkeypatch.setattr(cli.commands.setup, "_setup_placements", placements)
     return at
@@ -80,9 +92,10 @@ def test_mcgyvr_code_and_enter_on_jev_plans_mcgyvr_code_with_no_jev(
 
     assert cli.main(["setup"]) == 0
 
-    assert asked[:2] == [USE_CASE, JEV]
-    assert at == [2], "both are asked before the plan"
-    assert [q.split("?")[0] for q in asked[2:]] == [f"{START} on {sd.RIG}", LOCK[:-1]]
+    assert asked[:2] == [USE_CASE, DEPLOYMENT]
+    assert JEV in asked and asked.index(JEV) < at[0]
+    assert at == [5], "the coding branch is asked before the plan"
+    assert [q.split("?")[0] for q in asked[5:]] == [f"{START} on {sd.RIG}", LOCK[:-1]]
     policy = _policy(_staged())
     assert policy["use_case"] == "mcgyvr-code"
     assert "jev" not in policy or not (policy["jev"] or {}).get("unit")
@@ -108,7 +121,9 @@ def test_chat_is_planned_staged_and_sampled_by_one_completion_of_each_unit(
 
     assert cli.main(["setup"]) == 0
 
-    assert asked[0] == USE_CASE and JEV not in asked, "chat is raw: no Jev"
+    assert asked[0] == USE_CASE
+    assert JEV not in asked, "chat is raw: no Jev"
+    assert asked[1:4] == [CONTEXT_SIZE, CONTEXT_QUANT, MODEL]
     assert _policy(_staged())["use_case"] == "chat"
     assert len(completed) == 1, "the chat sample asked the unit one completion"
     assert _policy(_live())["use_case"] == "chat"
@@ -157,8 +172,9 @@ def test_a_jev_opt_in_binds_the_unit_and_the_sample_asks_its_choice(
 
     assert cli.main(["setup"]) == 0
 
-    assert asked[:2] == [USE_CASE, JEV]
-    assert asked[2].startswith(START), "Jev is the last question before the plan"
+    assert asked[:2] == [USE_CASE, DEPLOYMENT]
+    assert JEV in asked and FANOUT in asked and SLEEP_WAKE in asked
+    assert asked[5].startswith(START), "the coding branch ends before the plan"
     staged = _staged()
     doc = yaml.safe_load((staged / "fleet.yaml").read_text(encoding="utf-8"))
     ((unit, state),) = doc["fleets"]["own"]["layout"][sd.RIG]

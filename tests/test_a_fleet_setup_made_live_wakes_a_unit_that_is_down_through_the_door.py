@@ -1,8 +1,10 @@
 """A fleet ``mcgyvr setup`` made live wakes a unit that is down, through the door.
 
-Auto-wake is on. Setup writes ``serving.enable_sleep_wake:
-true`` and a ``serving.compose_dir`` holding the launch specs it emitted -- the
-staged folder, which is kept -- so the live fleet it promotes yields a waker
+Auto-wake is opted in. Setup asks whether mcgyvr may sleep and wake
+cards (`serving.enable_sleep_wake`, Enter is no); a yes writes
+``serving.enable_sleep_wake: true`` and a ``serving.compose_dir`` holding the
+launch specs it emitted -- the staged folder, which is kept -- so the live
+fleet it promotes yields a waker
 (:func:`mcgyvr.wake.for_config`), and a request refused by a unit that is down
 is a door ``serve up`` of its launch spec, then the request again. Live wakes
 only a rig its lock names (:func:`mcgyvr.fleet.admit.host_is_locked`), which
@@ -29,13 +31,15 @@ from tests import setup_door as sd
 
 START = "Start the serving containers"
 LOCK = "Lock the fleet and name it live?"
+SLEEP_WAKE = "May mcgyvr sleep and wake cards on its own? [y/n] "
 UNSAMPLED = "no evidence"
 
 #: Two ways setup makes its own fleet live: from a green sample's stamp, and,
-#: having started nothing, on no evidence once acknowledged.
+#: having started nothing, on no evidence once acknowledged. Both opt into the
+#: sleep/wake switch, which the wizard now asks rather than forcing on.
 WAYS = {
-    "stamped": {START: True, LOCK: True},
-    "unsampled": {START: False, UNSAMPLED: True},
+    "stamped": {START: True, LOCK: True, SLEEP_WAKE: True},
+    "unsampled": {START: False, UNSAMPLED: True, SLEEP_WAKE: True},
 }
 
 
@@ -84,7 +88,9 @@ def test_the_live_fleet_setup_made_wakes_a_refused_unit_through_the_door(
 def test_the_staged_setup_says_auto_wake_is_on(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    sd.interactive(monkeypatch, sd.FakeRig(), {START: False, UNSAMPLED: False})
+    sd.interactive(
+        monkeypatch, sd.FakeRig(), {START: False, UNSAMPLED: False, SLEEP_WAKE: True}
+    )
     assert cli.main(["setup"]) == 0
     (staged,) = (data_home() / "setup").iterdir()
 
