@@ -10,6 +10,7 @@ does not see two moments of a meminfo that changes while it runs.
 from __future__ import annotations
 
 import collections
+import ctypes
 import tempfile
 from typing import Any
 from unittest import mock
@@ -81,15 +82,19 @@ def test_the_probe_and_the_snapshot_take_the_memory_sections_read(
 
 @pytest.mark.parametrize(
     ("spare_mib", "block"),
-    [(None, rigscan.COPY_MIB_TIGHT), (2559, rigscan.COPY_MIB_TIGHT), (2560, 256)],
+    [
+        (None, rigscan.READ_MIB_TIGHT),
+        (2559, rigscan.READ_MIB_TIGHT),
+        (2560, rigscan.READ_MIB),
+    ],
 )
 def test_the_probe_takes_the_small_block_below_two_and_a_half_gb_spare(
     spare_mib: int | None, block: int
 ) -> None:
-    """2 GB to spare beyond two 256 MiB buffers, counted in whole MiB as the
-    reading counts them; memory not seen is a small machine's."""
-    assert rigscan.COPY_MIB == 256
-    with mock.patch.object(rigscan, "bytearray", create=True) as made:
+    """2 GB to spare beyond the 256 MiB read block and copy block, counted in
+    whole MiB as the reading counts them; memory not seen is a small machine's."""
+    assert rigscan.READ_MIB == 256
+    with mock.patch.object(ctypes, "create_string_buffer") as made:
         made.side_effect = MemoryError
         assert rigscan.measure_bandwidth(spare_mib) is None
     assert made.call_args_list[0].args == (block * rigscan.MIB_BYTES,)
