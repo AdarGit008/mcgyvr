@@ -1074,15 +1074,22 @@ def _native_notes(rigs: Sequence[str]) -> tuple[str, ...]:
     )
 
 
-def _setup_interactive(path: Path, run_id: str = "") -> int:
+def _setup_interactive(
+    path: Path, run_id: str = "", *, auto: bool = False, stop: str | None = None
+) -> int:
     """Run the wizard end to end and answer the exit code.
 
     It asks its questions, reads and plans the rigs, fetches missed weights,
     stages the config, sizes the rooms, emits launch specs, then starts and
-    samples the containers when the user says so. What was decided and what was
-    left unconfigured are printed at the end, along with the offer to put
-    ~/.local/bin on PATH. A step's error, or a refused init, config or
-    capability table, is printed and answered with 1.
+    samples the containers when the user says so. With `auto` the start and the
+    lock run without asking; with `stop` one of ``"config"``, ``"emit"`` or
+    ``"start"`` the pipeline stops after that stage, so a manual run can write
+    only the config, only the launch specs, or bring the servers up without
+    sampling or locking. What was decided and what was left unconfigured are
+    printed at the end, along with the offer to put ~/.local/bin on PATH and,
+    once the servers are up, the endpoint and key a custom provider points at.
+    A step's error, or a refused init, config or capability table, is printed
+    and answered with 1.
     """
     run_id = run_id or _setup_run_id()
     try:
@@ -1124,15 +1131,39 @@ def _setup_interactive(path: Path, run_id: str = "") -> int:
         if not staged.written:
             raise _SetupInteractiveError("the staged setup was not written")
         print(f"Staged the setup at {staged.path}\n")
+        if stop == "config":
+            print(
+                f"Wrote the config and stopped: nothing was emitted, started "
+                f"or sampled. The setup is at {path}.\n"
+            )
+            return 0
         rooms = _setup_rooms(path, ctx_per_slot)
         _setup_emit(path, ctx_per_slot)
+        if stop == "emit":
+            print(
+                f"Emitted the launch specs and stopped: nothing was started "
+                f"or sampled. The setup and its specs are at {path}.\n"
+            )
+            return 0
 
         _rule("Step 4 of 4 — start and lock")
         for note in _native_notes(rigs):
             _note(note)
-        if _confirm(_start_question(rigs)):
+        if stop == "start":
             _setup_start(rigs, scans, path)
-            approved, unapproved = _setup_sample(path, run_id, readings, rooms)
+            print(
+                f"Started the servers and stopped: nothing was sampled or "
+                f"locked. The setup is at {path}.\n"
+            )
+            _handoff(path)
+            return 0
+        serving = False
+        if auto or _confirm(_start_question(rigs)):
+            _setup_start(rigs, scans, path)
+            serving = True
+            approved, unapproved = _setup_sample(
+                path, run_id, readings, rooms, auto=auto
+            )
         else:
             started = "Servers" if _native_rigs(rigs) else "Containers"
             print(
@@ -1152,6 +1183,8 @@ def _setup_interactive(path: Path, run_id: str = "") -> int:
         not_live = _report_limits(limits)
         if not not_live:
             _offer_path_append()
+        if serving:
+            _handoff(path)
         return 0
     except _SetupInteractiveError as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -1162,6 +1195,44 @@ def _setup_interactive(path: Path, run_id: str = "") -> int:
     except (ConfigError, CapabilityTableError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
+
+
+def _handoff(path: Path) -> None:
+    """Print and write the endpoint, key and model a custom provider points at.
+
+    Nothing is written when the setup holds no ladder to serve. The key is the
+    one mcgyvr already keeps for the unit (:mod:`mcgyvr.unitkey`), read the way
+    `mcgyvr fleet key <unit>` reads it, never a second key.
+    """
+    from mcgyvr import handoff
+
+    try:
+        config = load_config(path)
+    except ConfigError:
+        return
+    provider = handoff.from_config(config)
+    if provider is None:
+        return
+    exported = handoff.write(path, provider)
+    handoff.print_provider(provider, exported)
+
+
+def run_menu_setup(*, auto: bool, stop: str | None) -> int:
+    """The no-args menu's way into `setup`: the wizard, auto or stopped at `stop`.
+
+    The prologue is the wizard's own (`_setup`'s retired-keys mend, then the
+    wizard), so the menu's setup is the same command, not a second path.
+    """
+    run_id = _setup_run_id()
+    try:
+        path = _setup_path(argparse.Namespace(path=None), run_id)
+    except FolderError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    mended = _setup_retired(path, False)
+    if mended is not None:
+        return mended
+    return _setup_interactive(path, run_id, auto=auto, stop=stop)
 
 
 NOT_STARTED = "its containers were not started, so nothing of it runs to sample"
@@ -1257,6 +1328,8 @@ def _setup_sample(
     run_id: str,
     readings: Mapping[str, Mapping[str, Any]],
     rooms: Mapping[str, int],
+    *,
+    auto: bool = False,
 ) -> tuple[tuple[str, ...], tuple[str, ...]]:
     """Lay out each rig, sample the staged fleet, stamp it, and lock a green one.
 
@@ -1292,7 +1365,7 @@ def _setup_sample(
             + "; ".join(stamped.why),
         )
     folder = stamped.folder
-    if not _confirm("Lock the fleet and name it live? [y/n] "):
+    if not auto and not _confirm("Lock the fleet and name it live? [y/n] "):
         return (), (
             f"The fleet was stamped and not locked: the stamp is kept at "
             f"{folder}, and a later `mcgyvr setup` samples and locks again.",
