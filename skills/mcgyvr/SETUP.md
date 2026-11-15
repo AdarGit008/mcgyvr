@@ -68,9 +68,12 @@ every unit hosted — is locked
 approved on no evidence only once you say so: setup says why and what
 that means, and asks `Lock it approved on no evidence? [y/n]`. With
 flags, setup scans each `--host` rig, recommends a model and engine
-from its hardware, writes the staged config, and starts no server, so
-nothing is sampled; `--accept-unsampled` is that acknowledgment, and
-without it nothing is locked.
+from its hardware, and writes the staged config; it starts no server
+unless `--start` asks it to emit the launch specs and start the
+recommended servers through the door (the flag is the consent to
+start). Whether started or not, the flag path samples nothing;
+`--accept-unsampled` is the acknowledgment to lock it on no evidence,
+and without it nothing is locked.
 
 A locked fleet is promoted to a folder of its own under
 `$MCGYVR_HOME/fleets/` and named in `$MCGYVR_HOME/live.json`, with

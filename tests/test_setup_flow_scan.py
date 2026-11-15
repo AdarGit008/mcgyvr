@@ -12,12 +12,15 @@ import argparse
 import json
 import sys
 from pathlib import Path
+from typing import Any
 
 import pytest
 
 from mcgyvr import cli
 from mcgyvr import scan as scan_module
 from mcgyvr.cli.commands.setup import (
+    FLAGS_START_NOTHING,
+    FLAGS_STARTED_NOT_SAMPLED,
     _setup_context_window,
     _setup_downloads,
     _setup_emit,
@@ -129,6 +132,7 @@ def _setup_namespace(**overrides: object) -> argparse.Namespace:
         "use_case": None,
         "deployment": None,
         "jev": None,
+        "start": False,
         "accept_unsampled": False,
     }
     defaults.update(overrides)
@@ -144,6 +148,7 @@ def test_setup_is_interactive_only_on_a_tty_without_flags(
     assert not _setup_is_interactive(_setup_namespace(rig_address=["rig=10.0.0.7"]))
     assert not _setup_is_interactive(_setup_namespace(force=True))
     assert not _setup_is_interactive(_setup_namespace(use_case="chat"))
+    assert not _setup_is_interactive(_setup_namespace(start=True))
 
     monkeypatch.setattr(cli.commands.setup, "_stdin_isatty", lambda: False)
     assert not _setup_is_interactive(_setup_namespace())
@@ -593,9 +598,9 @@ def test_setup_with_host_scans_plans_and_stages_a_synthetic_detection(
     init_kwargs: dict[str, object] = {}
     unsampled_kwargs: dict[str, object] = {}
 
-    def fake_scan(rigs: tuple[str, ...]) -> tuple[object, dict[str, object]]:
+    def fake_scan(rigs: tuple[str, ...]) -> tuple[dict[str, object], dict[str, object]]:
         scanned.append(rigs)
-        readings = {rig: {"machine": {"id": "x"}} for rig in rigs}
+        readings: dict[str, object] = {rig: {"machine": {"id": "x"}} for rig in rigs}
         return {}, readings
 
     def fake_placements(
@@ -665,6 +670,117 @@ def test_setup_with_host_refuses_priority_before_scanning(
         cli.main(["setup", "--host", "box1", "--priority", "quality", str(target)]) == 1
     )
     assert "--priority cannot be combined with --host" in capsys.readouterr().err
+
+
+def _flags_path_fakes(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
+    """The `--host` flag path with its machine-reading steps and emit/start
+    recorded, so a test can see exactly what the run did."""
+    from mcgyvr.detect import Detection
+
+    emit_args: list[tuple[Path, int]] = []
+    start_args: list[tuple[tuple[str, ...], object, Path]] = []
+    unsampled_why: list[str] = []
+
+    def fake_scan(rigs: tuple[str, ...]) -> tuple[dict[str, object], dict[str, object]]:
+        readings: dict[str, object] = {rig: {"machine": {"id": "x"}} for rig in rigs}
+        return {}, readings
+
+    def fake_placements(
+        rigs: tuple[str, ...], scans: object, use_case: str
+    ) -> dict[str, object]:
+        return {
+            rig: {"placement": {"model_id": "a-model", "engine": "llama.cpp"}}
+            for rig in rigs
+        }
+
+    def fake_context(plans: object) -> int:
+        return 32768
+
+    def fake_detection(plans: object, window: int | None = None) -> Detection:
+        return Detection(provenance={"backends": "synthetic"})
+
+    def fake_initialize(path: Path, **kwargs: object) -> InitResult:
+        return InitResult(path=path, created=True, written=True)
+
+    def fake_emit(path: Path, ctx: int) -> None:
+        emit_args.append((path, ctx))
+
+    def fake_start(rigs: tuple[str, ...], scans: object, path: Path) -> None:
+        start_args.append((rigs, scans, path))
+
+    def fake_unsampled(
+        path: Path,
+        why: str,
+        *,
+        acknowledged: bool | None,
+        readings: object = None,
+    ) -> tuple[tuple[str, ...], tuple[str, ...]]:
+        unsampled_why.append(why)
+        return (), ()
+
+    monkeypatch.setattr(cli.commands.setup, "_setup_scan_rigs", fake_scan)
+    monkeypatch.setattr(cli.commands.setup, "_setup_placements", fake_placements)
+    monkeypatch.setattr(cli.commands.setup, "_setup_context_window", fake_context)
+    monkeypatch.setattr(
+        cli.commands.setup, "_setup_synthetic_detection", fake_detection
+    )
+    monkeypatch.setattr(cli.commands.setup, "initialize", fake_initialize)
+    monkeypatch.setattr(cli.commands.setup, "_setup_emit", fake_emit)
+    monkeypatch.setattr(cli.commands.setup, "_setup_start", fake_start)
+    monkeypatch.setattr(cli.commands.setup, "_setup_unsampled", fake_unsampled)
+    # The fake initialize writes no fleet.yaml, so tell `_why_unsampled` the
+    # written setup names a rig without reading the disk.
+    monkeypatch.setattr(cli.commands.setup, "_rigs", lambda setup: ("box1",))
+    return {
+        "emit_args": emit_args,
+        "start_args": start_args,
+        "unsampled_why": unsampled_why,
+    }
+
+
+def test_setup_with_host_start_emits_and_starts_after_the_write(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`--start` is the consent: once the config is written, emit then serve up."""
+    seen = _flags_path_fakes(monkeypatch)
+
+    target = tmp_path / "setup"
+    assert cli.main(["setup", "--host", "box1", "--start", str(target)]) == 0
+
+    assert seen["emit_args"] == [(target, 32768)]
+    assert len(seen["start_args"]) == 1
+    assert seen["start_args"][0][0] == ("box1",)
+    assert seen["start_args"][0][2] == target
+    assert seen["unsampled_why"] == [FLAGS_STARTED_NOT_SAMPLED]
+
+
+def test_setup_with_host_without_start_emits_and_starts_nothing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Without `--start` the flag path keeps its default: no emit, no serve up."""
+    seen = _flags_path_fakes(monkeypatch)
+
+    target = tmp_path / "setup"
+    assert cli.main(["setup", "--host", "box1", str(target)]) == 0
+
+    assert seen["emit_args"] == []
+    assert seen["start_args"] == []
+    assert seen["unsampled_why"] == [FLAGS_START_NOTHING]
+
+
+def test_setup_start_without_host_is_refused_before_scanning(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """`--start` has nothing to start without the recommendation `--host` runs."""
+
+    def must_not_scan(_rigs: object) -> object:
+        raise AssertionError("the scan path must not run behind a refused --start")
+
+    monkeypatch.setattr(cli.commands.setup, "_setup_scan_rigs", must_not_scan)
+
+    target = tmp_path / "setup"
+    assert cli.main(["setup", "--start", str(target)]) == 1
+    assert "--start starts the servers" in capsys.readouterr().err
 
 
 # --- Fix 7: the two hosted tiers climb cheapest first in declaration order --

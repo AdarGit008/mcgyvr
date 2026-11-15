@@ -68,7 +68,8 @@ the live fleet folder under $MCGYVR_HOME/fleets (default ~/.mcgyvr/fleets) that 
 - `mcgyvr setup [PATH]` — read each rig, plan, stage, start and sample a fleet, and lock it live on your
   yes.
   - `--host RIG` — scan a rig over ssh (or this machine for localhost) and recommend a model and engine
-    from its hardware (repeatable); setup writes the recommended config and starts nothing.
+    from its hardware (repeatable); setup writes the recommended config and starts nothing unless
+    --start.
   - `--rig-address RIG=ADDRESS` — state the IPv4 address a rig's units are reached at, recorded in its
     rig file beside the scan (repeatable; for a rig whose scan recorded no address, so a unit addressed
     by it still finds the rig).
@@ -88,9 +89,12 @@ the live fleet folder under $MCGYVR_HOME/fleets (default ~/.mcgyvr/fleets) that 
     (mcgyvr is the backend and provisions a local proposer for mcgyvr-code); default: hybrid.
   - `--jev UNIT` — dedicate VRAM to a Jev unit: the written unit every typed decision asks, never slept
     or woken (an opt-in; no model is picked for you).
-  - `--accept-unsampled` — lock the fleet setup stages approved on no evidence, and name it live: setup
-    with flags starts no server, so no sample runs on what it stages. Without it nothing is locked, and
-    the limits say why. Nothing measured stands behind such a lock.
+  - `--start` — after --host scans and recommends a config, emit its launch specs and start the
+    recommended servers through the door; the flag is your consent to start. Without it nothing is
+    started.
+  - `--accept-unsampled` — lock the fleet setup stages approved on no evidence, and name it live: a
+    flag-run setup samples nothing (with or without --start), so nothing measured stands behind the lock.
+    Without it nothing is locked, and the limits say why.
 - `mcgyvr attach` — attach a repository (local path or clone URL) and show its state.
   - `--repo PATH` — the repository to attach: a local git checkout, or a URL to clone
     (https/ssh/git/file) (default: .).
