@@ -150,7 +150,10 @@ unquote() {
 verify_skill() {
   local file="$1" expected_name="$2"
   local -a lines=()
-  mapfile -t lines <"${file}"
+  local line
+  while IFS= read -r line || [[ -n "${line}" ]]; do
+    lines+=("${line}")
+  done <"${file}"
 
   if [[ "${#lines[@]}" -eq 0 || "$(trim "${lines[0]}")" != "---" ]]; then
     echo "install.sh: ${file}: frontmatter must open the file" >&2
@@ -324,7 +327,7 @@ probe_examples() {
   if [[ "${found}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
     fix="Re-install the skills from the CLI's release (git clone --depth 1 --branch v${found} ${REPO_URL}, then its skills/mcgyvr/install.sh), or ${fix}"
   else
-    fix="${fix^}"
+    fix="$(printf '%s' "${fix:0:1}" | tr '[:lower:]' '[:upper:]')${fix:1}"
   fi
   echo "install.sh: mcgyvr ${found} rejects ${rejected} of the ${count} example contracts /mcgyvr-direct ships (${first:-no reason given}): the skills and the CLI are from different revisions, so the skill teaches contracts this CLI refuses. ${fix}." >&2
   return 1
