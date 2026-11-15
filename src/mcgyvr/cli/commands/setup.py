@@ -2,7 +2,8 @@
 
 Two ways in. With flags the command stages a config from named rigs — each one
 scanned, then a model and engine recommended from its hardware — plus hosted
-API units and a priority, and it starts nothing. Run with no flags on a
+API units and a priority, and it starts nothing unless `--start` asks it to
+emit and start the recommended servers after the write. Run with no flags on a
 terminal, it is the wizard: it asks for the rigs, the use case and
 Jev, reads each rig, plans a placement per rig, fetches missed weights,
 stages the config, emits launch specs, starts the containers, samples them and
@@ -92,8 +93,8 @@ def _setup_is_interactive(args: argparse.Namespace) -> bool:
     answers its questions.
 
     Any flag that names a host, a rig's address, an API unit, a use case or a
-    Jev unit, or that forces the write or accepts an unsampled lock, makes the
-    run the flag path instead.
+    Jev unit, or that forces the write, asks to start, or accepts an unsampled
+    lock, makes the run the flag path instead.
     """
     if not _stdin_isatty():
         return False
@@ -106,6 +107,7 @@ def _setup_is_interactive(args: argparse.Namespace) -> bool:
         or args.use_case is not None
         or args.deployment is not None
         or args.jev is not None
+        or args.start
         or args.accept_unsampled
     )
 
@@ -1178,6 +1180,12 @@ FLAGS_START_NOTHING = (
 )
 
 
+FLAGS_STARTED_NOT_SAMPLED = (
+    "`mcgyvr setup --host ... --start` started its servers, but no sample ran "
+    "on them, so nothing mcgyvr measured runs to sample"
+)
+
+
 NO_EVIDENCE_MEANS = (
     "A lock on no evidence approves the fleet as it is written: no reading of "
     "its units' speed, card use or restarts stands behind it, so live admission "
@@ -1407,6 +1415,15 @@ def _setup(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         return 1
+    if args.start and not args.host:
+        print(
+            "error: --start starts the servers the scan + recommendation path "
+            "wrote; pass --host to name the rig(s) to start. Without --host "
+            "setup binds servers already answering, so there is nothing mcgyvr "
+            "launched to start.",
+            file=sys.stderr,
+        )
+        return 1
     # The flag path parses each --api spec before anything is written, so a
     # malformed spec is reported first. With --host it then scans the named rigs
     # and recommends a model and engine from their hardware, folding the backend
@@ -1420,6 +1437,8 @@ def _setup(args: argparse.Namespace) -> int:
 
     use_case = args.use_case or MCGYVR_CODE
     readings: Mapping[str, Mapping[str, Any]] | None = None
+    scans: Mapping[str, Scan] | None = None
+    ctx_per_slot: int | None = None
     try:
         if args.host:
             if args.priority is not None:
@@ -1473,14 +1492,21 @@ def _setup(args: argparse.Namespace) -> int:
     else:
         print(f"{result.path} already exists — nothing was changed.\n")
 
-    # Nothing was started, so nothing runs to sample: a config that was written
-    # is locked on no evidence only once it is acknowledged, and is otherwise
-    # answered as a limit. A config left untouched binds nothing new, so it
-    # goes through neither.
+    # With --start the written setup is emitted and its servers are started
+    # through the door, which is the flag's consent; without it nothing is
+    # started, so nothing runs to sample. Either way a flag-run setup samples
+    # nothing, and a config that was written is locked on no evidence only once
+    # it is acknowledged. A config left untouched binds nothing new, so it goes
+    # through neither.
+    started = False
+    if result.written and args.start and scans is not None and ctx_per_slot is not None:
+        _setup_emit(result.path, ctx_per_slot)
+        _setup_start(tuple(args.host), scans, result.path)
+        started = True
     approved, unapproved = (
         _setup_unsampled(
             result.path,
-            _why_unsampled(result.path),
+            _why_unsampled(result.path, started=started),
             acknowledged=args.accept_unsampled,
             readings=readings,
         )
@@ -1527,13 +1553,15 @@ def _use_case_refused(name: str | None) -> str | None:
     return f"is not a use case; setup offers {_spoken_or(offered)}."
 
 
-def _why_unsampled(setup: Path) -> str:
+def _why_unsampled(setup: Path, *, started: bool = False) -> str:
     """Answer why the flag-run setup was not sampled, in the words the user is shown.
 
-    A setup that names rigs was never started, and one with no rigs has no
-    machine of the user's to sample.
+    A setup that names rigs was never started, or was started by `--start` and
+    not sampled; one with no rigs has no machine of the user's to sample.
     """
-    return FLAGS_START_NOTHING if _rigs(setup) else ALL_HOSTED
+    if not _rigs(setup):
+        return ALL_HOSTED
+    return FLAGS_STARTED_NOT_SAMPLED if started else FLAGS_START_NOTHING
 
 
 def _own_fleet_live(
@@ -1706,7 +1734,7 @@ def add_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None
         help=(
             "scan a rig over ssh (or this machine for localhost) and recommend "
             "a model and engine from its hardware (repeatable); setup writes "
-            "the recommended config and starts nothing"
+            "the recommended config and starts nothing unless --start"
         ),
     )
     setup.add_argument(
@@ -1801,13 +1829,22 @@ def add_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None
         ),
     )
     setup.add_argument(
+        "--start",
+        action="store_true",
+        help=(
+            "after --host scans and recommends a config, emit its launch "
+            "specs and start the recommended servers through the door; the "
+            "flag is your consent to start. Without it nothing is started"
+        ),
+    )
+    setup.add_argument(
         "--accept-unsampled",
         action="store_true",
         help=(
             "lock the fleet setup stages approved on no evidence, and name it "
-            "live: setup with flags starts no server, so no sample runs on "
-            "what it stages. Without it nothing is locked, and the limits say "
-            "why. Nothing measured stands behind such a lock"
+            "live: a flag-run setup samples nothing (with or without --start), "
+            "so nothing measured stands behind the lock. Without it nothing "
+            "is locked, and the limits say why"
         ),
     )
     setup.set_defaults(func=_setup)
