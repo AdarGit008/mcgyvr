@@ -19,6 +19,8 @@ from __future__ import annotations
 
 import base64
 import contextlib
+import ctypes
+import ctypes.util
 import hashlib
 import json
 import os
@@ -28,6 +30,7 @@ import selectors
 import shutil
 import subprocess
 import sys
+import threading
 import time
 import unicodedata
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
@@ -78,13 +81,21 @@ MIB_PER_GB = 1024.0
 BYTES_PER_GIB = 1024.0**3
 MIB_BYTES = 1024 * 1024
 
-# The bandwidth probe copies a block of memory COPY_PASSES times and keeps the
-# fastest pass; the block drops to COPY_MIB_TIGHT when the memory spare is under
-# TIGHT_RAM_GB past the two blocks the probe holds at once.
-COPY_MIB = 256
-COPY_PASSES = 5
-COPY_MIB_TIGHT = 64
+# The bandwidth probe reads a block of memory READ_PASSES times and keeps the
+# fastest pass; the block drops to READ_MIB_TIGHT when the memory spare is under
+# TIGHT_RAM_GB past the read block and the copy block held for the copy figure.
+# A pass is READ_THREADS_MAX threads at most, each reading its own slice of at
+# least READ_MIN_SLICE_BYTES.
+READ_MIB = 256
+READ_PASSES = 5
+READ_MIB_TIGHT = 64
+READ_THREADS_MAX = 8
+READ_MIN_SLICE_BYTES = 16 * MIB_BYTES
 TIGHT_RAM_GB = 2.0
+
+#: The byte libc memchr looks for in the probe's zeroed read block. The block
+#: holds none, so memchr reads it whole instead of stopping at the first byte.
+READ_ABSENT = 0xFF
 
 #: Machine identity sources, in order: the first machine-id file holding a value,
 #: then the host name.
@@ -1919,44 +1930,166 @@ def _lscpu_int(text: str, key: str) -> int | None:
     return int(value[0]) if value and _DIGITS.fullmatch(value[0]) else None
 
 
-def measure_bandwidth(spare_mib: int | None = None) -> dict[str, Any] | None:
-    """Copy one block of memory onto another and keep the fastest pass.
-
-    Two buffers are allocated and one is copied onto the other COPY_PASSES times;
-    the result is the highest bytes-copied-per-second of those passes, so one slow
-    pass does not drag it down. The block is COPY_MIB, or COPY_MIB_TIGHT when the
-    machine has less than TIGHT_RAM_GB spare beyond the two buffers. `spare_mib` is
-    the memory a new allocation could take, the available MiB of the reading's own
-    memory section (MemAvailable, else MemFree); None, memory that could not be
-    seen, is measured as a small machine's. None when the buffers cannot be
-    allocated or no pass could be timed, which the caller reports as not measured
-    rather than filling in.
-    """
-    mib = COPY_MIB
-    if (spare_mib or 0) < TIGHT_RAM_GB * MIB_PER_GB + 2 * mib:
-        mib = COPY_MIB_TIGHT
-    try:
-        source = bytearray(mib * MIB_BYTES)
-        target = bytearray(mib * MIB_BYTES)
-    except (MemoryError, ValueError):
+def _libc_memory() -> Any | None:
+    """The C library whose calls the probe uses, or None when none loads."""
+    names = {
+        "win32": ("ucrtbase.dll", "msvcrt.dll"),
+        "darwin": ("libSystem.B.dylib", "libc.dylib"),
+    }.get(sys.platform, ("libc.so.6", "libc.so"))
+    for name in names:
+        try:
+            return ctypes.CDLL(name)
+        except OSError:
+            continue
+    found = ctypes.util.find_library("c")
+    if found is None:
         return None
-    target[:] = source  # every page of the target is touched before any is timed
-    moved = float(len(source))
+    try:
+        return ctypes.CDLL(found)
+    except OSError:
+        return None
+
+
+def _read_threads(size: int) -> int:
+    """The probe's thread count: the machine's logical CPUs, capped so a
+    many-core machine does not cut the block into slices too small to stream."""
+    return max(
+        1, min(os.cpu_count() or 1, READ_THREADS_MAX, size // READ_MIN_SLICE_BYTES)
+    )
+
+
+def _slices(size: int, threads: int) -> list[tuple[int, int]]:
+    """Contiguous, non-overlapping ``(start, end)`` bounds for `threads` slices
+    of a `size`-byte block."""
+    return [
+        ((size * index) // threads, (size * (index + 1)) // threads)
+        for index in range(threads)
+    ]
+
+
+def _run_slices(
+    slices: list[tuple[int, int]], work: Callable[[int, int], None]
+) -> None:
+    """Run `work(start, end)` once per slice, each on its own thread, and wait
+    for every thread to finish."""
+    threads = [
+        threading.Thread(target=work, args=(start, end)) for start, end in slices
+    ]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+
+def _best_pass(
+    size: int,
+    slices: list[tuple[int, int]],
+    work: Callable[[int, int], None],
+    passes: int,
+) -> float:
+    """The fastest whole-block pass in bytes/second, after one untimed warm-up.
+
+    A pass runs `work(start, end)` once per slice and times from the first
+    thread's start to the last thread's finish; `size` is the block's bytes.
+    0.0 when no pass could be timed.
+    """
+    _run_slices(slices, work)  # warm the pages and TLBs before anything is timed
     fastest = 0.0
-    for _ in range(COPY_PASSES):
+    for _ in range(passes):
         start = time.perf_counter()
-        target[:] = source
+        _run_slices(slices, work)
         elapsed = time.perf_counter() - start
         if elapsed > 0.0:
-            fastest = max(fastest, moved / elapsed)
-    if fastest <= 0.0:
+            fastest = max(fastest, size / elapsed)
+    return fastest
+
+
+def _read_best(memchr: Any, base: int, size: int, threads: int) -> float:
+    """The read figure: each thread scans its slice with libc memchr for a byte
+    the zeroed block does not hold, so every byte is read and the DRAM bus
+    carries reads alone. 0.0 when the scan stopped early, which would overstate
+    the bandwidth."""
+    slices = _slices(size, threads)
+    early: list[int] = []
+
+    def work(start: int, end: int) -> None:
+        if memchr(base + start, READ_ABSENT, end - start):
+            early.append(start)
+
+    rate = _best_pass(size, slices, work, READ_PASSES)
+    return 0.0 if early else rate
+
+
+def _copy_best(
+    memcpy: Any | None, dest: int, source: int, size: int, threads: int
+) -> float:
+    """The copy figure named in `how`: the same block moved read+write with libc
+    memcpy, or 0.0 when memcpy cannot be called."""
+    if memcpy is None:
+        return 0.0
+    slices = _slices(size, threads)
+
+    def work(start: int, end: int) -> None:
+        memcpy(dest + start, source + start, end - start)
+
+    return _best_pass(size, slices, work, READ_PASSES)
+
+
+def measure_bandwidth(spare_mib: int | None = None) -> dict[str, Any] | None:
+    """Read one block of memory from many cores and keep the fastest pass.
+
+    One buffer is read READ_PASSES times by up to READ_THREADS_MAX threads, each
+    scanning its own slice with libc memchr for a byte the zeroed buffer does
+    not hold, so every byte is read and the DRAM bus carries reads alone — the
+    access pattern decode and prefill make streaming the model's weights. The
+    result is the highest bytes-read-per-second over those passes; when libc
+    memcpy is present, a copy (read+write) figure is measured the same way and
+    named in `how`. The block is READ_MIB, or READ_MIB_TIGHT when the machine
+    has less than TIGHT_RAM_GB spare beyond the read block and the copy block.
+    `spare_mib` is the memory a new allocation could take, the available MiB of
+    the reading's own memory section (MemAvailable, else MemFree); None, memory
+    that could not be seen, is measured as a small machine's. None when the
+    buffers cannot be allocated, libc's calls cannot be declared, or no pass
+    could be timed, which the caller reports as not measured rather than
+    filling in.
+    """
+    mib = READ_MIB
+    if (spare_mib or 0) < TIGHT_RAM_GB * MIB_PER_GB + 2 * mib:
+        mib = READ_MIB_TIGHT
+    libc = _libc_memory()
+    if libc is None:
         return None
-    return {
-        "measured_gbps": round(fastest / 1e9, 1),
-        "how": (
-            f"in-process copy of {mib} MiB x{COPY_PASSES}, best pass, bytes copied/s"
-        ),
-    }
+    try:
+        libc.memchr.argtypes = (ctypes.c_void_p, ctypes.c_int, ctypes.c_size_t)
+        libc.memchr.restype = ctypes.c_void_p
+    except AttributeError:
+        return None
+    memcpy = None
+    try:
+        libc.memcpy.argtypes = (ctypes.c_void_p, ctypes.c_void_p, ctypes.c_size_t)
+        libc.memcpy.restype = ctypes.c_void_p
+        memcpy = libc.memcpy
+    except AttributeError:
+        pass
+    size = mib * MIB_BYTES
+    try:
+        source = ctypes.create_string_buffer(size)
+        target = ctypes.create_string_buffer(size)
+    except (MemoryError, ValueError, OverflowError, OSError):
+        return None
+    base = ctypes.addressof(source)
+    threads = _read_threads(size)
+    read_bps = _read_best(libc.memchr, base, size, threads)
+    if read_bps <= 0.0:
+        return None
+    how = (
+        f"multi-threaded read of {mib} MiB x{threads} threads, best of "
+        f"{READ_PASSES} passes, bytes read/s"
+    )
+    copy_bps = _copy_best(memcpy, ctypes.addressof(target), base, size, threads)
+    if copy_bps > 0.0:
+        how += f"; copy {round(copy_bps / 1e9, 1)} GB/s"
+    return {"measured_gbps": round(read_bps / 1e9, 1), "how": how}
 
 
 def default_weights_dir() -> str:
@@ -2546,7 +2679,7 @@ def scan(
     ]
     if bandwidth is None:
         notes.append(
-            "Memory bandwidth: not measured — the copy loop produced no usable "
+            "Memory bandwidth: not measured — the read probe produced no usable "
             "timing. Left absent rather than filled in from a module nameplate, "
             "which describes the parts and not this machine."
         )
