@@ -35,19 +35,46 @@ your prompts and the answers; [`SECURITY.md`](SECURITY.md) has the detail.
 
 ## Install
 
-Linux and macOS:
+The CLI is `mcgyvr`, on PyPI, and needs Python 3.12 or newer. Install it with
+`uv` first — uv provisions its own managed CPython, so this one command works
+on Linux, macOS and Windows even when the system only ships an older Python:
 
 ```sh
 uv tool install mcgyvr
+```
+
+The other PyPI installers use a Python already on the machine, so they need
+3.12 or newer on `PATH` first — and macOS's system Python is 3.9, so there
+install a newer Python (or use `uv`) first:
+
+```sh
+pipx install mcgyvr
+# or, into a venv with pip:
+python3 -m venv ~/.venvs/mcgyvr
+~/.venvs/mcgyvr/bin/pip install mcgyvr
+```
+
+From a checkout, install the tree's own revision — `uv sync` (or `make setup`)
+builds it into the project's venv against `uv.lock`, and
+`uv tool install --force .` puts that checkout's `mcgyvr` on your `PATH`:
+
+```sh
 git clone https://github.com/AdarGit008/mcgyvr
+cd mcgyvr
+uv sync                     # or: make setup; then `uv run mcgyvr`
+# or, to put the checkout's mcgyvr on PATH:
+uv tool install --force .
+```
+
+Installing the skills is a separate step, from the checkout:
+
+```sh
 mcgyvr/skills/mcgyvr/install.sh
 ```
 
 Windows (PowerShell):
 
 ```powershell
-uv tool install mcgyvr
-git clone https://github.com/AdarGit008/mcgyvr
 powershell -NoProfile -ExecutionPolicy RemoteSigned -File mcgyvr\skills\mcgyvr\install.ps1
 ```
 
