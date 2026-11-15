@@ -854,13 +854,11 @@ class Waker:
             return False
         if alone:
             direction = _wake_direction(card, _ports(self._config, (rung,)))
-            # Name the unit when it is asleep, so the card's other units are
-            # left as they are, or when it is a llama.cpp unit being stopped.
-            only: tuple[str, ...] = (
-                (rung,)
-                if direction == "wake" or _stopped_alone(self._config, (rung,))
-                else ()
-            )
+            # A card whose units switch one at a time wakes this one rung
+            # alone, whichever engine it runs: a level-2 sleeper is woken in
+            # its process, a stopped container is started, and neither touches
+            # the card's other units.
+            only: tuple[str, ...] = (rung,)
         else:
             direction, only = _wake_direction(card), ()
         made = _run_door(self._config, card, direction, compose, only=only)
@@ -937,15 +935,26 @@ def sleep(config: Config, host: str) -> Wake:
 def put_down(config: Config, card: Card, only: tuple[str, ...] = ()) -> Wake:
     """Give a card back: sleep its vLLM units, or stop the card.
 
-    Sleep where every source is vLLM and no unit of it is split over machines,
-    and stop where the door answers with no sleep route. `only` narrows a card
-    whose units switch one at a time to the unit being put down. Raises
-    `WakeError` when the card holds the resident unit or has no single spec.
+    A whole card sleeps only where every source is vLLM and no unit of it is
+    split over machines, and stops where the door answers with no sleep route.
+    `only` narrows a card whose units switch one at a time to the units being
+    put down: its vLLM units sleep at level 2 and its llama.cpp units stop,
+    either way alone. Raises `WakeError` when the card holds the resident unit
+    or has no single spec.
     """
     _refuse_resident(config, card, "slept")
     compose = compose_for(card)
     if compose is None:
         raise WakeError(_why_not_one(card))
+    if only and _per_unit(config, card):
+        # Units that switch one at a time: stop the llama.cpp ones, sleep the
+        # vLLM ones at level 2, and leave the card's other units as they are.
+        if _stopped_alone(config, only):
+            return _run_door(config, card, "down", compose, only=only)
+        asked = _run_door(config, card, "sleep", compose, only=only)
+        if asked.code != NO_SLEEP_ROUTE:
+            return asked
+        return _run_door(config, card, "down", compose, only=only)
     split = _split_elsewhere(config, card)
     if split is not None:
         # A unit split over machines is stopped rather than slept: level 2 is
@@ -955,8 +964,6 @@ def put_down(config: Config, card: Card, only: tuple[str, ...] = ()) -> Wake:
             f"split across machines, so {card.host} is stopped instead",
             file=sys.stderr,
         )
-    elif only and _per_unit(config, card) and _stopped_alone(config, only):
-        return _run_door(config, card, "down", compose, only=only)
     elif _all_vllm(config, card):
         asked = _run_door(config, card, "sleep", compose, only=only)
         if asked.code != NO_SLEEP_ROUTE:
