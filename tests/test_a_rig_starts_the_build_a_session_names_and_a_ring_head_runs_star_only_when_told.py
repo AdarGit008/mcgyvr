@@ -382,6 +382,15 @@ def test_a_ring_pin_is_picked_on_the_upstream_builds_backend_and_kept_apart(
     assert native.pin_root(ring) == tmp_path / "home" / native.BIN / "ring" / "r1"
 
 
+def test_a_no_docker_stage_moves_the_build_folders_under_tmp(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("MCGYVR_HOME", str(tmp_path / "home"))
+    monkeypatch.setenv(native.STAGE_ENV, str(tmp_path / "stage"))
+    assert native.bin_root() == tmp_path / "stage" / native.BIN / llamacpp.TAG
+    assert native.pin_root() == native.pin_root(llamacpp.UPSTREAM) == native.bin_root()
+
+
 @pytest.fixture
 def ring_control() -> dict[str, Any]:
     """How the fake ring fetch behaves: ``fails`` (a reason it raises with),

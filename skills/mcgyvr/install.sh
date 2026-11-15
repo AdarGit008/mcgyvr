@@ -107,11 +107,14 @@ DESCRIPTION_MAX=1024
 
 usage() {
   cat <<'USAGE'
-usage: install.sh [--force] [--uninstall] [--help]
+usage: install.sh [--force] [--no-docker] [--uninstall] [--help]
 
-  (no args)    install /mcgyvr, /mcgyvr-direct and /mcgyvr-use for Claude CLI and pi
-  --force      overwrite an installed copy that was edited by hand
-  --uninstall  remove them from both
+  (no args)     install /mcgyvr, /mcgyvr-direct and /mcgyvr-use for Claude CLI and pi,
+                and offer to install the docker CLI + compose plugin (brew on macOS,
+                apt on Debian/Ubuntu)
+  --force       overwrite an installed copy that was edited by hand
+  --no-docker   skip the docker CLI + compose plugin step; units serve natively
+  --uninstall   remove them from both
 USAGE
 }
 
@@ -388,6 +391,73 @@ check_version() {
   fi
 }
 
+# --- docker CLI + compose plugin -------------------------------------------
+
+#: The docker CLI and the `docker compose` plugin, offered as a skippable step
+#: of the default install. Skipping them means a unit is served natively — the
+#: pinned llama.cpp build, kept up by mcgyvr's own supervisor — rather than in
+#: a container, so nothing here refuses an install that has no docker.
+docker_install() {
+  local system
+  system="$(uname -s 2>/dev/null || true)"
+  case "${system}" in
+    Darwin)
+      if command -v brew >/dev/null 2>&1; then
+        brew install docker docker-compose >&2
+        mkdir -p -- "${HOME}/.docker/cli-plugins"
+        ln -sf -- "$(brew --prefix)/opt/docker-compose/bin/docker-compose" \
+          "${HOME}/.docker/cli-plugins/docker-compose" 2>/dev/null || true
+      else
+        echo "install.sh: docker CLI not installed: install Homebrew, then run 'brew install docker docker-compose'. Units serve natively until then." >&2
+      fi
+      ;;
+    Linux)
+      if [[ -f /etc/debian_version ]]; then
+        local -a apt=(apt-get install -y docker.io docker-compose-plugin)
+        [[ "$(id -u)" -eq 0 ]] || apt=(sudo "${apt[@]}")
+        "${apt[@]}" >&2 || {
+          local -a apt2=(apt-get install -y docker.io docker-compose-v2)
+          [[ "$(id -u)" -eq 0 ]] || apt2=(sudo "${apt2[@]}")
+          "${apt2[@]}" >&2 || \
+            echo "install.sh: docker CLI not installed (apt failed). Units serve natively." >&2
+        }
+      else
+        echo "install.sh: docker CLI not installed: use this distribution's package manager. Units serve natively until then." >&2
+      fi
+      ;;
+    *)
+      echo "install.sh: docker CLI not installed: install it yourself. Units serve natively until then." >&2
+      ;;
+  esac
+}
+
+#: The docker step of the install: say what is already there, skip on
+#: `--no-docker` or a declined prompt, and otherwise install. It is best
+#: effort — a failure leaves the skills installed and serving native.
+docker_step() {
+  local no_docker="$1"
+  if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
+    # The ordinary case, and the quiet one: nothing to say, nothing to install.
+    return 0
+  fi
+  if [[ "${no_docker}" -eq 1 ]]; then
+    echo "install.sh: docker skipped (--no-docker); units serve natively" >&2
+    return 0
+  fi
+  if [[ ! -t 0 ]]; then
+    # Nothing to answer the prompt: skip rather than run sudo/brew unasked.
+    echo "install.sh: docker skipped (no terminal to ask); units serve natively" >&2
+    return 0
+  fi
+  printf 'install the docker CLI and compose plugin? [y/N] '
+  local answer
+  IFS= read -r answer
+  case "${answer}" in
+    [yY]|[yY][eE][sS]) docker_install ;;
+    *) echo "install.sh: docker skipped; units serve natively" >&2 ;;
+  esac
+}
+
 # Every target of every skill, as `<skill name> <dir under $HOME>` lines.
 targets() {
   local name harness
@@ -399,7 +469,7 @@ targets() {
 }
 
 install_skill() {
-  local force="$1"
+  local force="$1" no_docker="$2"
   local name target dest rel src digest record from
 
   # Every source is verified before anything is copied, so one that fails
@@ -453,6 +523,10 @@ install_skill() {
   # One instruction to the operator who ran this, and the only thing that says
   # the skills do not load themselves. Not a file's contents.
   echo "Invoke them with /mcgyvr <prompt> or /mcgyvr-direct <files|dir>; neither loads itself."
+  # The docker step is part of the default install: install the CLI + compose
+  # plugin (brew on macOS, apt on Debian/Ubuntu) unless already present or
+  # skipped. It says so on stderr, and never fails the install.
+  docker_step "${no_docker}"
   # Last, and on stderr: the install above has already succeeded, and this
   # only says whether there is anything here to drive it with.
   check_version
@@ -477,13 +551,21 @@ uninstall_skill() {
   fi
 }
 
-case "${1-}" in
-  "")           install_skill 0 ;;
-  --force)      install_skill 1 ;;
-  --uninstall)  uninstall_skill ;;
-  --help|-h)    usage ;;
-  # One line, and it names the document rather than growing a section per
-  # harness: two harnesses are in scope, anything else is a machine whose
-  # owner has to read the setup document anyway.
-  *)            echo "install.sh: ${1}: not an argument this understands — ${SETUP_DOC}" >&2; exit 2 ;;
-esac
+force=0
+no_docker=0
+for arg in "$@"; do
+  case "${arg}" in
+    --force) force=1 ;;
+    --no-docker) no_docker=1 ;;
+    --uninstall) uninstall_skill; exit 0 ;;
+    --help|-h) usage; exit 0 ;;
+    # One line, and it names the document rather than growing a section per
+    # harness: two harnesses are in scope, anything else is a machine whose
+    # owner has to read the setup document anyway.
+    *)
+      echo "install.sh: ${arg}: not an argument this understands — ${SETUP_DOC}" >&2
+      exit 2
+      ;;
+  esac
+done
+install_skill "${force}" "${no_docker}"

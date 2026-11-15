@@ -81,9 +81,16 @@ powershell -NoProfile -ExecutionPolicy RemoteSigned -File mcgyvr\skills\mcgyvr\i
 `install.sh` (`install.ps1` on Windows) copies the `/mcgyvr`, `/mcgyvr-direct`
 and `/mcgyvr-use` skills into `~/.claude/skills/<name>` and
 `~/.pi/agent/skills/<name>`, and warns when the `mcgyvr` on `PATH` is older
-than the skills can drive. On a Mac or a Windows machine, setup runs llama.cpp
-natively, with no Docker; `skills/mcgyvr/SETUP.md`, *macOS and Windows*, says
-what else differs there.
+than the skills can drive. On Linux and macOS, `install.sh` also offers to
+install the docker CLI and the `docker compose` plugin (brew on macOS, apt on
+Debian/Ubuntu), as a step you can skip: decline the prompt, or pass
+`--no-docker`, to leave docker out. With no docker CLI on the controller,
+mcgyvr serves llama.cpp units natively — the pinned build, kept up by
+mcgyvr's own supervisor, staged under `/tmp` on the rig instead of a
+container — so skipping docker is a supported install, not a broken one. On
+a Mac or a Windows machine, setup runs llama.cpp natively regardless, with
+no Docker; `skills/mcgyvr/SETUP.md`, *macOS and Windows*, says what else
+differs there.
 
 ## GPUs and engines
 

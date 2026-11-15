@@ -255,11 +255,14 @@ def up(
 
     A spec of native units is handed to `mcgyvr.serving.native` instead, which
     answers in the same shape: here for this machine, shipped over ssh for a
-    macOS or Windows rig (`mcgyvr.serving.nativerig`).
+    macOS or Windows rig (`mcgyvr.serving.nativerig`), or for a Linux rig the
+    controller reaches with no docker CLI (the native fallback, staged under
+    /tmp).
     """
     if _is_native(compose_file):
         from mcgyvr.serving import native
 
+        _stage_native(_run_host())
         names = [u.name for u in units]
         if _native_here():
             return native.up(compose_file, names)
@@ -302,7 +305,7 @@ def _run_host() -> str:
 
 def _native_here() -> bool:
     """Whether a native step's units run on this machine (True) or on the
-    macOS or Windows rig the run names (False); any other rig is refused."""
+    rig the run names (False); any other rig is refused."""
     host = _run_host()
     if host in LOCAL_RIGS:
         return True
@@ -314,6 +317,17 @@ def _native_here() -> bool:
         "the launch spec runs natively, on this machine or on a macOS or "
         f"Windows rig, and the run is for {host or 'no host'}"
     )
+
+
+def _stage_native(host: str) -> None:
+    """Route a native run on a Linux machine to the /tmp stage (the no-docker
+    fallback); a macOS or Windows native run keeps the mcgyvr home unset."""
+    from mcgyvr import hostos
+    from mcgyvr.serving import native
+
+    system = hostos.os_name() if host in LOCAL_RIGS else gatelib.rig_system(host)
+    if system == gatelib.LINUX:
+        os.environ[native.STAGE_ENV] = str(native.stage_dir())
 
 
 def _is_native(compose_file: Path) -> bool:

@@ -593,18 +593,40 @@ NATIVE_BY_DEFAULT = (DARWIN, WINDOWS)
 DEFAULT_ENGINE = "llama.cpp"
 
 
-def default_launcher(*, engine: str | None, system: str) -> str:
+def docker_on_path() -> bool:
+    """Whether a docker CLI is on this controller's PATH.
+
+    This is the one detection the launcher choice adds to the OS mapping: with
+    no docker CLI a llama.cpp unit runs native (`launcher: native`) whatever
+    its rig's system, because no container can be started without it. It is a
+    plain presence check, never a judgment over selection.
+    """
+    import shutil
+
+    return shutil.which("docker") is not None
+
+
+def default_launcher(
+    *, engine: str | None, system: str, has_docker: bool | None = None
+) -> str:
     """The launcher `setup` and `recommend` write for a unit.
 
     `native` for a llama.cpp unit (no `engine`, or `llama.cpp`) on a macOS or
     Windows machine (`system`: the machine setup runs on, as
     `mcgyvr.hostos.os_name` names it, or the rig its rig file records,
-    `mcgyvr.serving.gatelib.rig_system`); `docker` otherwise, which is what a
-    unit that states no launcher runs as.
+    `mcgyvr.serving.gatelib.rig_system`), and for a llama.cpp unit on any
+    system when the controller has no docker CLI (`has_docker`, detected with
+    :func:`docker_on_path` when left unset): with no docker, a Linux unit also
+    runs the pinned native build rather than a container. `docker` otherwise,
+    which is what a unit that states no launcher runs as.
     """
-    if (engine or DEFAULT_ENGINE) == "llama.cpp" and system in NATIVE_BY_DEFAULT:
+    if (engine or DEFAULT_ENGINE) != "llama.cpp":
+        return LAUNCHER_DOCKER
+    if system in NATIVE_BY_DEFAULT:
         return LAUNCHER_NATIVE
-    return LAUNCHER_DOCKER
+    if has_docker is None:
+        has_docker = docker_on_path()
+    return LAUNCHER_NATIVE if not has_docker else LAUNCHER_DOCKER
 
 
 #: The reply room, in tokens, that `mcgyvr setup --api` writes into a hosted
