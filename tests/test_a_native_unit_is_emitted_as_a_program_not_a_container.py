@@ -113,7 +113,12 @@ def test_a_native_unit_that_names_another_address_is_refused() -> None:
         compose_of(unit)
 
 
-def test_a_native_unit_on_another_rig_is_refused() -> None:
+def test_a_native_unit_on_another_rig_is_refused(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from mcgyvr import config as configlib
+
+    monkeypatch.setattr(configlib, "docker_on_path", lambda: True)
     text = config_text("    launcher: native\n").replace("localhost", "box1")
     scans = {"box1": replace_host(SCANS["localhost"], "box1")}
     (unit,) = units_for(parse(text), scans, specs=(), ctx_per_slot=4096)

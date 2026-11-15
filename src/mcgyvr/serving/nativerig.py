@@ -11,11 +11,13 @@ The launcher leaves a copy of itself under the rig's mcgyvr home for the
 supervisors it starts, which outlive the call; each binds 127.0.0.1 (K13).
 
 Which rigs: a rig whose rig file records macOS or Windows
-(:data:`mcgyvr.config.NATIVE_BY_DEFAULT`). A Linux rig keeps docker.
+(:data:`mcgyvr.config.NATIVE_BY_DEFAULT`), and a Linux rig when the controller
+has no docker CLI (the native fallback). A Linux rig with docker keeps docker.
 """
 
 from __future__ import annotations
 
+import os
 import subprocess
 from collections.abc import Iterable, Sequence
 
@@ -29,10 +31,15 @@ class NativeRigError(RuntimeError):
 
 def remote(host: str) -> bool:
     """Whether `host` is a rig over ssh whose units run natively there: its rig
-    file records macOS or Windows (no ssh is made)."""
-    return (
-        host not in gatelib.LOCAL_RIGS and gatelib.rig_system(host) in NATIVE_BY_DEFAULT
-    )
+    file records macOS or Windows, or it is a Linux rig served native because
+    the controller has no docker CLI (no ssh is made)."""
+    from mcgyvr.config import docker_on_path
+
+    if host in gatelib.LOCAL_RIGS:
+        return False
+    if gatelib.rig_system(host) in NATIVE_BY_DEFAULT:
+        return True
+    return not docker_on_path()
 
 
 def call(
@@ -46,10 +53,11 @@ def call(
     `feed` is what it reads on stdin (Windows only). An argument that cannot be
     shipped is a refusal (status 2), said on stderr. A call with no time bound
     keeps ssh's keepalive on."""
-    from mcgyvr.serving import shipped
-
     # The launcher is too long for one argument of the door's own ssh command
     # line (Linux: 128 KiB), so a POSIX rig reads it on stdin too.
+    from mcgyvr.serving import native, shipped
+
+    stage = os.environ.get(native.STAGE_ENV)
     try:
         sent = gatelib.ship(
             gatelib.rig_system(host),
@@ -57,6 +65,7 @@ def call(
             tuple(args),
             feed=feed,
             on_stdin=True,
+            env={native.STAGE_ENV: stage} if stage else None,
         )
     except ValueError as exc:
         return subprocess.CompletedProcess(["native"], 2, "", f"native: {exc}\n")

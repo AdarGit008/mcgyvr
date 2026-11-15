@@ -82,12 +82,14 @@ def test_docker_desktop_does_not_stand_for_a_rig_across_ssh(tmp_path: Path) -> N
 
 
 def test_the_door_refuses_a_native_spec_for_another_rig(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     import yaml
 
+    from mcgyvr import config as configlib
     from mcgyvr.serving import LAUNCHER_KEY, run
 
+    monkeypatch.setattr(configlib, "docker_on_path", lambda: True)
     spec = tmp_path / "compose.yml"
     service = {
         LAUNCHER_KEY: "native",

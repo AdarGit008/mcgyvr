@@ -59,6 +59,7 @@ def _own_home_and_session(
         "MCGYVR_CONFIG",
         "MCGYVR_HOME",
         "MCGYVR_DATA",
+        "MCGYVR_NATIVE_STAGE",
         "MCGYVR_RUN_TAGS",
         "MCGYVR_RIGS",
         "XDG_STATE_HOME",

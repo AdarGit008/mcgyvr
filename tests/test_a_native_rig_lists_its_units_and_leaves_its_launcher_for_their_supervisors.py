@@ -124,6 +124,40 @@ def test_up_leaves_the_launcher_and_its_supervisors_run_that_copy(
     assert json.loads(done.stdout) == []
 
 
+def test_a_no_docker_stage_leaves_the_launcher_under_tmp(
+    data: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    program = shipped.native()
+    monkeypatch.setitem(native.__dict__, "__shipped__", program)
+    started: list[Any] = []
+
+    def up_units(
+        units: Any, names: Any, *, supervisor: Any
+    ) -> subprocess.CompletedProcess[str]:
+        started.append((units, list(names), supervisor))
+        return subprocess.CompletedProcess(["native"], 0, "started\n", "")
+
+    monkeypatch.setattr(native, "up_units", up_units)
+    unit = native.NativeUnit(
+        name="m",
+        container="mcgyvr-box1-m-8080",
+        program="llama-server",
+        argv=("--port", "8080", "--host", "127.0.0.1"),
+        env={},
+        port=8080,
+        cards=(0,),
+        depends_on=(),
+        asleep=False,
+    )
+    stage = tmp_path / "tmp" / "mcgyvr-native"
+    monkeypatch.setenv(native.STAGE_ENV, str(stage))
+    assert native.main(["up", native.units_text([unit]), "m"]) == 0
+    (copy,) = (stage / native.SHIPPED).iterdir()
+    assert copy.read_bytes() == program
+    assert started == [((unit,), ["m"], (sys.executable, "-I", "-B", str(copy)))]
+    assert not (tmp_path / "home" / native.SHIPPED).exists()
+
+
 def test_units_sent_to_a_rig_are_refused_unless_each_names_a_file_and_a_program() -> (
     None
 ):

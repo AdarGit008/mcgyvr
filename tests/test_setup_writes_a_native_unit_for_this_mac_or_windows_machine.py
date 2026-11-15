@@ -13,24 +13,31 @@ from pathlib import Path
 
 import pytest
 
+from mcgyvr import config as configlib
 from mcgyvr.config import default_launcher
 from tests.hostos_fakes import as_system
 from tests.remote_rigs import record_rig
 
 
 @pytest.mark.parametrize(
-    ("engine", "system", "expected"),
+    ("engine", "system", "has_docker", "expected"),
     [
-        (None, "darwin", "native"),
-        ("llama.cpp", "windows", "native"),
-        (None, "linux", "docker"),
-        ("vllm", "windows", "docker"),
+        (None, "darwin", True, "native"),
+        ("llama.cpp", "windows", True, "native"),
+        (None, "linux", True, "docker"),
+        ("vllm", "windows", True, "docker"),
+        (None, "linux", False, "native"),
+        ("llama.cpp", "linux", False, "native"),
+        ("vllm", "linux", False, "docker"),
     ],
 )
 def test_the_launcher_setup_writes(
-    engine: str | None, system: str, expected: str
+    engine: str | None, system: str, has_docker: bool, expected: str
 ) -> None:
-    assert default_launcher(engine=engine, system=system) == expected
+    assert (
+        default_launcher(engine=engine, system=system, has_docker=has_docker)
+        == expected
+    )
 
 
 def _unit_written(host: str, kind: str = "llama-server") -> dict[str, object]:
@@ -69,6 +76,7 @@ def test_a_unit_on_this_mac_or_windows_machine_is_written_native(
 def test_a_unit_on_linux_or_across_ssh_is_written_with_no_launcher(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    monkeypatch.setattr(configlib, "docker_on_path", lambda: True)
     as_system(monkeypatch, "linux")
     assert "launcher" not in _unit_written("localhost")
     as_system(monkeypatch, "darwin")
@@ -87,6 +95,15 @@ def test_a_unit_on_a_rig_recorded_as_mac_or_windows_is_written_native(
 def test_a_unit_on_a_rig_recorded_as_linux_keeps_its_container(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
+    monkeypatch.setattr(configlib, "docker_on_path", lambda: True)
     as_system(monkeypatch, "darwin")
     record_rig(monkeypatch, tmp_path, "box1", "linux-one-card")
     assert "launcher" not in _unit_written("box1")
+
+
+def test_a_unit_on_this_linux_machine_with_no_docker_is_written_native(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(configlib, "docker_on_path", lambda: False)
+    as_system(monkeypatch, "linux")
+    assert _unit_written("localhost")["launcher"] == "native"

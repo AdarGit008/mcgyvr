@@ -112,6 +112,13 @@ RESTART = {
 }
 #: The variable that names the backend instead of reading the machine for one.
 BACKEND_ENV = "MCGYVR_NATIVE_BACKEND"
+#: The variable that moves the native fallback's staging off the mcgyvr home to
+#: the system's temp folder (``/tmp/mcgyvr-native`` on Linux). Set for a Linux
+#: rig served native because the controller has no docker CLI; a macOS or
+#: Windows native run leaves it unset and keeps the mcgyvr home.
+STAGE_ENV = "MCGYVR_NATIVE_STAGE"
+#: The folder the no-docker fallback stages into under the system's temp root.
+STAGE_NAME = "mcgyvr-native"
 #: The Metal start-up line, and how much of a start's log is searched for it.
 METAL_LINE = re.compile(
     rb"recommendedMaxWorkingSetSize\s*=\s*([0-9]+(?:\.[0-9]+)?)\s*MB"
@@ -172,11 +179,28 @@ def log_path(unit: str) -> Path:
     return data_home() / LOGS / f"{_checked(unit)}.log"
 
 
-def bin_root() -> Path:
-    """Where the pinned tag's builds are unpacked, under the mcgyvr home."""
+def stage_dir() -> Path:
+    """The folder a no-docker fallback stages the launcher and the fetched
+    build in: ``/tmp/mcgyvr-native`` under the system's temp root, so a reboot
+    clears it rather than the mcgyvr home keeping it."""
+    return hostos.user_temp_root() / STAGE_NAME
+
+
+def _bin_home() -> Path:
+    """The folder ``BIN`` and ``SHIPPED`` sit under: the mcgyvr home, or the
+    folder :data:`STAGE_ENV` names for a no-docker fallback staged under the
+    system's temp root."""
+    stage = os.environ.get(STAGE_ENV)
+    if stage:
+        return Path(stage).expanduser()
     from mcgyvr.fleet.roots import home
 
-    return home() / BIN / llamacpp.TAG
+    return home()
+
+
+def bin_root() -> Path:
+    """Where the pinned tag's builds are unpacked, under the mcgyvr home."""
+    return _bin_home() / BIN / llamacpp.TAG
 
 
 def pin_root(pin: llamacpp.Pin | None = None) -> Path:
@@ -185,9 +209,7 @@ def pin_root(pin: llamacpp.Pin | None = None) -> Path:
     by its id and tag, so neither ever overwrites the other."""
     if pin is None or pin == llamacpp.UPSTREAM:
         return bin_root()
-    from mcgyvr.fleet.roots import home
-
-    return home() / BIN / pin.id / pin.tag
+    return _bin_home() / BIN / pin.id / pin.tag
 
 
 def _checked(unit: str) -> str:
@@ -1064,16 +1086,15 @@ def _settle(program: bytes) -> tuple[str, ...]:
     """Leave the shipped `program` on this rig for its supervisors to run, and
     say how a supervisor is started from it.
 
-    It goes to ``bin/shipped/native-<sha256>.py`` under the mcgyvr home, a
+    It goes to ``bin/shipped/native-<sha256>.py`` under the mcgyvr home (or
+    under the folder :data:`STAGE_ENV` names for a no-docker fallback), a
     folder of this user's alone, written whole and renamed into place, and
     is run with ``-I -B``: a supervisor outlives the ssh call that started it,
     so it cannot run from that call's stdin.
     """
     import hashlib
 
-    from mcgyvr.fleet.roots import home
-
-    folder = _private(home() / SHIPPED)
+    folder = _private(_bin_home() / SHIPPED)
     target = folder / f"native-{hashlib.sha256(program).hexdigest()[:16]}.py"
     for old in folder.glob("native-*.py"):
         if old != target:

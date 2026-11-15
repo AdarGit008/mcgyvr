@@ -521,6 +521,35 @@ def test_the_real_cli_accepts_the_skills_examples(tmp_path: Path) -> None:
     assert "rejects" not in result.stderr, result.stderr
 
 
+def _no_docker_path(tmp_path: Path) -> str:
+    """A PATH whose `docker` has no compose plugin, so the install's docker
+    step sees docker as missing rather than already installed."""
+    bin_dir = tmp_path / "no-docker"
+    bin_dir.mkdir()
+    docker = bin_dir / "docker"
+    docker.write_text("#!/bin/sh\nexit 1\n", encoding="utf-8")
+    docker.chmod(0o755)
+    return f"{bin_dir}{os.pathsep}{_path_without_mcgyvr()}"
+
+
+def test_install_sh_skips_docker_with_no_docker_flag(tmp_path: Path) -> None:
+    home = tmp_path / "home"
+    home.mkdir()
+    result = _run_install_with_path(home, _no_docker_path(tmp_path), "--no-docker")
+    assert result.returncode == 0, result.stderr
+    assert "docker skipped (--no-docker); units serve natively" in result.stderr
+    assert (home / CLAUDE_SKILL).exists(), "the skills still land without docker"
+
+
+def test_install_sh_skips_docker_without_a_terminal_to_ask(tmp_path: Path) -> None:
+    home = tmp_path / "home"
+    home.mkdir()
+    result = _run_install_with_path(home, _no_docker_path(tmp_path))
+    assert result.returncode == 0, result.stderr
+    assert "docker skipped (no terminal to ask); units serve natively" in result.stderr
+    assert (home / CLAUDE_SKILL).exists(), "the skills still land without docker"
+
+
 def _release(text: str) -> tuple[int, ...]:
     return tuple(int(part) for part in text.lstrip("v").split("."))
 

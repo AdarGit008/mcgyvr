@@ -32,7 +32,7 @@ import socket
 import stat
 import subprocess
 import sys
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from pathlib import Path
@@ -803,6 +803,19 @@ def _b64(data: bytes) -> str:
     return base64.b64encode(data).decode("ascii")
 
 
+def _posix_python(env: Mapping[str, str]) -> str:
+    """The ``python3 -I -B -`` a POSIX ship runs, with `env` assignments
+    prefixed for the rig's shell: ``KEY='value' python3 -I -B -``.
+
+    The assignment sits before ``python3``, the pipeline's last command, so it
+    reaches the shipped program and nowhere else.
+    """
+    prefix = "".join(
+        f"{key}={_single_quote(value)} " for key, value in sorted(env.items())
+    )
+    return f"{prefix}python3 -I -B -"
+
+
 def ship(
     system: str,
     program: bytes,
@@ -810,15 +823,18 @@ def ship(
     *,
     feed: bytes | None = None,
     on_stdin: bool = False,
+    env: Mapping[str, str] | None = None,
 ) -> Shipped:
     """How `program` runs on a rig of `system` with `args`.
 
     POSIX (Linux, macOS): `echo <base64> | base64 -d | python3 -I -B - ARGS`,
     each argument a plain token or single-quoted; `on_stdin` sends the base64
     on stdin instead (`base64 -d | python3 -I -B - ARGS`), for a program too
-    long for one argument of the door's own ssh command line. A `feed` has no
-    place on a POSIX line and is refused. Windows: :data:`WINDOWS_SHIP`, the
-    program, its arguments and the feed on stdin (:data:`_WINDOWS_SHIP_SCRIPT`).
+    long for one argument of the door's own ssh command line. `env` prefixes
+    its assignments to the POSIX `python3` alone (not shipped on Windows). A
+    `feed` has no place on a POSIX line and is refused. Windows:
+    :data:`WINDOWS_SHIP`, the program, its arguments and the feed on stdin
+    (:data:`_WINDOWS_SHIP_SCRIPT`).
     """
     for arg in args:
         if "\0" in arg:
@@ -834,9 +850,10 @@ def ship(
         f" {arg}" if _PLAIN_ARG.fullmatch(arg) else f" {_single_quote(arg)}"
         for arg in args
     )
+    python = _posix_python(env or {})
     if on_stdin:
-        return Shipped(f"{_SCAN_READ_SUFFIX[3:]}{tail}", _b64(program) + "\n")
-    return Shipped(f"echo {_b64(program)}{_SCAN_READ_SUFFIX}{tail}")
+        return Shipped(f"base64 -d | {python}{tail}", _b64(program) + "\n")
+    return Shipped(f"echo {_b64(program)} | base64 -d | {python}{tail}")
 
 
 def scan_read(system: str, *, cards: bool = False) -> Shipped:

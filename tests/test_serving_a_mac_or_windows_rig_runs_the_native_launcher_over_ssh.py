@@ -21,6 +21,7 @@ from typing import Any
 import pytest
 import yaml
 
+from mcgyvr import config as configlib
 from mcgyvr import emit
 from mcgyvr.config import NATIVE_BY_DEFAULT, parse
 from mcgyvr.fleet import read
@@ -215,6 +216,7 @@ def test_the_health_probe_names_the_curl_of_the_rigs_system(
 def test_a_linux_rig_is_refused_a_native_spec(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
+    monkeypatch.setattr(configlib, "docker_on_path", lambda: True)
     record_rig(monkeypatch, tmp_path, "box2", "linux-one-card")
     monkeypatch.setenv("RUN_HOST", "box2")
     spec = tmp_path / "compose.yml"
@@ -235,6 +237,24 @@ def test_a_linux_rig_is_refused_a_native_spec(
         servelib.up(spec)
     with pytest.raises(emit.EmitError, match="records neither"):
         _spec(tmp_path, "box2")
+
+
+def test_a_linux_rig_with_no_docker_controller_is_served_native_under_tmp(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(configlib, "docker_on_path", lambda: False)
+    record_rig(monkeypatch, tmp_path, "box2", "linux-one-card")
+    monkeypatch.setenv("RUN_HOST", "box2")
+    monkeypatch.setenv("RUN_LAUNCHER", "native")
+    spec = _spec(tmp_path, "box2")
+    shell = FakeShell("linux", tmp_path / "rig")
+    shell.answer = lambda c, s: subprocess.CompletedProcess(["ssh"], 0, "started\n", "")
+    monkeypatch.setattr(gatelib, "ssh", shell)
+    assert servelib.up(spec).returncode == 0
+    ((command, _stdin),) = shell.sent
+    assert command.startswith("base64 -d | ")
+    assert f"{native.STAGE_ENV}='{native.stage_dir()}'" in command
+    assert " python3 -I -B - up " in command
 
 
 def test_an_argument_that_cannot_be_shipped_is_a_refusal_not_a_traceback(
