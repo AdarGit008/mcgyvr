@@ -10,8 +10,9 @@ mcgyvr setup
 mcgyvr ladder show
 ```
 
-`mcgyvr setup` reads each rig once and stages a setup bound to what it
-serves in a folder of the run's own, `$MCGYVR_DATA/setup/<run>/` (default
+`mcgyvr setup` reads each rig once and stages a setup bound to the model
+and engine recommended for that rig, in a folder of the run's own,
+`$MCGYVR_DATA/setup/<run>/` (default
 `~/.local/state/mcgyvr/setup/<run>/` on Linux; *macOS and Windows*
 below names the data folder there), kept as the record of that run; it
 writes nothing in the working directory. It prints what was decided and
@@ -66,10 +67,10 @@ A fleet that could not be sampled — its containers not started, or
 every unit hosted — is locked
 approved on no evidence only once you say so: setup says why and what
 that means, and asks `Lock it approved on no evidence? [y/n]`. With
-flags, setup binds the servers already answering and starts none, so
+flags, setup scans each `--host` rig, recommends a model and engine
+from its hardware, writes the staged config, and starts no server, so
 nothing is sampled; `--accept-unsampled` is that acknowledgment, and
-without it nothing is locked. Backends on another machine come in with
-`--host` (repeatable).
+without it nothing is locked.
 
 A locked fleet is promoted to a folder of its own under
 `$MCGYVR_HOME/fleets/` and named in `$MCGYVR_HOME/live.json`, with

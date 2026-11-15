@@ -1,8 +1,9 @@
 """`mcgyvr setup`: stage a fleet config, then start, sample and lock it live.
 
-Two ways in. With flags the command stages a config from named hosts, hosted API
-units and a priority, binds what already answers and starts nothing. Run with no
-flags on a terminal, it is the wizard: it asks for the rigs, the use case and
+Two ways in. With flags the command stages a config from named rigs — each one
+scanned, then a model and engine recommended from its hardware — plus hosted
+API units and a priority, and it starts nothing. Run with no flags on a
+terminal, it is the wizard: it asks for the rigs, the use case and
 Jev, reads each rig, plans a placement per rig, fetches missed weights,
 stages the config, emits launch specs, starts the containers, samples them and
 locks the fleet live on the user's yes. A fleet nothing could sample is locked
@@ -847,7 +848,7 @@ def _setup_fetch(rig: str, record: ModelRecord, path: Path) -> None:
 def _setup_synthetic_detection(
     plans: Mapping[str, Mapping[str, Any]], window: int | None = None
 ) -> Detection:
-    """Build the detection the wizard stages from its plans, probing no running server.
+    """Build the detection setup stages from its plans, probing no running server.
 
     Each placement becomes one openai-shaped backend on its rig: vllm on the
     stock vLLM server's port, which the detect sweep already records in
@@ -860,7 +861,7 @@ def _setup_synthetic_detection(
     from mcgyvr.serving import DEFAULT_PORT
 
     # The sweep's list of stock ports, read here so vLLM's 8000 is stated once,
-    # in detect, rather than spelled a second time in the wizard.
+    # in detect, rather than spelled a second time in setup.
     stock_ports = {kind: port for kind, port, _ in PORT_CONVENTIONS}
 
     backends: list[Backend] = []
@@ -869,7 +870,7 @@ def _setup_synthetic_detection(
         model_id = str(placement.get("model_id") or "")
         if not model_id:
             raise _SetupInteractiveError(
-                f"{rig}: its placement is a local checkpoint, and the wizard "
+                f"{rig}: its placement is a local checkpoint, and setup "
                 "does not bootstrap from a local store yet"
             )
         engine = str(placement.get("engine") or DEFAULT_ENGINE)
@@ -882,14 +883,14 @@ def _setup_synthetic_detection(
                 base_url=f"http://{rig}:{port}/v1",
                 api="openai",
                 models=(model_id,),
-                how="interactive setup",
+                how="setup placement",
                 host=rig,
                 kind=kind,
                 window=window,
             )
         )
     return Detection(
-        backends=tuple(backends), provenance={"backends": "interactive setup"}
+        backends=tuple(backends), provenance={"backends": "setup placement"}
     )
 
 
@@ -1171,9 +1172,9 @@ ALL_HOSTED = "every unit in it is hosted, so there is no machine of yours to sam
 
 
 FLAGS_START_NOTHING = (
-    "`mcgyvr setup` with flags binds the servers already answering and starts "
-    "none, so nothing mcgyvr launched runs to sample (the interactive `mcgyvr "
-    "setup` starts and samples them)"
+    "`mcgyvr setup` with flags stages a config from a scan and recommendation "
+    "and starts no server, so nothing mcgyvr launched runs to sample (the "
+    "interactive `mcgyvr setup` starts and samples them)"
 )
 
 
@@ -1406,26 +1407,57 @@ def _setup(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         return 1
-    # The flag path binds what already answers: it parses each --api spec before
-    # anything is written, so a malformed spec is reported first, and it hands
-    # the hosts, the priority and the named use case to initialize.
+    # The flag path parses each --api spec before anything is written, so a
+    # malformed spec is reported first. With --host it then scans the named rigs
+    # and recommends a model and engine from their hardware, folding the backend
+    # into the recommendation; without --host it hands the local sweep, the
+    # priority and the named use case to initialize as before.
     try:
         api_units = tuple(parse_api_unit(spec) for spec in (args.api or ()))
     except ApiSpecError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
+
+    use_case = args.use_case or MCGYVR_CODE
+    readings: Mapping[str, Mapping[str, Any]] | None = None
     try:
-        result = initialize(
-            path,
-            force=args.force,
-            hosts=tuple(args.host or ()),
-            api_units=api_units,
-            priority=args.priority,
-            use_case=args.use_case or MCGYVR_CODE,
-            deployment=args.deployment,
-            jev=args.jev,
-            compose_dir=path,
-        )
+        if args.host:
+            if args.priority is not None:
+                raise _SetupInteractiveError(
+                    "--priority cannot be combined with --host: the scan + "
+                    "recommendation path has no running backend for the Jev "
+                    "decision to run on. Drop --priority, or run `mcgyvr "
+                    "setup` at a terminal."
+                )
+            scans, readings = _setup_scan_rigs(tuple(args.host))
+            plans = _setup_placements(tuple(args.host), scans, use_case)
+            ctx_per_slot = _setup_context_window(plans)
+            detection = _setup_synthetic_detection(plans, window=ctx_per_slot)
+            result = initialize(
+                path,
+                force=args.force,
+                detection=detection,
+                api_units=api_units,
+                use_case=use_case,
+                deployment=args.deployment,
+                jev=args.jev,
+                compose_dir=path,
+            )
+        else:
+            result = initialize(
+                path,
+                force=args.force,
+                hosts=(),
+                api_units=api_units,
+                priority=args.priority,
+                use_case=use_case,
+                deployment=args.deployment,
+                jev=args.jev,
+                compose_dir=path,
+            )
+    except _SetupInteractiveError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
     except InitError as exc:
         # initialize refuses a setup its loader would reject, and says why.
         print(f"error: {exc}", file=sys.stderr)
@@ -1450,6 +1482,7 @@ def _setup(args: argparse.Namespace) -> int:
             result.path,
             _why_unsampled(result.path),
             acknowledged=args.accept_unsampled,
+            readings=readings,
         )
         if result.written
         else ((), ())
@@ -1669,10 +1702,11 @@ def add_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None
         "--host",
         action="append",
         default=[],
-        metavar="HOST",
+        metavar="RIG",
         help=(
-            "bind backends on this machine too, by name or address "
-            "(repeatable; default: localhost only)"
+            "scan a rig over ssh (or this machine for localhost) and recommend "
+            "a model and engine from its hardware (repeatable); setup writes "
+            "the recommended config and starts nothing"
         ),
     )
     setup.add_argument(
@@ -1770,9 +1804,9 @@ def add_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None
         "--accept-unsampled",
         action="store_true",
         help=(
-            "lock the fleet setup binds approved on no evidence, and name it "
-            "live: setup with flags starts no container, so no sample runs on "
-            "what it binds. Without it nothing is locked, and the limits say "
+            "lock the fleet setup stages approved on no evidence, and name it "
+            "live: setup with flags starts no server, so no sample runs on "
+            "what it stages. Without it nothing is locked, and the limits say "
             "why. Nothing measured stands behind such a lock"
         ),
     )

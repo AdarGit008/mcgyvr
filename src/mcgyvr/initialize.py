@@ -272,8 +272,9 @@ def _nothing_to_bind(
     It states what was reached and why nothing was bound — no server answered,
     or none lists a model setup can bind — how much of the card could be read,
     what the loader said, and the ways out: bind a unit by hand with the
-    `room_mib` it needs, start a backend, load a model, name another rig with
-    `--host`, or bind a hosted unit with `--api`."""
+    `room_mib` it needs, scan a rig so `--host` can recommend a model and
+    engine from its hardware, load a model, or bind a hosted unit with
+    `--api`."""
     local = [b for b in detection.backends if b.is_local]
     binds = "setup binds only a model a running server lists."
     nothing = f"there is nothing to bind: {binds}"
@@ -323,8 +324,8 @@ def _nothing_to_bind(
         ""
         if local
         else (
-            "  - start a local backend (llama-server, vLLM, LM Studio, "
-            "TGI) and re-run, or\n"
+            "  - scan a rig and re-run: `mcgyvr setup --host <name>` reads its\n"
+            "    hardware and recommends the model and engine it can serve, or\n"
         )
     )
     load = (
@@ -340,8 +341,6 @@ def _nothing_to_bind(
         f"The loader would reject it with: {why}\n\n"
         f"Fix one of these:\n"
         f"{by_hand}{start}{load}"
-        f"  - name the rig that serves your models, if it is not this one\n"
-        f"    (`mcgyvr setup --host <name>`), or\n"
         f"  - bind a hosted API unit, which needs no GPU and no backend:\n\n"
         f"      mcgyvr setup --api model=claude-opus-5,"
         f"address=https://api.anthropic.com,api_key_env=ANTHROPIC_API_KEY\n\n"
@@ -958,8 +957,8 @@ def _compose_unavailable_note(priority: str) -> str:
     return (
         f"A priority {priority!r} was asked for, but no backend answered "
         f"to run the Jev decision on, so setup wrote the deterministic ladder "
-        f"instead. Re-run with a backend up — or `mcgyvr setup --host <name>` "
-        f"for a rig — to have the ladder composed."
+        f"instead. Re-run with a supported local backend answering to have "
+        f"the ladder composed."
     )
 
 

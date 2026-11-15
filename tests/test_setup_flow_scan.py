@@ -582,6 +582,91 @@ def test_setup_writes_through_the_initialize_engine(
     assert seen == [target]
 
 
+def test_setup_with_host_scans_plans_and_stages_a_synthetic_detection(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`--host` must drive scan + recommend, not probe a running backend."""
+    from mcgyvr.detect import Detection
+
+    scanned: list[tuple[str, ...]] = []
+    planned: list[tuple[str, ...]] = []
+    init_kwargs: dict[str, object] = {}
+    unsampled_kwargs: dict[str, object] = {}
+
+    def fake_scan(rigs: tuple[str, ...]) -> tuple[object, dict[str, object]]:
+        scanned.append(rigs)
+        readings = {rig: {"machine": {"id": "x"}} for rig in rigs}
+        return {}, readings
+
+    def fake_placements(
+        rigs: tuple[str, ...], scans: object, use_case: str
+    ) -> dict[str, object]:
+        planned.append(rigs)
+        return {
+            rig: {"placement": {"model_id": "a-model", "engine": "llama.cpp"}}
+            for rig in rigs
+        }
+
+    def fake_context(plans: object) -> int:
+        return 32768
+
+    def fake_detection(plans: object, window: int | None = None) -> Detection:
+        return Detection(provenance={"backends": "synthetic"})
+
+    def fake_initialize(path: Path, **kwargs: object) -> InitResult:
+        init_kwargs.update(kwargs)
+        return InitResult(path=path, created=True, written=True)
+
+    def fake_unsampled(
+        path: Path,
+        why: str,
+        *,
+        acknowledged: bool | None,
+        readings: object = None,
+    ) -> tuple[tuple[str, ...], tuple[str, ...]]:
+        unsampled_kwargs.update(why=why, acknowledged=acknowledged, readings=readings)
+        return (), ()
+
+    monkeypatch.setattr(cli.commands.setup, "_setup_scan_rigs", fake_scan)
+    monkeypatch.setattr(cli.commands.setup, "_setup_placements", fake_placements)
+    monkeypatch.setattr(cli.commands.setup, "_setup_context_window", fake_context)
+    monkeypatch.setattr(
+        cli.commands.setup, "_setup_synthetic_detection", fake_detection
+    )
+    monkeypatch.setattr(cli.commands.setup, "initialize", fake_initialize)
+    monkeypatch.setattr(cli.commands.setup, "_setup_unsampled", fake_unsampled)
+
+    target = tmp_path / "setup"
+    assert cli.main(["setup", "--host", "box1", "--host", "box2", str(target)]) == 0
+
+    assert scanned == [("box1", "box2")]
+    assert planned == [("box1", "box2")]
+    assert isinstance(init_kwargs["detection"], Detection)
+    assert "hosts" not in init_kwargs
+    assert init_kwargs.get("priority") is None
+    assert unsampled_kwargs["readings"] == {
+        "box1": {"machine": {"id": "x"}},
+        "box2": {"machine": {"id": "x"}},
+    }
+
+
+def test_setup_with_host_refuses_priority_before_scanning(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Composition by priority needs a running backend; the scan path has none."""
+
+    def must_not_scan(_rigs: object) -> object:
+        raise AssertionError("the --host scan path must not run behind --priority")
+
+    monkeypatch.setattr(cli.commands.setup, "_setup_scan_rigs", must_not_scan)
+
+    target = tmp_path / "setup"
+    assert (
+        cli.main(["setup", "--host", "box1", "--priority", "quality", str(target)]) == 1
+    )
+    assert "--priority cannot be combined with --host" in capsys.readouterr().err
+
+
 # --- Fix 7: the two hosted tiers climb cheapest first in declaration order --
 
 

@@ -143,7 +143,8 @@ def test_the_refusal_says_how_to_fix_it_both_ways(tmp_path: Path) -> None:
     with pytest.raises(InitError) as exc:
         initialize(tmp_path / "c.yaml", detection=BARE)
     message = str(exc.value)
-    assert "start a local backend" in message
+    assert "scan a rig and re-run" in message
+    assert "mcgyvr setup --host <name>" in message
     assert "--api model=claude-opus-5" in message, "a worked `--api` invocation"
     assert "api_key_env=ANTHROPIC_API_KEY" in message, "the key named, never held"
 
