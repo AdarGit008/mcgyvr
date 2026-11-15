@@ -6,13 +6,14 @@ setup, which a `code` contract's cap is held to. A hosted unit is written with
 serves, read off the running process rather than assumed:
 
 * vLLM: ``max_model_len`` on its ``/v1/models`` rows;
-* llama-server: ``default_generation_settings.n_ctx`` from ``/props``;
-* LM Studio: ``max_context_length`` on its ``/api/v0/models`` rows;
-* TGI: ``max_total_tokens`` from ``/info``.
+* llama-server: ``default_generation_settings.n_ctx`` from ``/props``.
 
 A backend whose window cannot be read is written with none, and setup lists it
 under what is NOT configured: a `code` dispatch to that unit refuses until
 ``window`` or ``output_tokens`` is set.
+
+Only llama.cpp's llama-server and vLLM are supported; LM Studio and TGI are
+not swept, so they have no window source here.
 """
 
 from __future__ import annotations
@@ -55,23 +56,6 @@ def stub_http(monkeypatch: pytest.MonkeyPatch, table: dict[str, Any]) -> None:
                 "/props": {"default_generation_settings": {"n_ctx": 8192}},
             },
             8192,
-        ),
-        (
-            "lmstudio",
-            1234,
-            {
-                "/v1/models": MODELS,
-                "/api/v0/models": {
-                    "data": [{"id": "small-coder", "max_context_length": 4096}]
-                },
-            },
-            4096,
-        ),
-        (
-            "tgi",
-            3000,
-            {"/v1/models": MODELS, "/info": {"max_total_tokens": 2048}},
-            2048,
         ),
     ],
 )

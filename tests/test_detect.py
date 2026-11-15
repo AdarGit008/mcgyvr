@@ -238,9 +238,9 @@ def test_a_malformed_listing_is_a_backend_with_no_models(
 def test_probes_do_not_stop_at_the_first_failure(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    stub_http(monkeypatch, {"http://localhost:1234/v1/models": OPENAI_MODELS})
+    stub_http(monkeypatch, {"http://localhost:8000/v1/models": OPENAI_MODELS})
     found = probe_all(DEFAULT_PROBE_TARGETS)
-    assert [b.name for b in found] == ["lmstudio"]
+    assert [b.name for b in found] == ["vllm"]
 
 
 def test_every_endpoint_is_probed_concurrently(
@@ -291,7 +291,7 @@ def test_models_present_spans_every_reachable_backend(
         "Qwen/Qwen2.5-Coder-14B-Instruct-AWQ",
     }
     assert found.backend("llama-server") is not None
-    assert found.backend("tgi") is None
+    assert found.backend("vllm") is not None
 
 
 # --- docker ---------------------------------------------------------------
@@ -384,6 +384,14 @@ def test_every_transport_failure_reads_as_nothing_listening(
 
 
 # --- the host is an input, not a literal (#161) ---------------------------
+
+
+def test_the_sweep_is_the_two_supported_servers_only() -> None:
+    """llama.cpp's llama-server and vLLM are the only backends swept or bound."""
+    assert [kind for kind, _, _ in PORT_CONVENTIONS] == [
+        "llama-server",
+        "vllm",
+    ]
 
 
 def test_the_default_sweep_is_localhost_and_unchanged() -> None:
