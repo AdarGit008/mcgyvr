@@ -90,7 +90,39 @@ def main() -> int:
     )
     if started.returncode != 0 or not all(row["healthy"] for row in rows):
         return 1
+    _handoff(ctx, rows)
     return 0
+
+
+def _handoff(ctx: servelib.ServeContext, rows: list[dict[str, object]]) -> None:
+    """Print and write the endpoint, key and model of the first healthy unit.
+
+    The endpoint is the unit's own address as this machine reaches it, the key
+    the one mcgyvr already keeps for it (`Service.key`), and the model the first
+    id its `/v1/models` listed. Written to the data folder, the serve step's
+    equivalent of a setup directory, so a client on this machine can `source`
+    it. Nothing is written when no unit came up with a model listed.
+    """
+    from mcgyvr import handoff
+    from mcgyvr.fleet import roots
+
+    by_container = {service.container: service for service in ctx.units}
+    for row in rows:
+        if not row["healthy"]:
+            continue
+        models = row.get("models")
+        if not isinstance(models, list) or not models:
+            continue
+        service = by_container.get(str(row["container"]))
+        key = service.key() if service is not None else None
+        provider = handoff.Provider(
+            endpoint=f"http://{ctx.host}:{row['port']}/v1",
+            api_key=key,
+            model=str(models[0]),
+        )
+        exported = handoff.write(roots.data_home(), provider)
+        handoff.print_provider(provider, exported)
+        return
 
 
 if __name__ == "__main__":

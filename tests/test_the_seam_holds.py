@@ -135,6 +135,7 @@ BELOW_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.fleet.spans",
     "mcgyvr.fleet.stamp",
     "mcgyvr.fleet.tolerance",
+    "mcgyvr.handoff",
     "mcgyvr.initialize",
     "mcgyvr.knowledge",
     "mcgyvr.knowledge.geometry",

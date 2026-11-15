@@ -38,6 +38,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 
 
 from mcgyvr.cli import common as _common
+from mcgyvr.cli import menu as _menu
 from mcgyvr.cli.commands import (
     delegate,
     direct,
@@ -219,6 +220,11 @@ def _not_a_prompt(argv: Sequence[str], commands: frozenset[str]) -> str | None:
 def main(argv: Sequence[str] | None = None) -> int:
     parser, prompt, directing = _build()
     words = list(sys.argv[1:] if argv is None else argv)
+    # Bare `mcgyvr` on a terminal opens the menu instead of the usage error;
+    # off a terminal it keeps today's behavior (the required subcommand's
+    # usage, exit 2). The menu is a mode of this command, not a new verb.
+    if not words and _menu.is_interactive():
+        return _menu.run(parser, main)
     if _is_prompt(words, _commands(parser)):
         problem = _not_a_prompt(words, _commands(parser))
         if problem is not None:
