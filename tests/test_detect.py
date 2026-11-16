@@ -21,6 +21,7 @@ from typing import Any
 import pytest
 
 from mcgyvr import detect as detect_module
+from mcgyvr import hostos
 from mcgyvr.detect import (
     DEFAULT_PROBE_TARGETS,
     PORT_CONVENTIONS,
@@ -118,6 +119,13 @@ def test_every_reported_fact_has_provenance(monkeypatch: pytest.MonkeyPatch) -> 
     stub_run(
         monkeypatch,
         {"nvidia-smi": NVIDIA_SMI, "docker": "27.1.1\n"},
+    )
+    # docker is looked up on PATH before it is asked: answered here, as in the
+    # docker tests below, so the test does not depend on this machine's PATH.
+    on_path = hostos.which_absolute
+    monkeypatch.setattr(
+        "mcgyvr.detect.hostos.which_absolute",
+        lambda name: "/usr/bin/docker" if name == "docker" else on_path(name),
     )
     stub_http(monkeypatch, {"http://localhost:8080/v1/models": LCP_MODELS})
 
