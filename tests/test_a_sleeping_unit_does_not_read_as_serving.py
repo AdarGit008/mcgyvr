@@ -142,8 +142,14 @@ def brief(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def probe(monkeypatch: pytest.MonkeyPatch, rig: Rig) -> dict[str, object]:
-    """``wait_for`` against ``rig``, with the one rig-reaching call substituted."""
+    """``wait_for`` against ``rig``, with the one rig-reaching call substituted.
+
+    The row ``wait_for`` returns also counts the container's restarts, which
+    asks this machine's own docker (``docker inspect``). No row here is about
+    restarts, so the count is answered with none, and the test asks no docker.
+    """
     monkeypatch.setattr(servelib, "ssh", rig)
+    monkeypatch.setattr(servelib, "restart_count", lambda container: 0)
     return servelib.wait_for(HOST, UNIT)
 
 

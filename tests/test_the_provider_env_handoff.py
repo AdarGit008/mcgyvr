@@ -4,11 +4,16 @@ At the end of a successful setup (and a serve up), mcgyvr writes
 ``provider.env`` holding ``MCGYVR_ENDPOINT``, ``MCGYVR_API_KEY`` and
 ``MCGYVR_MODEL``, and prints the same three on stdout. The key is read from
 the unit key file mcgyvr already keeps — never minted a second time — and a
-unit that asks for no key exports an empty key.
+unit that asks for no key exports an empty key. The file is kept the way the
+key's own file is: at 0600, never written through a link, and its values are
+quoted for the shell that sources it.
 """
 
 from __future__ import annotations
 
+import shlex
+import stat
+import sys
 from pathlib import Path
 
 import pytest
@@ -92,3 +97,43 @@ def test_print_provider_lines_up_and_names_the_file(
     assert out[1].startswith("api-key:  (none")
     assert "provider.env" in out[1]
     assert out[2] == "model:    m/1"
+
+
+def test_the_file_is_readable_by_its_owner_alone(tmp_path: Path) -> None:
+    provider = handoff.Provider(
+        endpoint="http://box1:8080/v1", api_key="k" * 43, model="m/1"
+    )
+    path = handoff.write(tmp_path, provider)
+
+    if sys.platform != "win32":
+        assert stat.S_IMODE(path.stat().st_mode) == 0o600
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="a link needs POSIX here")
+def test_a_link_in_the_files_place_is_refused_and_its_target_left_alone(
+    tmp_path: Path,
+) -> None:
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.write_text("kept\n", encoding="utf-8")
+    (tmp_path / "provider.env").symlink_to(elsewhere)
+    provider = handoff.Provider(
+        endpoint="http://box1:8080/v1", api_key="k" * 43, model="m/1"
+    )
+
+    with pytest.raises(handoff.HandoffError, match=r"provider\.env"):
+        handoff.write(tmp_path, provider)
+    assert elsewhere.read_text(encoding="utf-8") == "kept\n"
+
+
+@pytest.mark.parametrize(
+    "model",
+    ["$(touch pwned)", "two words", "it's", 'say "hi"', "`id`;x"],
+)
+def test_a_model_the_shell_would_read_is_exported_as_the_same_literal(
+    tmp_path: Path, model: str
+) -> None:
+    provider = handoff.Provider(endpoint="http://box1:8080/v1", api_key="", model=model)
+    lines = handoff.write(tmp_path, provider).read_text(encoding="utf-8").splitlines()
+
+    assert shlex.split(lines[2]) == ["export", f"MCGYVR_MODEL={model}"]
+    assert lines[1] == "export MCGYVR_API_KEY=", "an empty key stays bare"
