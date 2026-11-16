@@ -8,8 +8,9 @@ Run from the repository. The first form prints the notes of a release of
 HEAD as ``v0.6.0``: the pull requests merged into HEAD's first-parent line
 since the previous release tag, one line each, newest first. The second
 prints the version a rehearsal (`make release` without RELEASE_VERSION, or
-the release workflow dispatched as a dry run from a branch) stamps when no
-tag names one yet: the next version after the newest release tag behind HEAD.
+the release workflow dispatched as a dry run from a branch) releases: the
+version of the release tag on HEAD, else the next version after the newest
+release tag behind HEAD.
 
 Both are read from git alone, never from a forge: a pull request merged on
 this forge lands on main as a merge commit titled ``Merge pull request
@@ -20,7 +21,8 @@ is not listed.
 
 Refusing is the point, as it was when the notes were a hand-written section:
 a tag that is not a version, or a range with no merged pull request since the
-previous release tag, stops the release and says why.
+previous release tag, stops the release and says why. So does a shallow
+clone: the range behind its boundary is missing, and its list would be short.
 
 A release tag is ``v<digit>…``, the same ``--match`` pyproject.toml gives
 hatch-vcs, so the previous release here is the tag the package's own version
@@ -77,6 +79,13 @@ def previous_tag(
     """
     if _git(repo, "rev-parse", "--verify", "-q", f"{rev}^{{commit}}").returncode:
         raise NoNotesError(f"{rev} is not a commit in {repo}")
+    shallow = _git(repo, "rev-parse", "--is-shallow-repository")
+    if shallow.stdout.strip() != "false":
+        raise NoNotesError(
+            f"{repo} is a shallow clone, so the range to the previous release tag "
+            "may be cut short; fetch the whole history (git fetch --unshallow, or "
+            "fetch-depth: 0)"
+        )
     args = ["describe", "--tags", "--abbrev=0", "--match", RELEASE_TAG]
     if exclude:
         args += ["--exclude", exclude]
@@ -117,12 +126,14 @@ def notes_for(tag: str, repo: Path, rev: str = "HEAD") -> str:
 
 
 def next_version(repo: Path, rev: str = "HEAD") -> Version:
-    """The version a rehearsal stamps when no tag names ``rev``.
+    """The version a release of ``rev`` takes when none is named.
 
     The default the owner has not confirmed yet, kept in this one function:
-    the newest release tag behind ``rev`` with its last number bumped
-    (v0.5.1 -> 0.5.2, v0.6.0rc1 -> 0.6.0rc2). That is setuptools-scm's
-    guess-next-dev, the version an untagged build of ``rev`` already carries
+    the version of the release tag on ``rev`` when one names it (distance 0,
+    the version a build of ``rev`` reads from that tag), else the newest
+    release tag behind ``rev`` with its last number bumped (v0.5.1 -> 0.5.2,
+    v0.6.0rc1 -> 0.6.0rc2). That is setuptools-scm's guess-next-dev, the
+    version an untagged build of ``rev`` already carries
     (``0.5.2.dev<N>+g<sha>``), without its distance.
     """
     since = previous_tag(repo, rev=rev)
@@ -131,6 +142,10 @@ def next_version(repo: Path, rev: str = "HEAD") -> Version:
             f"no release tag ({RELEASE_TAG}) is behind {rev}; name the first "
             "version with RELEASE_VERSION"
         )
+    at = _git(repo, "rev-parse", f"{since}^{{commit}}", f"{rev}^{{commit}}")
+    tagged, head = at.stdout.split()
+    if tagged == head:
+        return _version(since)
     bumped = re.fullmatch(r"(.*?)(\d+)", _version(since).public)
     assert bumped, since  # a normalised version always ends in a number
     return Version(f"{bumped[1]}{int(bumped[2]) + 1}")

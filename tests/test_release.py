@@ -364,14 +364,13 @@ def _step(job: dict[str, Any], name: str) -> dict[str, Any]:
     return found
 
 
-def _mode(
-    tmp_path: Path, ref_type: str, ref_name: str, dry_run: str, cwd: Path = REPO
-) -> tuple[int, str, str]:
-    """Run the `release or rehearsal` step's own script as the runner would,
-    with `uv run … python` standing for this interpreter (packaging is in the
-    test environment) and the runner's files in ``tmp_path``. Returns the exit
-    code, then what it wrote to GITHUB_ENV and to GITHUB_OUTPUT."""
-    script = str(_step(_release()["jobs"]["build"], "release or rehearsal")["run"])
+def _run_step(
+    tmp_path: Path, name: str, cwd: Path, env: dict[str, str]
+) -> subprocess.CompletedProcess[str]:
+    """Run the build job's step ``name`` as the runner runs it (`bash -e`, the
+    default shell), with `uv run … python` standing for this interpreter
+    (packaging is in the test environment) and ``env`` added."""
+    script = str(_step(_release()["jobs"]["build"], name)["run"])
     shim = tmp_path / "bin" / "uv"
     shim.parent.mkdir(exist_ok=True)
     shim.write_text(
@@ -380,10 +379,7 @@ def _mode(
         encoding="utf-8",
     )
     shim.chmod(0o755)
-    env_file, out_file = tmp_path / "env", tmp_path / "out"
-    env_file.write_text("", encoding="utf-8")
-    out_file.write_text("", encoding="utf-8")
-    done = subprocess.run(
+    return subprocess.run(
         ["bash", "-e", "-c", script],
         cwd=cwd,
         capture_output=True,
@@ -392,6 +388,25 @@ def _mode(
         env={
             **os.environ,
             "PATH": f"{shim.parent}{os.pathsep}{os.environ['PATH']}",
+            **env,
+        },
+    )
+
+
+def _mode(
+    tmp_path: Path, ref_type: str, ref_name: str, dry_run: str, cwd: Path = REPO
+) -> tuple[int, str, str]:
+    """Run the `release or rehearsal` step with the runner's files in
+    ``tmp_path``. Returns the exit code, then what it wrote to GITHUB_ENV and
+    to GITHUB_OUTPUT."""
+    env_file, out_file = tmp_path / "env", tmp_path / "out"
+    env_file.write_text("", encoding="utf-8")
+    out_file.write_text("", encoding="utf-8")
+    done = _run_step(
+        tmp_path,
+        "release or rehearsal",
+        cwd,
+        {
             "DRY_RUN": dry_run,
             "GITHUB_REF_TYPE": ref_type,
             "GITHUB_REF_NAME": ref_name,
@@ -413,6 +428,53 @@ def test_a_rehearsal_from_a_branch_stamps_the_next_version_after_the_newest_tag(
     assert "SETUPTOOLS_SCM_PRETEND_VERSION=9.9.9\n" in env, env
     assert "TAG=v9.9.9\n" in env, env
     assert "publish=false\n" in out, out
+
+
+@pytest.mark.skipif(os.name == "nt", reason="the runner's shell is bash on ubuntu")
+def test_a_rehearsal_from_a_branch_whose_head_is_tagged_takes_that_tags_version(
+    tmp_path: Path,
+) -> None:
+    """main right after tagging: the version is the tag's, as the build reads
+    it, and nothing says it is tagged elsewhere."""
+    tree = _released_copy(tmp_path / "t")
+    _git(tree, "tag", "-a", "v9.9.9", "-m", "v9.9.9")
+    code, env, out = _mode(tmp_path, "branch", "main", "true", cwd=tree)
+    assert code == 0 and "publish=false\n" in out, (env, out)
+    assert "SETUPTOOLS_SCM_PRETEND_VERSION=9.9.9\n" in env, env
+    assert "TAG=v9.9.9\n" in env and "TAGGED_AT" not in env, env
+
+
+NOTES_STEP = "the tag's notes are its merged pull requests"
+
+
+@pytest.mark.skipif(os.name == "nt", reason="the runner's shell is bash on ubuntu")
+def test_the_notes_step_fails_the_job_when_the_notes_are_refused(
+    tmp_path: Path,
+) -> None:
+    """The step redirects the script into the file the release page is made
+    from; a pipe there would end in the pipe's last command, and a refusal
+    would pass under `bash -e` with an empty page."""
+    tree = _released_copy(tmp_path / "t")
+    done = _run_step(tmp_path, NOTES_STEP, tree, {"TAG": "v9.9.9"})
+    assert done.returncode == 0, done.stderr
+    written = (tree / "release-notes.md").read_text(encoding="utf-8")
+    assert written.endswith("- the rehearsed release (#7)\n"), written
+    _git(tree, "tag", "v9.9.9")
+    _git(tree, "commit", "-q", "--allow-empty", "-m", "a direct push")
+    done = _run_step(tmp_path, NOTES_STEP, tree, {"TAG": "v9.9.10"})
+    assert done.returncode != 0, done.stdout
+    assert "REFUSED" in done.stderr, done.stderr
+
+
+def test_the_build_checks_out_the_whole_history() -> None:
+    """The version and the notes' range are read from git: a shallow checkout
+    is refused by the notes, and a tag checkout cut at depth 1 would print a
+    one-line page if it were not."""
+    steps = _release()["jobs"]["build"]["steps"]
+    (checkout,) = [
+        s for s in steps if str(s.get("uses", "")).startswith("actions/checkout@")
+    ]
+    assert checkout.get("with", {}).get("fetch-depth") == 0, checkout
 
 
 @pytest.mark.skipif(os.name == "nt", reason="the runner's shell is bash on ubuntu")
@@ -521,6 +583,23 @@ def test_make_release_runs_the_local_half_and_only_prints_the_tag(
         check=True,
     )
     assert tags.stdout == "v9.9.8\n", f"make release tagged: {tags.stdout}"
+
+
+@needs_make
+def test_make_release_on_a_tagged_head_reads_the_tags_version(tmp_path: Path) -> None:
+    """With no RELEASE_VERSION on a commit the tag already names: the version
+    is the tag's, read by the build, the notes start at the tag before, and
+    only the push is left to print."""
+    tree = _release_tree(tmp_path)
+    _git(tree, "tag", "-a", "v9.9.9", "-m", "v9.9.9")
+    done = _make_release(tree, tmp_path)
+    assert done.returncode == 0, done.stderr[-2000:]
+    out = (tmp_path / "out").iterdir()
+    built = sorted(p.name for p in out if not p.name.startswith("."))
+    assert built == ["mcgyvr-9.9.9-py3-none-any.whl", "mcgyvr-9.9.9.tar.gz"], built
+    assert "- the rehearsed release (#7)" in done.stdout, done.stdout
+    assert "git tag -a" not in done.stdout, done.stdout
+    assert "git push origin v9.9.9" in done.stdout, done.stdout
 
 
 @needs_make

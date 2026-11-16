@@ -29,11 +29,12 @@
 # release.yml --ref <branch>`), `dry_run` defaults to true: `build` runs every
 # check a tag run runs and keeps the files on the run, and `github-release` and
 # `pypi` are skipped, so no release and no upload exist afterwards. From a
-# branch there is no tag to read, so the version is stamped as the next one
-# after the newest v* tag behind HEAD (`release_notes.py --next`, through
-# SETUPTOOLS_SCM_PRETEND_VERSION) and the job summary says so; dispatched from
-# a tag ref the version is read from the tag as on a push. `dry_run: false` is
-# a real release and is refused unless the ref is a tag.
+# branch there is no tag ref to read, so the version is stamped as that of the
+# v* tag on HEAD, else the next one after the newest v* tag behind HEAD
+# (`release_notes.py --next`, through SETUPTOOLS_SCM_PRETEND_VERSION) and the
+# job summary says so; dispatched from a tag ref the version is read from the
+# tag as on a push. `dry_run: false` is a real release and is refused unless
+# the ref is a tag.
 #
 # PyPI is reached by trusted publishing. `pypi` asks GitHub for an OIDC token
 # (`id-token: write`, which is why that job declares its own permissions rather
@@ -62,7 +63,8 @@
 # The notes for a tag are the pull requests merged into it since the previous
 # v* tag, read from git (no forge call) by scripts/release/release_notes.py,
 # which refuses a range with none: the release page and what `make release`
-# printed are one text. The same `fetch-depth: 0` gives it the range.
+# printed are one text. The same `fetch-depth: 0` gives it the range; the
+# script refuses a shallow clone rather than print a short list.
 name: release
 on:
   push:
@@ -92,10 +94,11 @@ jobs:
           python-version: "3.12"
       # What this run is: a release (a pushed tag, or a dispatch from a tag
       # with `dry_run` off) or a rehearsal. A rehearsal from a branch has no
-      # tag, so it names the next version after the newest v* tag and stamps
-      # the build with it. A real release from a branch is refused here,
-      # before anything is built: the release is of a tag, and `--verify-tag`
-      # would refuse it anyway after the work was done.
+      # tag ref, so it names the version of the v* tag on HEAD, else the next
+      # one after the newest v* tag, and stamps the build with it. A real
+      # release from a branch is refused here, before anything is built: the
+      # release is of a tag, and `--verify-tag` would refuse it anyway after
+      # the work was done.
       - name: release or rehearsal
         id: mode
         env:
@@ -186,7 +189,7 @@ jobs:
             fi
             echo
             if [ -n "${SETUPTOOLS_SCM_PRETEND_VERSION:-}" ]; then
-              echo "Version stamped as the next after the newest v* tag (no tag on \`$GITHUB_REF_NAME\`)."
+              echo "Version stamped from the v* tags behind HEAD (\`$GITHUB_REF_NAME\` is not a tag)."
               if [ -n "${TAGGED_AT:-}" ]; then
                 echo
                 echo "**$TAG is already tagged at $TAGGED_AT; release another version**"

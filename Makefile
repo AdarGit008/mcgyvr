@@ -50,10 +50,10 @@ check: setup  ## everything CI runs — one build, then lint, typecheck, docs-ch
 # first, publishing nothing. One build into $(RELEASE_DIR) (cleared by uv first), the wheel is the
 # version, the notes are the pull requests merged since the previous v* tag (printed; none merged is
 # refused), `twine check`; then the tag command is printed for a human to run — pushing the tag is
-# the release. The version is RELEASE_VERSION, or the next one after the newest v* tag behind HEAD
-# (scripts/release/release_notes.py --next). Before the tag exists the build is stamped with it
-# (SETUPTOOLS_SCM_PRETEND_VERSION); when the tag already names HEAD the version is read from it, as
-# the tag's run reads it. Refused: a tree that differs from HEAD (the tag names HEAD, not the tree)
+# the release. The version is RELEASE_VERSION, else that of the v* tag on HEAD, else the next one
+# after the newest v* tag behind HEAD (scripts/release/release_notes.py --next). Before the tag
+# exists the build is stamped with it (SETUPTOOLS_SCM_PRETEND_VERSION); when the tag already names
+# HEAD the version is read from it, as the tag's run reads it. Refused: a tree that differs from HEAD (the tag names HEAD, not the tree)
 # and a version already tagged on another commit.
 RELEASE_DIR ?= build/release
 RELEASE_PY ?= uv run --no-project --with packaging python
