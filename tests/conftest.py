@@ -1,5 +1,8 @@
 """Fixtures shared by the tests: a home of their own, and no way off the machine.
 
+Before any of them, the run makes sure the programs the tests spawn by name are
+on PATH, or stops with one message that says which one is not.
+
 Every test runs in a fresh home; resolving a name that is not this machine is
 refused, the runner's status read is stubbed, and the door's read is refused.
 A test that asks for ``home`` also gets a home of its own under its
@@ -13,7 +16,9 @@ outside the package and the tests in
 from __future__ import annotations
 
 import ipaddress
+import os
 import socket
+import sys
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
@@ -21,7 +26,35 @@ from typing import Any
 import pytest
 
 import tests.livejournal as lj
-from tests._helpers import CONTRACT, git
+from tests._helpers import CONTRACT, git, missing_from, with_first
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    """The programs the suite runs from PATH are there, or the run stops here.
+
+    ``uv run pytest`` puts the project's environment first on PATH, and with it
+    ``python``, ``ruff`` and ``mypy`` (:data:`tests._helpers.SUITE_TOOLS`). A run
+    started another way (``.venv/bin/python -m pytest``) has the interpreter but
+    not its folder on PATH, and the tests that spawn one of the three by name
+    would each fail far from the cause. So when one is missing, the folder of
+    the interpreter running pytest goes first on PATH, once, before any xdist
+    worker starts (a worker inherits it). When one is missing even then, the
+    run stops with one message naming it. When all three are on PATH, nothing
+    is changed and nothing is printed.
+    """
+    path = os.environ.get("PATH", "")
+    if not missing_from(path):
+        return
+    widened = with_first(path, str(Path(sys.executable).parent))
+    still = missing_from(widened)
+    if still:
+        raise pytest.UsageError(
+            f"the tests run {', '.join(still)} by name, and neither PATH nor the "
+            f"folder of this interpreter ({sys.executable}) has it. Run the suite "
+            "as `uv run pytest` (or `make test`): that puts the project's "
+            "environment first on PATH."
+        )
+    os.environ["PATH"] = widened
 
 
 @pytest.fixture(autouse=True)
