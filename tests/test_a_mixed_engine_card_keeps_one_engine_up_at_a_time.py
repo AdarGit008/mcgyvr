@@ -38,9 +38,21 @@ LLAMA_CONTAINER = "mcgyvr-shared-llama"
 CARD_MIB = 12288
 
 
-def mixed_ladder(compose_dir: Path) -> str:
+def mixed_ladder(compose_dir: Path, *, room: str = "room_mib") -> str:
     """The shared host's two units, one per engine; the llama.cpp one is the
-    sleeper, the vLLM one is always-on and up by default."""
+    sleeper, the vLLM one is always-on and up by default.
+
+    ``room`` says how each unit's card room is stated: ``room_mib`` (the
+    field), ``vram_gb`` (under ``launch``, as ``emit`` stamps it), or ``none``.
+    """
+
+    def room_field() -> str:
+        if room == "room_mib":
+            return "    room_mib: 9000\n"
+        if room == "vram_gb":
+            return "    launch:\n      vram_gb: 8.7890625\n"
+        return ""
+
     serving = f"serving:\n  compose_dir: {compose_dir}\n  enable_sleep_wake: true\n"
     return (
         "units:\n"
@@ -49,16 +61,12 @@ def mixed_ladder(compose_dir: Path) -> str:
         "    model: large-vllm\n"
         "    rig: shared-rig-vllm\n"
         "    engine: vllm\n"
-        "    width: 2\n"
-        "    room_mib: 9000\n"
-        f"  {LLAMA}:\n"
+        "    width: 2\n" + room_field() + f"  {LLAMA}:\n"
         f"    address: http://{SHARED_HOST}:8002\n"
         "    model: large-llama\n"
         "    rig: shared-rig-llama\n"
         "    engine: llama.cpp\n"
-        "    width: 2\n"
-        "    room_mib: 9000\n"
-        "    sleep: sleeps-until-needed\n"
+        "    width: 2\n" + room_field() + "    sleep: sleeps-until-needed\n"
         "ladder:\n"
         f"- {VLLM}\n"
         f"- {LLAMA}\n" + serving
@@ -214,6 +222,39 @@ def test_room_for_an_either_engine_is_the_others_room(
     assert switches(config).room_for(VLLM) == (LLAMA,)
     assert switches(config).why_no_room(LLAMA) is None
     assert switches(config).why_no_room(VLLM) is None
+
+
+def test_room_falls_back_to_launch_vram_gb_when_room_mib_is_unset(
+    tmp_path: Path, home: Path
+) -> None:
+    config = parse(mixed_ladder(mixed_spec(tmp_path), room="vram_gb"))
+
+    assert switches(config).room_for(LLAMA) == (VLLM,)
+    assert switches(config).room_for(VLLM) == (LLAMA,)
+    assert switches(config).why_no_room(LLAMA) is None
+
+
+def test_a_swap_with_only_launch_vram_gb_still_makes_room(
+    tmp_path: Path, home: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config = parse(mixed_ladder(mixed_spec(tmp_path), room="vram_gb"))
+    up, _ = tracking_door(monkeypatch, start=frozenset({VLLM_CONTAINER}))
+    card = switches(config)
+
+    _, slept = wake_making_room(card, LLAMA, card.room_for(LLAMA))
+
+    assert slept == (VLLM,)
+    assert up == {LLAMA_CONTAINER}
+
+
+def test_with_neither_room_mib_nor_vram_gb_no_room_is_made(
+    tmp_path: Path, home: Path
+) -> None:
+    config = parse(mixed_ladder(mixed_spec(tmp_path), room="none"))
+
+    assert switches(config).room_for(LLAMA) == ()
+    why = switches(config).why_no_room(LLAMA)
+    assert why is not None and "room_mib" in why and "vram_gb" in why, why
 
 
 # --- the swap never runs both engines ---------------------------------------

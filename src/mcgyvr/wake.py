@@ -27,6 +27,7 @@ wake and make room with.
 from __future__ import annotations
 
 import json
+import math
 import os
 import subprocess
 import sys
@@ -362,6 +363,25 @@ def _stopped_alone(config: Config, rungs: Sequence[str]) -> bool:
     instead, which is why it is not covered here.
     """
     return bool(rungs) and all(_engine(config, r) == DEFAULT_ENGINE for r in rungs)
+
+
+def _room_mib(config: Config, rung: str) -> int | None:
+    """The card room a rung needs in MiB, or None where nothing states it.
+
+    `room_mib` states it outright. Where it does not, the launch's `vram_gb` —
+    the sizing figure `mcgyvr emit` stamps back into fleet.yaml — is the room
+    in GiB and is turned into whole MiB. A unit that states neither has no
+    figure to reckon a swap from.
+    """
+    unit = config.units.get(rung)
+    if unit is None:
+        return None
+    if unit.room_mib is not None:
+        return unit.room_mib
+    stated = unit.launch.get("vram_gb")
+    if isinstance(stated, int | float) and not isinstance(stated, bool) and stated > 0:
+        return math.ceil(float(stated) * 1024)
+    return None
 
 
 def _sleeper(config: Config, rung: str) -> bool:
@@ -1164,10 +1184,10 @@ class CardSwitches:
             )
         rooms: dict[str, int] = {}
         for name in card.rungs:
-            unit = self._config.units.get(name)
-            if unit is None or unit.room_mib is None:
-                return (), f"{name} states no room_mib"
-            rooms[name] = unit.room_mib
+            room = _room_mib(self._config, name)
+            if room is None:
+                return (), f"{name} states no room_mib and no launch.vram_gb"
+            rooms[name] = room
         on = self._placement(card, sizes)
         if isinstance(on, str):
             return (), on
