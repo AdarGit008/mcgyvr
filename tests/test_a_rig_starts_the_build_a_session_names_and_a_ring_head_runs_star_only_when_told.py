@@ -19,6 +19,7 @@ head names each worker as the other workers reach it
 from __future__ import annotations
 
 import json
+import tempfile
 import time
 from collections.abc import Iterator
 from pathlib import Path
@@ -386,8 +387,11 @@ def test_a_no_docker_stage_moves_the_build_folders_under_tmp(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv("MCGYVR_HOME", str(tmp_path / "home"))
-    monkeypatch.setenv(native.STAGE_ENV, str(tmp_path / "stage"))
-    assert native.bin_root() == tmp_path / "stage" / native.BIN / llamacpp.TAG
+    monkeypatch.setattr(tempfile, "tempdir", str(tmp_path / "tmp"))
+    monkeypatch.setenv(native.STAGE_ENV, native.STAGE_ON)
+    stage = native.stage_dir()
+    assert stage.parent == tmp_path / "tmp"
+    assert native.bin_root() == stage / native.BIN / llamacpp.TAG
     assert native.pin_root() == native.pin_root(llamacpp.UPSTREAM) == native.bin_root()
 
 

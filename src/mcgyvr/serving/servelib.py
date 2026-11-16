@@ -256,8 +256,8 @@ def up(
     A spec of native units is handed to `mcgyvr.serving.native` instead, which
     answers in the same shape: here for this machine, shipped over ssh for a
     macOS or Windows rig (`mcgyvr.serving.nativerig`), or for a Linux rig the
-    controller reaches with no docker CLI (the native fallback, staged under
-    /tmp).
+    controller reaches with no docker CLI (the native fallback, staged in
+    the rig user's own folder under the temp root).
     """
     if _is_native(compose_file):
         from mcgyvr.serving import native
@@ -320,14 +320,15 @@ def _native_here() -> bool:
 
 
 def _stage_native(host: str) -> None:
-    """Route a native run on a Linux machine to the /tmp stage (the no-docker
-    fallback); a macOS or Windows native run keeps the mcgyvr home unset."""
+    """Route a native run on a Linux machine to the per-user temp stage (the
+    no-docker fallback); a macOS or Windows native run keeps the mcgyvr home.
+    Only the flag is set: the folder is resolved where the launcher runs."""
     from mcgyvr import hostos
     from mcgyvr.serving import native
 
     system = hostos.os_name() if host in LOCAL_RIGS else gatelib.rig_system(host)
     if system == gatelib.LINUX:
-        os.environ[native.STAGE_ENV] = str(native.stage_dir())
+        os.environ[native.STAGE_ENV] = native.STAGE_ON
 
 
 def _is_native(compose_file: Path) -> bool:
