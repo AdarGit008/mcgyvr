@@ -90,7 +90,7 @@ def test_the_method_is_the_probe_named_before_of(rigs: Path) -> None:
 
 
 def test_a_copy_figure_against_a_read_figure_is_not_a_move(compare: Compare) -> None:
-    assert compare((13.6, COPY_HOW), (33.9, READ_HOW)) == ()
+    assert compare((12.0, COPY_HOW), (30.0, READ_HOW)) == ()
 
 
 def test_one_probe_past_the_tolerance_is_a_hardware_move(compare: Compare) -> None:
@@ -122,9 +122,9 @@ def _scan_reads(monkeypatch: pytest.MonkeyPatch, gbps: float, how: str) -> None:
 def test_scan_after_the_probe_changed_exits_zero(
     rigs: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    _scan_reads(monkeypatch, 13.6, COPY_HOW)
+    _scan_reads(monkeypatch, 12.0, COPY_HOW)
     assert main(["scan"]) == Exit.OK
-    _scan_reads(monkeypatch, 33.9, READ_HOW)
+    _scan_reads(monkeypatch, 30.0, READ_HOW)
     capsys.readouterr()
     assert main(["scan"]) == Exit.OK
     assert "bandwidth_gbps" not in capsys.readouterr().out
