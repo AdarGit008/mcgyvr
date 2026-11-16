@@ -8,6 +8,10 @@ subcommand's usage error (exit 2), and never hangs waiting for input.
 
 from __future__ import annotations
 
+import io
+import sys
+from collections.abc import Sequence
+
 import pytest
 
 from mcgyvr.cli import menu
@@ -77,3 +81,50 @@ def test_pick_reasks_an_answer_that_names_nothing(
 
     assert menu.pick("q", ("a", "b"), prompt=prompt) == "a"
     assert "nope" in capsys.readouterr().out
+
+
+def _run_menu(
+    monkeypatch: pytest.MonkeyPatch, typed: str
+) -> tuple[int, list[list[str]]]:
+    """Run the real menu on `typed` as stdin: its exit and the argvs it ran."""
+    monkeypatch.setattr(sys, "stdin", io.StringIO(typed))
+    ran: list[list[str]] = []
+
+    def recorded(argv: Sequence[str]) -> int:
+        ran.append(list(argv))
+        return main(argv)
+
+    return menu.run(build_parser(), recorded), ran
+
+
+def _one_line(err: str) -> str:
+    assert "Traceback" not in err
+    lines = err.splitlines()
+    assert len(lines) == 1, err
+    return lines[0]
+
+
+def test_three_unanswered_picks_end_the_menu_with_usage(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert _run_menu(monkeypatch, "\n\n\n") == (2, [])
+
+    line = _one_line(capsys.readouterr().err)
+    assert line.startswith("mcgyvr: ")
+    assert "setup" in line and "serve" in line, "the line names the choices"
+
+
+def test_end_of_input_at_the_menu_ends_it_with_usage(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert _run_menu(monkeypatch, "") == (2, [])
+
+    assert _one_line(capsys.readouterr().err) == "mcgyvr: no answer; nothing was run"
+
+
+def test_serve_with_no_rig_ends_the_menu_with_usage(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert _run_menu(monkeypatch, "serve\n\n\n") == (2, [])
+
+    assert _one_line(capsys.readouterr().err) == "mcgyvr: serve needs a rig (--host)"

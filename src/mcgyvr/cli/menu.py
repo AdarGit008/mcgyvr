@@ -29,6 +29,14 @@ class MenuError(Exception):
     """A menu question could not be answered; the menu exits with usage."""
 
 
+def _answer(prompt: Callable[[str], str], question: str) -> str:
+    """`prompt(question)`, stripped; end of input (Ctrl-D) is a :class:`MenuError`."""
+    try:
+        return str(prompt(question)).strip()
+    except EOFError:
+        raise MenuError("no answer; nothing was run") from None
+
+
 def is_interactive() -> bool:
     """Whether stdin and stdout are both a terminal: the menu needs both."""
     return sys.stdin.isatty() and sys.stdout.isatty()
@@ -80,7 +88,7 @@ def pick(
             print(f"{number}. {name}")
     said = ""
     for _ in range(_TRIES):
-        said = str(prompt(question)).strip()
+        said = _answer(prompt, question)
         if not said and default is not None:
             return default
         found = _match(said, order)
@@ -183,7 +191,7 @@ def _serve_menu(main: Callable[[Sequence[str]], int]) -> int:
         what="a serve direction",
         numbered=False,
     )
-    host = input("rig (--host): ").strip()
+    host = _answer(input, "rig (--host): ")
     if not host:
         raise MenuError("serve needs a rig (--host)")
     return _call(main, ["serve", direction, "--host", host])
@@ -213,9 +221,19 @@ def _dispatch(
 
 
 def run(parser: argparse.ArgumentParser, main: Callable[[Sequence[str]], int]) -> int:
-    """The no-args menu: pick a verb, then dispatch it, answering the exit code."""
+    """The no-args menu: pick a verb, then dispatch it, answering the exit code.
+
+    A question the menu could not get answered ends it with one line on stderr
+    and the usage exit, the code bare `mcgyvr` exits with off a terminal. Ctrl-C
+    is raised, as everywhere else in the CLI; the verb the menu runs keeps its
+    own handling of both.
+    """
     commands = menu_commands(parser)
     if not commands:
         return main([])
-    verb = pick("Pick a command: ", commands, default=None, what="a command")
-    return _dispatch(verb, parser, main)
+    try:
+        verb = pick("Pick a command: ", commands, default=None, what="a command")
+        return _dispatch(verb, parser, main)
+    except MenuError as exc:
+        print(f"mcgyvr: {exc}", file=sys.stderr)
+        return Exit.USAGE
