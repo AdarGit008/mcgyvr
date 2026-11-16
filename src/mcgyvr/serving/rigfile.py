@@ -76,7 +76,8 @@ RECORDED = (
 #: runs on it: RAM, cores, threads, and the measured memory bandwidth. The cards
 #: are compared card by card under names like "card 0", so they are not listed.
 #: Bandwidth is a measurement, so it has moved only past this fraction of the
-#: figure the file recorded; a figure either reading lacked is not compared.
+#: figure the file recorded; a figure either reading lacked, or one another
+#: probe took (:attr:`Rig.bandwidth_method`), is not compared.
 HARDWARE = ("ram_total_gb", "cpu_cores", "cpu_threads", "bandwidth_gbps")
 BANDWIDTH_TOLERANCE = 0.15
 #: Docker's default bridge network. An address in it is taken for docker's own
@@ -198,6 +199,17 @@ class Rig:
     @property
     def bandwidth_how(self) -> str:
         return "" if self.scan.bandwidth is None else self.scan.bandwidth.how
+
+    @property
+    def bandwidth_method(self) -> str:
+        """The probe that took the bandwidth figure: its ``how`` up to the first
+        `` of `` ("in-process copy", "multi-threaded read"), "" with no figure.
+
+        The rest of ``how`` names the block size, the thread count and a copy
+        figure, which differ between runs of one probe, so only this prefix says
+        whether two figures were taken the same way.
+        """
+        return self.bandwidth_how.partition(" of ")[0]
 
     @property
     def disk_path(self) -> str | None:
@@ -601,10 +613,11 @@ def moved(saved: Rig, now: Rig) -> tuple[Moved, ...]:
 
     The identity and capacity fields are compared as they are, the measured
     bandwidth only past :data:`BANDWIDTH_TOLERANCE` of the figure the file
-    recorded, and the recorded snapshot tokens as text, a token the reading lost
-    counting as ``"unread"``. The cards are compared card by card, and only when
-    both readings determined the card list: a card list that was not determined
-    would otherwise report every recorded card as pulled.
+    recorded and only when one probe took both figures, and the recorded
+    snapshot tokens as text, a token the reading lost counting as ``"unread"``.
+    The cards are compared card by card, and only when both readings determined
+    the card list: a card list that was not determined would otherwise report
+    every recorded card as pulled.
     """
     found = [
         Moved(field, getattr(saved, field), getattr(now, field))
@@ -619,9 +632,14 @@ def moved(saved: Rig, now: Rig) -> tuple[Moved, ...]:
         )
         if getattr(saved, field) != getattr(now, field)
     ]
+    # Two figures are compared only when one probe took both: a figure from
+    # another probe measures another thing, so its difference says nothing of
+    # the hardware.
     was_gbps, now_gbps = saved.bandwidth_gbps, now.bandwidth_gbps
     if (
-        was_gbps is not None
+        saved.bandwidth_method
+        and saved.bandwidth_method == now.bandwidth_method
+        and was_gbps is not None
         and now_gbps is not None
         and was_gbps > 0
         and abs(now_gbps - was_gbps) > BANDWIDTH_TOLERANCE * was_gbps
