@@ -66,11 +66,12 @@ import os
 import platform
 import re
 import signal
+import stat
 import subprocess
 import sys
 import time
 import types
-from collections.abc import Callable, Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -113,12 +114,16 @@ RESTART = {
 #: The variable that names the backend instead of reading the machine for one.
 BACKEND_ENV = "MCGYVR_NATIVE_BACKEND"
 #: The variable that moves the native fallback's staging off the mcgyvr home to
-#: the system's temp folder (``/tmp/mcgyvr-native`` on Linux). Set for a Linux
-#: rig served native because the controller has no docker CLI; a macOS or
-#: Windows native run leaves it unset and keeps the mcgyvr home.
+#: this user's own folder under the system's temp root (:func:`stage_dir`).
+#: Set to :data:`STAGE_ON` for a Linux rig served native because the
+#: controller has no docker CLI; a macOS or Windows native run leaves it unset
+#: and keeps the mcgyvr home. It is a flag, not a path: the folder is resolved
+#: where the launcher runs, by that user, so no controller path is shipped.
 STAGE_ENV = "MCGYVR_NATIVE_STAGE"
-#: The folder the no-docker fallback stages into under the system's temp root.
-STAGE_NAME = "mcgyvr-native"
+#: The value of :data:`STAGE_ENV` that turns the stage on; any other is off.
+STAGE_ON = "1"
+#: The purpose the stage folder is named for (:func:`mcgyvr.userdir.user_tempdir`).
+STAGE_PURPOSE = "native"
 #: The Metal start-up line, and how much of a start's log is searched for it.
 METAL_LINE = re.compile(
     rb"recommendedMaxWorkingSetSize\s*=\s*([0-9]+(?:\.[0-9]+)?)\s*MB"
@@ -179,20 +184,33 @@ def log_path(unit: str) -> Path:
     return data_home() / LOGS / f"{_checked(unit)}.log"
 
 
+def staged() -> bool:
+    """Whether this run stages under :func:`stage_dir` (:data:`STAGE_ENV` on)."""
+    return os.environ.get(STAGE_ENV) == STAGE_ON
+
+
 def stage_dir() -> Path:
     """The folder a no-docker fallback stages the launcher and the fetched
-    build in: ``/tmp/mcgyvr-native`` under the system's temp root, so a reboot
-    clears it rather than the mcgyvr home keeping it."""
-    return hostos.user_temp_root() / STAGE_NAME
+    build in: ``<tmp>/mcgyvr-native-<uid>``, this user's own under the system's
+    temp root (:func:`mcgyvr.userdir.user_tempdir`), so a reboot clears it
+    rather than the mcgyvr home keeping it."""
+    from mcgyvr.userdir import user_tempdir
+
+    return user_tempdir(STAGE_PURPOSE)
 
 
 def _bin_home() -> Path:
-    """The folder ``BIN`` and ``SHIPPED`` sit under: the mcgyvr home, or the
-    folder :data:`STAGE_ENV` names for a no-docker fallback staged under the
-    system's temp root."""
-    stage = os.environ.get(STAGE_ENV)
-    if stage:
-        return Path(stage).expanduser()
+    """The folder ``BIN`` and ``SHIPPED`` sit under: the mcgyvr home, or, with
+    :data:`STAGE_ENV` on, :func:`stage_dir`, made if missing and used only as
+    a folder of this user's alone, each folder of its ``BIN`` too, made one at
+    a time so none takes the umask's group bits (else NativeError): nothing
+    below it is read, fetched into or run from before that check, and a
+    supervisor checks again before each start (:func:`_not_runnable`)."""
+    if staged():
+        stage = _private(stage_dir())
+        for depth in range(1, len(BIN.parts) + 1):
+            _private(stage.joinpath(*BIN.parts[:depth]))
+        return stage
     from mcgyvr.fleet.roots import home
 
     return home()
@@ -871,6 +889,70 @@ def _now() -> str:
 # --- the supervisor -----------------------------------------------------------
 
 
+def _not_runnable(program: Path, stage: Path | None) -> str | None:
+    """Why `program` may not be started now, or None when it may.
+
+    A program under the `stage` (:func:`stage_dir`) sits in the system's temp
+    root: a /tmp cleaned by age (systemd-tmpfiles) can delete it under a live
+    server, and any local user can then make the folder again. So before each
+    start the stage and every folder from it down to the program's must still
+    be this user's alone (:func:`mcgyvr.userdir.owned_outright`), and the
+    program a file of this user's, not a link. A program elsewhere, or a run
+    with no stage, is not asked about here.
+    """
+    if stage is None or not program.is_relative_to(stage):
+        return None
+    from mcgyvr.userdir import owned_outright
+
+    below = program.relative_to(stage).parts
+    for depth in range(len(below)):
+        folder = stage.joinpath(*below[:depth])
+        if not owned_outright(folder):
+            return (
+                f"{folder} is not this user's own folder (a link, another "
+                f"user's, or writable by others); {program} is not run from it"
+            )
+    try:
+        found = os.lstat(program)
+    except OSError as exc:
+        return f"{program} cannot be read: {exc.strerror or exc}"
+    if (
+        hostos.is_link(found)
+        or not stat.S_ISREG(found.st_mode)
+        or not hostos.owned_by_current_user(found)
+    ):
+        return f"{program} is not a file of this user's own (a link or another's)"
+    return None
+
+
+@contextlib.contextmanager
+def _holding(stage: Path | None, program: Path) -> Iterator[None]:
+    """A shared lock on the `stage` while `program` under it is supervised.
+
+    A /tmp cleaned by age (systemd-tmpfiles) skips a folder somebody holds a
+    lock on, and everything below it, so the build is not deleted under a live
+    server. Nothing else takes this lock: supervisors share it. POSIX only; with
+    no stage, a program elsewhere, or a stage that cannot be opened or locked,
+    nothing is held (:func:`_not_runnable` says what is wrong before a start).
+    """
+    if sys.platform == "win32" or stage is None or not program.is_relative_to(stage):
+        yield
+        return
+    import fcntl
+
+    try:
+        fd = os.open(stage, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    except OSError:
+        yield
+        return
+    try:
+        with contextlib.suppress(OSError):
+            fcntl.flock(fd, fcntl.LOCK_SH | fcntl.LOCK_NB)
+        yield
+    finally:
+        os.close(fd)
+
+
 def supervise(spec_file: Path) -> int:
     """Keep the spec's server up until asked to stop; the supervisor's whole life.
 
@@ -913,9 +995,10 @@ def supervise(spec_file: Path) -> int:
         **{str(k): str(v) for k, v in spec["env"].items()},
     }
     program = Path(spec["program"])
+    stage = stage_dir() if staged() else None
     log_file = Path(spec["log"])
     restarts = 0
-    with log_file.open("ab") as log:
+    with log_file.open("ab") as log, _holding(stage, program):
 
         def record(state: str, **more: object) -> None:
             # A record that cannot be written is said in the log; the server
@@ -931,6 +1014,11 @@ def supervise(spec_file: Path) -> int:
             log.flush()
             offset = log.tell()
             started = time.monotonic()
+            refused = _not_runnable(program, stage)
+            if refused is not None:
+                log.write(f"--- mcgyvr: {unit} not started: {refused}\n".encode())
+                record(FAILED, restarts=restarts, why=refused)
+                return 1
             try:
                 # Run from the build's own folder: ggml looks for its backend
                 # libraries beside the program and in the working directory.
@@ -1087,7 +1175,7 @@ def _settle(program: bytes) -> tuple[str, ...]:
     say how a supervisor is started from it.
 
     It goes to ``bin/shipped/native-<sha256>.py`` under the mcgyvr home (or
-    under the folder :data:`STAGE_ENV` names for a no-docker fallback), a
+    under :func:`stage_dir` for a no-docker fallback), a
     folder of this user's alone, written whole and renamed into place, and
     is run with ``-I -B``: a supervisor outlives the ssh call that started it,
     so it cannot run from that call's stdin.
