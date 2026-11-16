@@ -35,6 +35,7 @@ DEPLOYMENT = "Run mcgyvr how?"
 JEV = "Dedicate a unit to Jev, which answers typed decisions?"
 FANOUT = "Fan-out across units?"
 SLEEP_WAKE = "May mcgyvr sleep and wake cards on its own?"
+RUFF = "Install ruff and enable the lint/format gate and its repair?"
 
 
 def _staged() -> Path:
@@ -57,6 +58,7 @@ def test_a_green_sample_is_stamped_locked_promoted_and_named_live(
         JEV,
         FANOUT,
         SLEEP_WAKE,
+        RUFF,
         f"{START} on {sd.RIG}?",
         LOCK,
     ]

@@ -102,6 +102,7 @@ DECISION_TREE: tuple[Decision, ...] = (
     Decision("coding.jev", ("on", "off"), "off"),
     Decision("coding.fanout", ("none", "idle", "full"), "idle"),
     Decision("coding.sleep-wake", ("on", "off"), "off"),
+    Decision("coding.ruff", ("on", "off"), "off"),
     Decision("chat.context-size", ("tokens",), None),
     Decision("chat.context-quant", CONTEXT_QUANT_CHOICES, "f16"),
     Decision("chat.model", ("id-or-path",), None),

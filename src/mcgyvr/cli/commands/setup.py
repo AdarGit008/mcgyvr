@@ -439,6 +439,8 @@ DEPLOYMENT_QUESTION = (
 FANOUT_QUESTION = "Fan-out across units? [idle] idle, none or full: "
 #: The coding branch's sleep/wake switch, the fleet's `serving.enable_sleep_wake`.
 SLEEP_WAKE_QUESTION = "May mcgyvr sleep and wake cards on its own? [y/n] "
+#: The coding branch's ruff switch: the lint/format gate and its repair.
+RUFF_QUESTION = "Install ruff and enable the lint/format gate and its repair? [y/n] "
 #: The raw branch's context window question; Enter keeps the recommended one.
 CONTEXT_SIZE_QUESTION = "Context window in tokens (Enter for the recommended): "
 #: The raw branch's KV cache quant question, default `f16`.
@@ -484,6 +486,35 @@ def _ask_fanout() -> str:
 def _ask_sleep_wake() -> bool:
     """Ask whether the fleet switch `serving.enable_sleep_wake` is on."""
     return _confirm(SLEEP_WAKE_QUESTION)
+
+
+def _ask_ruff() -> bool:
+    """Ask whether ruff runs as the lint/format gate and its repair."""
+    return _confirm(RUFF_QUESTION)
+
+
+def _install_ruff() -> None:
+    """Install ruff (`uv tool install ruff`) for the gate and its repair.
+
+    The config is already staged; a missing `uv` or a failed install is
+    reported, not fatal, so the run completes and a later install finishes
+    what the gate needs.
+    """
+    done = subprocess.run(
+        ["uv", "tool", "install", "ruff"],
+        stdin=subprocess.DEVNULL,
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
+        **hostos.popen_no_window_kwargs(),
+    )
+    if done.returncode != 0:
+        said = (done.stderr or done.stdout or "").strip()
+        print(
+            "ruff was not installed: `uv tool install ruff` failed"
+            + (f": {said}" if said else ".")
+        )
 
 
 def _ask_context_size() -> int | None:
@@ -631,6 +662,7 @@ def _apply_setup_choices(
     detection: Detection,
     fanout: str | None = None,
     enable_sleep_wake: bool | None = None,
+    ruff: bool | None = None,
     users: int | None = None,
     unit_overrides: Mapping[str, Any] | None = None,
 ) -> None:
@@ -638,9 +670,11 @@ def _apply_setup_choices(
     `initialize` wrote.
 
     Each choice is an existing schema field, never a new one: `fanout`,
-    `users` and the `serving` block in policy.yaml, and per-unit `window`,
-    `width`, `model` and the KV cache launch keys in fleet.yaml. A choice of
-    None leaves the field as `initialize` wrote it.
+    `users`, the `serving` block and the `gate`/`cleanup` switches in
+    policy.yaml, and per-unit `window`, `width`, `model` and the KV cache
+    launch keys in fleet.yaml. A choice of None leaves the field as
+    `initialize` wrote it. `ruff` writes both `gate.enabled` and
+    `cleanup.enabled` explicitly, because an unset field reads as on.
     """
     import yaml
 
@@ -657,6 +691,10 @@ def _apply_setup_choices(
         policy["users"] = users
     if enable_sleep_wake is not None:
         policy.setdefault("serving", {})["enable_sleep_wake"] = enable_sleep_wake
+        changed_policy = True
+    if ruff is not None:
+        policy.setdefault("gate", {})["enabled"] = ruff
+        policy.setdefault("cleanup", {})["enabled"] = ruff
         changed_policy = True
     if unit_overrides:
         units = fleet.get("units") or {}
@@ -1345,8 +1383,9 @@ def _setup_interactive(
     :data:`mcgyvr.cli.setup_stages.DECISION_TREE`, and answer the exit code.
 
     The tree: rigs, then the use case. The coding branch asks deployment,
-    Jev, fan-out and sleep/wake; the chat branch asks context size, context
-    quant and model, and the agent branch adds slots. The scan and
+    Jev, fan-out, sleep/wake and ruff (the lint/format gate and its
+    repair); the chat branch asks context size, context quant and model,
+    and the agent branch adds slots. The scan and
     recommendation run next, and the placement they print is committed only
     on the consent gate; a skipped recommendation asks for a model path or
     leaves the setup all-manual. Downloads, then start, sample and lock run
@@ -1374,12 +1413,13 @@ def _setup_interactive(
         _rule("Step 2 of 4 — what it serves")
         use_case = _ask_setup_use_case()
 
-        # The use-case branch: coding asks deployment, Jev, fan-out and
-        # sleep/wake; the raw use cases ask context size, quant and model,
-        # and agent adds the slot count.
+        # The use-case branch: coding asks deployment, Jev, fan-out,
+        # sleep/wake and ruff; the raw use cases ask context size, quant and
+        # model, and agent adds the slot count.
         wants_jev = False
         fanout: str | None = None
         enable_sleep_wake: bool | None = None
+        ruff_on: bool | None = None
         context_size: int | None = None
         context_quant = "f16"
         model: str | None = None
@@ -1389,6 +1429,7 @@ def _setup_interactive(
             wants_jev = _confirm(JEV_QUESTION)
             fanout = _ask_fanout()
             enable_sleep_wake = _ask_sleep_wake()
+            ruff_on = _ask_ruff()
         elif use_case == AGENT:
             context_size, context_quant, model = _ask_raw_model()
             slots = _ask_slots()
@@ -1426,9 +1467,12 @@ def _setup_interactive(
             detection=detection,
             fanout=fanout,
             enable_sleep_wake=enable_sleep_wake,
+            ruff=ruff_on,
             users=slots if slots != 1 else None,
             unit_overrides=_unit_overrides(context_size, context_quant, model, slots),
         )
+        if ruff_on:
+            _install_ruff()
         print(f"Staged the setup at {staged.path}\n")
         if stop is Stop.CONFIG:
             print(
