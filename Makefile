@@ -48,9 +48,10 @@ check: setup  ## everything CI runs — one build, then lint, typecheck, docs-ch
 
 # The local half of a release: what the tag's run of .github/workflows/release.yml checks, run here
 # first, publishing nothing. One build into $(RELEASE_DIR) (cleared by uv first), the wheel is the
-# version, the version has CHANGELOG notes (printed), `twine check`; then the tag command is printed
-# for a human to run — pushing the tag is the release. The version is RELEASE_VERSION, or the newest
-# CHANGELOG section. Before the tag exists the build is stamped with that version
+# version, the notes are the pull requests merged since the previous v* tag (printed; none merged is
+# refused), `twine check`; then the tag command is printed for a human to run — pushing the tag is
+# the release. The version is RELEASE_VERSION, or the next one after the newest v* tag behind HEAD
+# (scripts/release/release_notes.py --next). Before the tag exists the build is stamped with it
 # (SETUPTOOLS_SCM_PRETEND_VERSION); when the tag already names HEAD the version is read from it, as
 # the tag's run reads it. Refused: a tree that differs from HEAD (the tag names HEAD, not the tree)
 # and a version already tagged on another commit.
@@ -64,17 +65,17 @@ release:  ## the local half of a release (build, version, notes, twine check); p
 		echo "REFUSED — the tree differs from HEAD; commit first, the tag names HEAD" >&2; exit 1; fi; \
 	version="$(RELEASE_VERSION)"; \
 	if [ -z "$$version" ]; then \
-		version=$$($(RELEASE_PY) scripts/release/changelog_notes.py --latest CHANGELOG.md); fi; \
+		version=$$($(RELEASE_PY) scripts/release/release_notes.py --next); fi; \
 	version="$${version#v}"; tag="v$$version"; \
 	at=$$(git rev-parse -q --verify "refs/tags/$$tag^{commit}" || true); \
 	if [ -n "$$at" ] && [ "$$at" != "$$(git rev-parse HEAD)" ]; then \
-		echo "REFUSED — $$tag is already tagged at $$at; write the next version's CHANGELOG section" >&2; \
+		echo "REFUSED — $$tag is already tagged at $$at; name another version with RELEASE_VERSION" >&2; \
 		exit 1; fi; \
 	if [ -z "$$at" ]; then export SETUPTOOLS_SCM_PRETEND_VERSION="$$version"; fi; \
 	uv build --clear --out-dir "$(RELEASE_DIR)"; \
 	$(RELEASE_PY) scripts/release/wheel_is_tag.py "$$tag" "$(RELEASE_DIR)"/*.whl; \
-	echo "--- notes for $$tag (CHANGELOG.md)"; \
-	$(RELEASE_PY) scripts/release/changelog_notes.py "$$tag" CHANGELOG.md; \
+	echo "--- notes for $$tag (pull requests merged since the previous v* tag)"; \
+	$(RELEASE_PY) scripts/release/release_notes.py "$$tag"; \
 	echo "---"; \
 	$(TWINE) check "$(RELEASE_DIR)"/*; \
 	echo "local half passed for $$tag: nothing was tagged, pushed or uploaded. To release:"; \
