@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import importlib.util
+import os
+import shutil
 import subprocess
 import sys
 import types
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -42,6 +44,26 @@ scope:
 limits:
   attempts: 5
 """
+
+
+#: The programs the suite runs by bare name, so they must be on PATH: ``python``
+#: runs the acceptance commands of the contracts the tests write (the one in
+#: :data:`CONTRACT` among them), ``ruff`` and ``mypy`` are the checkers the gate
+#: runs. ``uv run`` puts all three there, from the project's environment.
+SUITE_TOOLS = ("python", "ruff", "mypy")
+
+
+def missing_from(path: str, names: Sequence[str] = SUITE_TOOLS) -> tuple[str, ...]:
+    """The ``names`` that no folder of ``path``, a PATH value, holds as a program."""
+    return tuple(name for name in names if shutil.which(name, path=path) is None)
+
+
+def with_first(path: str, folder: str) -> str:
+    """``path``, a PATH value, with ``folder`` first; as it was if it is first."""
+    entries = path.split(os.pathsep) if path else []
+    if entries[:1] == [folder]:
+        return path
+    return os.pathsep.join([folder, *entries])
 
 
 def required(behavior: str, resolve: Callable[[], Any]) -> Any:
