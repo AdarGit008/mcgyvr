@@ -133,14 +133,21 @@ def _serve(args: argparse.Namespace) -> int:
     ):
         return Exit.REFUSED
 
+    # The door reads its own setup, so the one named here is handed to it: a
+    # door left to `MCGYVR_CONFIG` or the live fleet would switch another one.
+    named = wakelib.door_config(Path(args.config) if args.config else None)
     try:
         if args.direction == "wake":
-            made = wakelib.wake(config, args.host)
+            with named:
+                made = wakelib.wake(config, args.host)
         else:
             card = wakelib.card_named(config, args.host)
             capacity = Capacity.of(config)
-            with capacity.drain(
-                card.sources, timeout=wakelib.drain_timeout(config, card)
+            with (
+                capacity.drain(
+                    card.sources, timeout=wakelib.drain_timeout(config, card)
+                ),
+                named,
             ):
                 made = wakelib.sleep(config, args.host)
     except wakelib.WakeError as exc:
