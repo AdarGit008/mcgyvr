@@ -247,10 +247,73 @@ def test_a_swap_with_only_launch_vram_gb_still_makes_room(
     assert up == {LLAMA_CONTAINER}
 
 
-def test_with_neither_room_mib_nor_vram_gb_no_room_is_made(
-    tmp_path: Path, home: Path
+def test_room_falls_back_to_the_sized_fit_when_nothing_is_stated(
+    tmp_path: Path, home: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    import mcgyvr.wake as wake
+
     config = parse(mixed_ladder(mixed_spec(tmp_path), room="none"))
+    monkeypatch.setattr(
+        wake, "_fit_rooms", lambda config, host, rungs: {VLLM: 9000, LLAMA: 9000}
+    )
+
+    assert switches(config).room_for(LLAMA) == (VLLM,)
+    assert switches(config).room_for(VLLM) == (LLAMA,)
+
+
+def test_the_sized_fit_supplies_the_room_when_nothing_is_stated(
+    tmp_path: Path, home: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from types import SimpleNamespace
+
+    import mcgyvr.wake as wake
+
+    config = parse(mixed_ladder(mixed_spec(tmp_path), room="none"))
+    monkeypatch.setattr("mcgyvr.cli.sizing._model_specs", lambda: ())
+    monkeypatch.setattr(
+        "mcgyvr.serving.units_for",
+        lambda config, scans, *, specs, ctx_per_slot: (
+            SimpleNamespace(fit=SimpleNamespace(vram_gb=8.7890625), rungs=(VLLM,)),
+            SimpleNamespace(fit=SimpleNamespace(vram_gb=8.7890625), rungs=(LLAMA,)),
+        ),
+    )
+    monkeypatch.setattr(
+        "mcgyvr.serving.rigfile.recorded_scans", lambda: {SHARED_HOST: object()}
+    )
+
+    assert wake._fit_rooms(config, SHARED_HOST, (VLLM, LLAMA)) == {
+        VLLM: 9000,
+        LLAMA: 9000,
+    }
+
+
+def test_a_sizing_that_fails_answers_no_rooms(
+    tmp_path: Path, home: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import mcgyvr.wake as wake
+    from mcgyvr.serving import UnitError
+
+    config = parse(mixed_ladder(mixed_spec(tmp_path), room="none"))
+    monkeypatch.setattr("mcgyvr.cli.sizing._model_specs", lambda: ())
+
+    def boom(*args: Any, **kwargs: Any) -> Any:
+        raise UnitError("no context window")
+
+    monkeypatch.setattr("mcgyvr.serving.units_for", boom)
+    monkeypatch.setattr(
+        "mcgyvr.serving.rigfile.recorded_scans", lambda: {SHARED_HOST: object()}
+    )
+
+    assert wake._fit_rooms(config, SHARED_HOST, (VLLM, LLAMA)) == {}
+
+
+def test_with_neither_room_mib_nor_vram_gb_no_room_is_made(
+    tmp_path: Path, home: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import mcgyvr.wake as wake
+
+    config = parse(mixed_ladder(mixed_spec(tmp_path), room="none"))
+    monkeypatch.setattr(wake, "_fit_rooms", lambda config, host, rungs: {})
 
     assert switches(config).room_for(LLAMA) == ()
     why = switches(config).why_no_room(LLAMA)

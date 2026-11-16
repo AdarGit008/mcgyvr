@@ -371,7 +371,7 @@ def _room_mib(config: Config, rung: str) -> int | None:
     `room_mib` states it outright. Where it does not, the launch's `vram_gb` —
     the sizing figure `mcgyvr emit` stamps back into fleet.yaml — is the room
     in GiB and is turned into whole MiB. A unit that states neither has no
-    figure to reckon a swap from.
+    figure to reckon a swap from, and the caller asks the fit for it.
     """
     unit = config.units.get(rung)
     if unit is None:
@@ -382,6 +382,38 @@ def _room_mib(config: Config, rung: str) -> int | None:
     if isinstance(stated, int | float) and not isinstance(stated, bool) and stated > 0:
         return math.ceil(float(stated) * 1024)
     return None
+
+
+def _fit_rooms(config: Config, host: str, rungs: Sequence[str]) -> dict[str, int]:
+    """Each named rung's card room in MiB, from the fit sizing computes; empty
+    where the ladder cannot be sized at all.
+
+    `units_for` is re-run over the recorded scans and the model specs (shipped
+    and declared), so a catalog model sized from geometry or a declared model
+    with geometry gets the room `Fit.vram_gb` predicts even where no `room_mib`
+    and no `launch.vram_gb` is stated. A sizing that fails — an unscanned host,
+    a model no spec describes, a unit that declares no window — answers empty,
+    and the caller refuses as it would have before the fit was asked for.
+    """
+    from mcgyvr.capability import CapabilityTableError
+    from mcgyvr.cli.sizing import _model_specs
+    from mcgyvr.serving import UnitError, rigfile, units_for
+
+    scans = rigfile.resolve_hosts(rigfile.recorded_scans(), (host,))
+    try:
+        sized = units_for(config, scans, specs=_model_specs(), ctx_per_slot=None)
+    except (UnitError, CapabilityTableError, OSError):
+        return {}
+    rooms: dict[str, int] = {}
+    wanted = frozenset(rungs)
+    for unit in sized:
+        if unit.fit.vram_gb <= 0:
+            continue
+        room = math.ceil(unit.fit.vram_gb * 1024)
+        for rung in unit.rungs:
+            if rung in wanted:
+                rooms[rung] = room
+    return rooms
 
 
 def _sleeper(config: Config, rung: str) -> bool:
@@ -1183,11 +1215,21 @@ class CardSwitches:
                 f"`{rigfile.STATE.format(rig='<rig>', address=card.host)}`"
             )
         rooms: dict[str, int] = {}
+        missing: list[str] = []
         for name in card.rungs:
             room = _room_mib(self._config, name)
             if room is None:
-                return (), f"{name} states no room_mib and no launch.vram_gb"
-            rooms[name] = room
+                missing.append(name)
+            else:
+                rooms[name] = room
+        if missing:
+            rooms.update(_fit_rooms(self._config, card.host, missing))
+            left = [name for name in missing if name not in rooms]
+            if left:
+                return (), (
+                    f"{left[0]} states no room_mib and no launch.vram_gb, "
+                    "and no fit was sized for it"
+                )
         on = self._placement(card, sizes)
         if isinstance(on, str):
             return (), on
