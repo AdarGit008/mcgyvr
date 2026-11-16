@@ -10,10 +10,11 @@ nothing here mints a second key.
 
 from __future__ import annotations
 
+import shlex
 from dataclasses import dataclass
 from pathlib import Path
 
-from mcgyvr import unitkey
+from mcgyvr import atomic, unitkey
 from mcgyvr.config import Config, Unit
 
 #: The environment variables a custom provider reads, written by :func:`write`.
@@ -23,6 +24,10 @@ MODEL_ENV = "MCGYVR_MODEL"
 
 #: The file :func:`write` writes, meant to be `source`d into a provider.
 PROVIDER_FILENAME = "provider.env"
+
+
+class HandoffError(Exception):
+    "A ``provider.env`` that cannot be written privately, named with what to do."
 
 
 @dataclass(frozen=True)
@@ -81,7 +86,10 @@ def from_config(config: Config) -> Provider | None:
 
 
 def _line(variable: str, value: str) -> str:
-    return f"export {variable}={value}"
+    # Quoted for the shell that sources the file: the model can be a server's
+    # `/v1/models` answer. A value that is already shell-safe is left as it is,
+    # and an empty one stays bare (`shlex.quote` would write `''`).
+    return f"export {variable}={shlex.quote(value) if value else ''}"
 
 
 def render(provider: Provider) -> str:
@@ -99,11 +107,17 @@ def render(provider: Provider) -> str:
 
 
 def write(directory: Path, provider: Provider) -> Path:
-    """Write ``provider.env`` under `directory` and answer its path."""
+    """Write ``provider.env`` under `directory` and answer its path.
+
+    The file holds the unit's key, so it is kept the way the key's own file is
+    (:func:`mcgyvr.atomic.write_private`): at 0600, in one step, and a link in
+    its place raises HandoffError rather than being written through.
+    """
     path = directory / PROVIDER_FILENAME
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(render(provider), encoding="utf-8")
-    return path
+    try:
+        return atomic.write_private(path, render(provider))
+    except atomic.PrivateFileError as exc:
+        raise HandoffError(str(exc)) from exc
 
 
 def _key_shown(key: str | None) -> str:
