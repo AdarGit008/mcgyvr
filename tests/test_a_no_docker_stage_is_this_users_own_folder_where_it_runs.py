@@ -14,6 +14,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import signal
 import sys
 import tempfile
 from pathlib import Path
@@ -174,3 +175,119 @@ def test_any_value_but_on_keeps_the_mcgyvr_home(
     assert not native.staged()
     assert native.bin_root() == tmp_path / "home" / native.BIN / llamacpp.TAG
     assert list(tmp_root.iterdir()) == []
+
+
+def _supervised(program: Path, unit: str) -> tuple[Path, Path]:
+    """A spec for `program` that restarts once, quickly; its spec and log."""
+    native._private(native.state_dir())
+    log = native.log_path(unit)
+    native._private(log.parent)
+    spec = {
+        "unit": unit,
+        "program": str(program),
+        "argv": [],
+        "env": {},
+        "port": 18999,
+        "backend": llamacpp.CPU,
+        "build": "x",
+        "tag": llamacpp.TAG,
+        "log": str(log),
+        "max_restarts": 1,
+        "backoff_s": 0.05,
+        "backoff_max_s": 0.05,
+        "reset_after_s": 60.0,
+    }
+    spec_file = native.state_dir() / f"{unit}.spec.json"
+    spec_file.write_text(json.dumps(spec), encoding="utf-8")
+    return spec_file, log
+
+
+def _staged_program(monkeypatch: pytest.MonkeyPatch, body: str) -> Path:
+    monkeypatch.setenv(native.STAGE_ENV, native.STAGE_ON)
+    monkeypatch.setattr(signal, "signal", lambda *_: None)
+    folder = native._private(native._private(native.bin_root()) / "x")
+    program = folder / "llama-server"
+    program.write_text(body, encoding="utf-8")
+    program.chmod(0o700)
+    return program
+
+
+@posix_only
+def test_a_restart_from_a_stage_no_longer_this_users_alone_is_refused(
+    tmp_root: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The first run stands for a /tmp cleaned by age and the folder made
+    # again by somebody else: the stage opens to others, the program is swapped.
+    marker = tmp_path / "planted-ran"
+    program = _staged_program(monkeypatch, "")
+    stage = native.stage_dir()
+    program.write_text(
+        "#!/bin/sh\n"
+        f"chmod 0777 '{stage}'\n"
+        f"printf '#!/bin/sh\\ntouch {marker}\\nexit 1\\n' > '{program}.new'\n"
+        f"chmod +x '{program}.new'; mv '{program}.new' '{program}'\n"
+        "exit 1\n",
+        encoding="utf-8",
+    )
+    spec_file, log = _supervised(program, "mcgyvr-swap")
+    assert native.supervise(spec_file) == 1
+    assert not marker.exists()
+    record = json.loads((native.state_dir() / "mcgyvr-swap.json").read_text())
+    assert record["state"] == native.FAILED
+    assert "not this user's own folder" in record["why"]
+    assert "not started" in log.read_text()
+
+
+@posix_only
+def test_a_restart_of_a_program_turned_into_a_link_is_refused(
+    tmp_root: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.write_text("#!/bin/sh\nexit 1\n", encoding="utf-8")
+    elsewhere.chmod(0o700)
+    program = _staged_program(monkeypatch, "")
+    program.write_text(
+        f"#!/bin/sh\nrm '{program}'; ln -s '{elsewhere}' '{program}'\nexit 1\n",
+        encoding="utf-8",
+    )
+    spec_file, _log = _supervised(program, "mcgyvr-link")
+    assert native.supervise(spec_file) == 1
+    record = json.loads((native.state_dir() / "mcgyvr-link.json").read_text())
+    assert record["state"] == native.FAILED
+    assert "a link" in record["why"]
+
+
+@posix_only
+def test_the_stage_is_held_with_a_shared_lock_while_its_server_runs(
+    tmp_root: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # What a /tmp cleaned by age (systemd-tmpfiles) does before it removes a
+    # folder: an exclusive lock, not waited for. Another supervisor's shared
+    # lock is still had.
+    said = tmp_path / "said"
+    probe = (
+        "import fcntl, os, sys\n"
+        "fd = os.open(sys.argv[1], os.O_RDONLY)\n"
+        "out = []\n"
+        "for name, how in (('exclusive', fcntl.LOCK_EX), ('shared', fcntl.LOCK_SH)):\n"
+        "    try:\n"
+        "        fcntl.flock(fd, how | fcntl.LOCK_NB)\n"
+        "        out.append(name + ' had')\n"
+        "        fcntl.flock(fd, fcntl.LOCK_UN)\n"
+        "    except BlockingIOError:\n"
+        "        out.append(name + ' refused')\n"
+        "open(sys.argv[2], 'a').write(', '.join(out) + '\\n')\n"
+    )
+    script = tmp_path / "probe.py"
+    script.write_text(probe, encoding="utf-8")
+    stage = native.stage_dir()
+    program = _staged_program(
+        monkeypatch,
+        f"#!/bin/sh\n'{sys.executable}' '{script}' '{stage}' '{said}'\nexit 1\n",
+    )
+    spec_file, log = _supervised(program, "mcgyvr-held")
+    assert native.supervise(spec_file) == 1
+    assert said.exists(), log.read_text()
+    assert said.read_text().splitlines() == ["exclusive refused, shared had"] * 2
+    record = json.loads((native.state_dir() / "mcgyvr-held.json").read_text())
+    assert record["state"] == native.GAVE_UP
