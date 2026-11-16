@@ -17,7 +17,6 @@ has no docker CLI (the native fallback). A Linux rig with docker keeps docker.
 
 from __future__ import annotations
 
-import os
 import subprocess
 from collections.abc import Iterable, Sequence
 
@@ -57,7 +56,6 @@ def call(
     # line (Linux: 128 KiB), so a POSIX rig reads it on stdin too.
     from mcgyvr.serving import native, shipped
 
-    stage = os.environ.get(native.STAGE_ENV)
     try:
         sent = gatelib.ship(
             gatelib.rig_system(host),
@@ -65,7 +63,7 @@ def call(
             tuple(args),
             feed=feed,
             on_stdin=True,
-            env={native.STAGE_ENV: stage} if stage else None,
+            env={native.STAGE_ENV: native.STAGE_ON} if native.staged() else None,
         )
     except ValueError as exc:
         return subprocess.CompletedProcess(["native"], 2, "", f"native: {exc}\n")

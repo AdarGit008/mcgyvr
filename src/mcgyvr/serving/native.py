@@ -113,12 +113,16 @@ RESTART = {
 #: The variable that names the backend instead of reading the machine for one.
 BACKEND_ENV = "MCGYVR_NATIVE_BACKEND"
 #: The variable that moves the native fallback's staging off the mcgyvr home to
-#: the system's temp folder (``/tmp/mcgyvr-native`` on Linux). Set for a Linux
-#: rig served native because the controller has no docker CLI; a macOS or
-#: Windows native run leaves it unset and keeps the mcgyvr home.
+#: this user's own folder under the system's temp root (:func:`stage_dir`).
+#: Set to :data:`STAGE_ON` for a Linux rig served native because the
+#: controller has no docker CLI; a macOS or Windows native run leaves it unset
+#: and keeps the mcgyvr home. It is a flag, not a path: the folder is resolved
+#: where the launcher runs, by that user, so no controller path is shipped.
 STAGE_ENV = "MCGYVR_NATIVE_STAGE"
-#: The folder the no-docker fallback stages into under the system's temp root.
-STAGE_NAME = "mcgyvr-native"
+#: The value of :data:`STAGE_ENV` that turns the stage on; any other is off.
+STAGE_ON = "1"
+#: The purpose the stage folder is named for (:func:`mcgyvr.userdir.user_tempdir`).
+STAGE_PURPOSE = "native"
 #: The Metal start-up line, and how much of a start's log is searched for it.
 METAL_LINE = re.compile(
     rb"recommendedMaxWorkingSetSize\s*=\s*([0-9]+(?:\.[0-9]+)?)\s*MB"
@@ -179,20 +183,28 @@ def log_path(unit: str) -> Path:
     return data_home() / LOGS / f"{_checked(unit)}.log"
 
 
+def staged() -> bool:
+    """Whether this run stages under :func:`stage_dir` (:data:`STAGE_ENV` on)."""
+    return os.environ.get(STAGE_ENV) == STAGE_ON
+
+
 def stage_dir() -> Path:
     """The folder a no-docker fallback stages the launcher and the fetched
-    build in: ``/tmp/mcgyvr-native`` under the system's temp root, so a reboot
-    clears it rather than the mcgyvr home keeping it."""
-    return hostos.user_temp_root() / STAGE_NAME
+    build in: ``<tmp>/mcgyvr-native-<uid>``, this user's own under the system's
+    temp root (:func:`mcgyvr.userdir.user_tempdir`), so a reboot clears it
+    rather than the mcgyvr home keeping it."""
+    from mcgyvr.userdir import user_tempdir
+
+    return user_tempdir(STAGE_PURPOSE)
 
 
 def _bin_home() -> Path:
-    """The folder ``BIN`` and ``SHIPPED`` sit under: the mcgyvr home, or the
-    folder :data:`STAGE_ENV` names for a no-docker fallback staged under the
-    system's temp root."""
-    stage = os.environ.get(STAGE_ENV)
-    if stage:
-        return Path(stage).expanduser()
+    """The folder ``BIN`` and ``SHIPPED`` sit under: the mcgyvr home, or, with
+    :data:`STAGE_ENV` on, :func:`stage_dir`, made if missing and used only as
+    a folder of this user's alone (else NativeError): nothing below it is read,
+    fetched into or run from before that check."""
+    if staged():
+        return _private(stage_dir())
     from mcgyvr.fleet.roots import home
 
     return home()
@@ -1087,7 +1099,7 @@ def _settle(program: bytes) -> tuple[str, ...]:
     say how a supervisor is started from it.
 
     It goes to ``bin/shipped/native-<sha256>.py`` under the mcgyvr home (or
-    under the folder :data:`STAGE_ENV` names for a no-docker fallback), a
+    under :func:`stage_dir` for a no-docker fallback), a
     folder of this user's alone, written whole and renamed into place, and
     is run with ``-I -B``: a supervisor outlives the ssh call that started it,
     so it cannot run from that call's stdin.
