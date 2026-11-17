@@ -326,3 +326,57 @@ def test_opted_in_with_ruff_installed_runs_as_before(
     assert code == 0, printed
     assert len(sent) == 1, "the climb did not dispatch"
     assert "ruff is not installed" not in printed.err, printed.err
+
+
+def test_a_batch_with_a_part_refused_on_ruff_is_refused_whole_before_any_part_starts(
+    tmp_path: Path,
+    home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Refused part by part, the parts ahead of it, or beside it under
+    `--jobs`, would run and deliver: the batch is refused before any starts."""
+    from mcgyvr.cli.commands import delegate as command
+
+    _hide_ruff(tmp_path, monkeypatch)
+    sent = lj.scripted(monkeypatch)
+    repo = lj.make_repo(tmp_path / "repo")
+    journal = tmp_path / "journal"
+    config = lj.make_config(tmp_path / "setup", journal_dir=journal)
+    lj.append_policy(config, "gate:\n  ruff: true\n")
+    folder = tmp_path / "contracts"
+    folder.mkdir()
+    for cid, new in (("rename-a", "y"), ("rename-b", "z")):
+        text = RENAME.replace("id: rename-x", f"id: {cid}")
+        text = text.replace("to y.", f"to {new}.").replace("to: y", f"to: {new}")
+        (folder / f"{cid}.yaml").write_text(text)
+    started: list[str] = []
+
+    def watched(args: object) -> int:
+        started.append(str(getattr(args, "contract", "")))
+        return 0
+
+    monkeypatch.setattr(command, "_run", watched)
+
+    code = lj.main(
+        [
+            "direct",
+            str(folder),
+            "--repo",
+            str(repo),
+            "--sandbox",
+            "tempdir",
+            "--config",
+            str(config),
+        ]
+    )
+
+    err = capsys.readouterr().err
+    assert code == 1, err
+    assert started == [], "a part of the batch started"
+    assert "ruff is not installed" in err, err
+    assert "uv tool install ruff" in err, err
+    assert "refused whole" in err, err
+    assert sent == [], "a model was dispatched"
+    assert lj.git(repo, "rev-list", "--count", "HEAD").strip() == "1"
+    assert not list((journal / "trees").glob("*.json")), "the tree was read"

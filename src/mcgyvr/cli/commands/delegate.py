@@ -667,9 +667,30 @@ def _run_delegated(
     where the tree's state file is (`batch_held`). A run that raises stops the
     batch: nothing more is started, the runs beside it are waited for and
     settled, and the error is raised.
+
+    A batch of several contracts where one would be refused for a missing gate
+    tool (`missing_gate_tool`: `gate.ruff: true` and no ruff) is refused whole
+    first, exit 1, before the tree is read or any part starts. Refused one by
+    one in `_run`, a part ahead of it, or beside it under `--jobs`, would run
+    and deliver. One contract alone is left to `_run`, which refuses it and
+    writes its result.
     """
     if not dec.contracts:
         return 0
+    if len(dec.contracts) > 1:
+        from mcgyvr.drive import missing_gate_tool
+
+        for contract in dec.contracts:
+            issue = missing_gate_tool(config, contract)
+            if issue is not None:
+                print(f"error: {issue}", file=sys.stderr)
+                print(
+                    f"error: the batch of {len(dec.contracts)} contracts is "
+                    f"refused whole and none of them ran: {contract.id} may "
+                    f"change a Python file.",
+                    file=sys.stderr,
+                )
+                return 1
 
     import shutil
     import tempfile
