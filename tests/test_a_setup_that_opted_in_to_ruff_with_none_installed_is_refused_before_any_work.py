@@ -119,6 +119,8 @@ def test_opted_in_with_no_ruff_names_ruff_its_install_and_the_switch(
     said = str(issue)
     assert "ruff is not installed" in said, said
     assert "uv tool install ruff" in said, said
+    assert "already installed" in said, said
+    assert "uv tool update-shell" in said, said
     assert "gate.ruff: false" in said, said
 
 
@@ -217,6 +219,7 @@ def _refused(
     assert code != 0, err
     assert "ruff is not installed" in err, err
     assert "uv tool install ruff" in err, err
+    assert "uv tool update-shell" in err, err
     assert "gate.ruff: false" in err, err
     assert sent == [], "a model was dispatched"
     assert (repo / "src/pkg/messy.py").read_text(encoding="utf-8") == "x = 0\n"

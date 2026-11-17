@@ -449,7 +449,9 @@ def missing_gate_tool(
                 f"gate.ruff is true and {RUFF} is not installed (not found on "
                 f"PATH): the gate could not judge this run's Python change on "
                 f"lint or format, nor repair it, so the run is refused before "
-                f"any work. Install it with `{RUFF_INSTALL}`, or set "
+                f"any work. Install it with `{RUFF_INSTALL}`; if uv says it is "
+                f"already installed, put uv's tool bin folder on PATH with "
+                f"`uv tool update-shell` and open a new shell. Or set "
                 f"`gate.ruff: false` to run without lint, format and repair."
             ),
         )
