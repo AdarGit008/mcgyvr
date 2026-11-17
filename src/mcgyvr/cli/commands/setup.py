@@ -1555,11 +1555,12 @@ def _setup_interactive(
 
 
 def _handoff(path: Path) -> None:
-    """Print and write the endpoint, key and model a custom provider points at.
+    """Write the endpoint, key and model a custom provider points at, and print them.
 
     Nothing is written when the setup holds no ladder to serve. The key is the
     one mcgyvr already keeps for the unit (:mod:`mcgyvr.unitkey`), read the way
-    `mcgyvr fleet key <unit>` reads it, never a second key.
+    `mcgyvr fleet key <unit>` reads it, never a second key; the screen names
+    that command, with this setup's `--config`, rather than the key.
 
     A ``provider.env`` that cannot be written privately fails the run as the
     wizard's own errors do: one ``error:`` line and exit 1. Every call comes
@@ -1581,7 +1582,8 @@ def _handoff(path: Path) -> None:
             f"the servers are up, but {handoff.PROVIDER_FILENAME} was not "
             f"written: {exc}"
         ) from exc
-    handoff.print_provider(provider, exported)
+    command = handoff.key_command(config, provider.unit, provider.api_key, path)
+    handoff.print_provider(provider, exported, command)
 
 
 def run_menu_setup(*, auto: bool, stop: str | None) -> int:
