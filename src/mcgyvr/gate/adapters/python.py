@@ -127,12 +127,16 @@ class PythonAdapter(LanguageAdapter):
     Syntax is decided by ``ast``, structure by an ``ast`` visitor plus the shared
     compliance rules, lint and format by ``ruff``. ``param_mutation`` chooses
     where the shared parameter-mutation rule lands: rejecting, observational, or
-    off.
+    off. ``ruff`` false (``gate.ruff``) leaves the lint and format rungs out.
     """
 
     def __init__(
-        self, *, param_mutation: ParamMutation | str = ParamMutation.REFUSE
+        self,
+        *,
+        param_mutation: ParamMutation | str = ParamMutation.REFUSE,
+        ruff: bool = True,
     ) -> None:
+        self._ruff = ruff
         try:
             self._param_mutation = ParamMutation(param_mutation)
         except ValueError:
@@ -200,7 +204,7 @@ class PythonAdapter(LanguageAdapter):
         self, changes: Sequence[FileChange], repo: Path, *, base: str | None = None
     ) -> list[Finding]:
         files = self.owned(changes)
-        if not files:
+        if not files or not self._ruff:
             return []
         ruff = require_tool(RUFF)
         # A missing binary raises out of ``require_tool`` as an environment
@@ -288,7 +292,7 @@ class PythonAdapter(LanguageAdapter):
 
     def format_check(self, changes: Sequence[FileChange], repo: Path) -> list[Finding]:
         files = self.owned(changes)
-        if not files:
+        if not files or not self._ruff:
             return []
         ruff = require_tool(RUFF)
         proc = subprocess.run(

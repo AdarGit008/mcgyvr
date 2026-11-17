@@ -59,7 +59,7 @@ def test_with_no_uv_on_path_setup_goes_on_and_says_ruff_was_not_installed(
 
     (line,) = _said(capsys.readouterr().out)
     assert "uv tool install ruff" in line
-    assert _policy()["gate"]["enabled"] is True, "the config was staged as asked"
+    assert _policy()["gate"]["ruff"] is True, "the config was staged as asked"
 
 
 @pytest.mark.parametrize(
@@ -85,4 +85,4 @@ def test_a_run_that_stops_at_the_files_installs_nothing_and_says_how(
     assert installed == [], f"a run stopped after {stopped_after} installs nothing"
     (line,) = _said(capsys.readouterr().out)
     assert stopped_after in line and "`uv tool install ruff`" in line
-    assert _policy()["gate"]["enabled"] is True, "the config still says ruff is on"
+    assert _policy()["gate"]["ruff"] is True, "the config still says ruff is on"

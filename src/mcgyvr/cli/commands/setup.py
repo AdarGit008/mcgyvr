@@ -439,8 +439,12 @@ DEPLOYMENT_QUESTION = (
 FANOUT_QUESTION = "Fan-out across units? [idle] idle, none or full: "
 #: The coding branch's sleep/wake switch, the fleet's `serving.enable_sleep_wake`.
 SLEEP_WAKE_QUESTION = "May mcgyvr sleep and wake cards on its own? [y/n] "
-#: The coding branch's ruff switch: the lint/format gate and its repair.
-RUFF_QUESTION = "Install ruff and enable the lint/format gate and its repair? [y/n] "
+#: The coding branch's ruff switch, `gate.ruff`: the lint and format rungs and
+#: the repair. No skips only those; the rest of the gate judges as before.
+RUFF_QUESTION = (
+    "Install ruff for the gate's lint, format and repair? No skips only those: "
+    "syntax, types and the acceptance command still judge. [y/n] "
+)
 #: The raw branch's context window question; Enter keeps the recommended one.
 CONTEXT_SIZE_QUESTION = "Context window in tokens (Enter for the recommended): "
 #: The raw branch's KV cache quant question, default `f16`.
@@ -489,7 +493,7 @@ def _ask_sleep_wake() -> bool:
 
 
 def _ask_ruff() -> bool:
-    """Ask whether ruff runs as the lint/format gate and its repair."""
+    """Ask whether ruff runs the gate's lint and format rungs and the repair."""
     return _confirm(RUFF_QUESTION)
 
 
@@ -706,11 +710,11 @@ def _apply_setup_choices(
     `initialize` wrote.
 
     Each choice is an existing schema field, never a new one: `fanout`,
-    `users`, the `serving` block and the `gate`/`cleanup` switches in
-    policy.yaml, and per-unit `window`, `width`, `model` and the KV cache
-    launch keys in fleet.yaml. A choice of None leaves the field as
-    `initialize` wrote it. `ruff` writes both `gate.enabled` and
-    `cleanup.enabled` explicitly, because an unset field reads as on.
+    `users`, the `serving` block and `gate.ruff` in policy.yaml, and per-unit
+    `window`, `width`, `model` and the KV cache launch keys in fleet.yaml. A
+    choice of None leaves the field as `initialize` wrote it. `ruff` writes
+    `gate.ruff` explicitly, yes or no, so a later reader can tell an opt-in
+    from a config that never asked; `gate.enabled` is not written.
     """
     import yaml
 
@@ -729,8 +733,7 @@ def _apply_setup_choices(
         policy.setdefault("serving", {})["enable_sleep_wake"] = enable_sleep_wake
         changed_policy = True
     if ruff is not None:
-        policy.setdefault("gate", {})["enabled"] = ruff
-        policy.setdefault("cleanup", {})["enabled"] = ruff
+        policy.setdefault("gate", {})["ruff"] = ruff
         changed_policy = True
     if unit_overrides:
         units = fleet.get("units") or {}
@@ -1420,8 +1423,8 @@ def _setup_interactive(
     code.
 
     The tree: rigs, then the use case. The coding branch asks deployment,
-    Jev, fan-out, sleep/wake and ruff (the lint/format gate and its
-    repair); the chat branch asks context size, context quant and model,
+    Jev, fan-out, sleep/wake and ruff (`gate.ruff`: the lint and format
+    rungs and the repair); the chat branch asks context size, context quant and model,
     and the agent branch adds slots. The scan and
     recommendation run next, and the placement they print is committed only
     on the consent gate; a skipped recommendation asks for a model path or

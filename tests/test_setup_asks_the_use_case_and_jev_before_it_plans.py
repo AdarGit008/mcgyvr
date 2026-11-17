@@ -186,7 +186,7 @@ def test_a_jev_opt_in_binds_the_unit_and_the_sample_asks_its_choice(
     assert _policy(_live())["jev"]["unit"] == unit
 
 
-def test_a_ruff_opt_in_installs_ruff_and_enables_the_gate_and_cleanup(
+def test_a_ruff_opt_in_installs_ruff_and_writes_gate_ruff_on(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     installed: list[str] = []
@@ -203,12 +203,13 @@ def test_a_ruff_opt_in_installs_ruff_and_enables_the_gate_and_cleanup(
     assert cli.main(["setup"]) == 0
 
     policy = _policy(_staged())
+    assert policy["gate"]["ruff"] is True, "a later reader can see the opt-in"
     assert policy["gate"]["enabled"] is True
     assert policy["cleanup"]["enabled"] is True
     assert installed == ["ruff"], "ruff is installed once, on the yes"
 
 
-def test_enter_on_ruff_leaves_the_gate_and_cleanup_off_and_installs_nothing(
+def test_enter_on_ruff_skips_only_ruff_keeps_the_gate_on_and_installs_nothing(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     installed: list[str] = []
@@ -225,8 +226,9 @@ def test_enter_on_ruff_leaves_the_gate_and_cleanup_off_and_installs_nothing(
     assert cli.main(["setup"]) == 0
 
     policy = _policy(_staged())
-    assert policy["gate"]["enabled"] is False
-    assert policy["cleanup"]["enabled"] is False
+    assert policy["gate"]["ruff"] is False
+    assert policy["gate"]["enabled"] is True, "no to ruff turned the whole gate off"
+    assert policy["cleanup"]["enabled"] is True, "the key is gate.ruff, not cleanup"
     assert installed == [], "off (the Enter default) installs nothing"
 
 
