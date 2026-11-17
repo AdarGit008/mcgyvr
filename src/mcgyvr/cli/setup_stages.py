@@ -15,6 +15,7 @@ from __future__ import annotations
 from enum import StrEnum
 from typing import NamedTuple
 
+from mcgyvr.config import USE_CASES
 from mcgyvr.serving.vramfit import LLAMACPP_CACHE_TYPES
 
 
@@ -101,7 +102,7 @@ class Decision(NamedTuple):
 #: ``agent`` adds slots to it.
 DECISION_TREE: tuple[Decision, ...] = (
     Decision("rigs", ("local", "remote", "both"), "local"),
-    Decision("use-case", ("mcgyvr-code", "code", "chat", "agent"), None),
+    Decision("use-case", USE_CASES, None),
     Decision("coding.deployment", ("hybrid", "local-only"), "hybrid"),
     Decision("coding.jev", ("yes", "no"), "no"),
     Decision("coding.fanout", ("idle", "none", "full"), "idle"),
