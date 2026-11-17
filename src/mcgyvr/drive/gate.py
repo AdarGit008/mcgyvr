@@ -29,7 +29,6 @@ inputs those rungs take.
 
 from __future__ import annotations
 
-import re
 from dataclasses import replace
 from typing import TYPE_CHECKING
 
@@ -48,7 +47,7 @@ from mcgyvr.gate.preflight import PreflightIssue
 from mcgyvr.gate.semantic import SemanticCheck
 from mcgyvr.gate.typecheck import ParamMutation, TypeCheck
 from mcgyvr.sandbox.base import nested_git
-from mcgyvr.scope import Scope, inside
+from mcgyvr.scope import inside
 from mcgyvr.verify import Reviewer, independent
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
@@ -459,35 +458,22 @@ def missing_gate_tool(
     return None
 
 
-#: A wildcard of a pattern target as the run's matcher reads it
-#: (`mcgyvr.scope`): `**/`, `**` or `*`. Nothing else in a pattern is wild there.
-_WILDCARD = re.compile(r"\*\*/|\*\*|\*")
+def _may_name_python(python: PythonAdapter, named: str) -> bool:
+    """Whether `named` (a target or a scope entry) may name a file `python` owns.
 
-
-def _may_name_python(python: PythonAdapter, target: str) -> bool:
-    """Whether `target` is, or as a pattern could name, a file `python` owns.
-
-    A pattern is read with the run's own matcher, `Scope.permits`, the one that
-    expands a pattern target into files (`mcgyvr.vet`, `drive.exec`). A file it
-    names ends in its last literal piece, so candidates are built with every
-    wildcard but the last read as empty and the last as a stem plus each start
-    of a Python suffix, and one that the matcher permits and the adapter owns
-    is enough: `src/**` names `src/x.py`, `*.p*` names `x.py`, `docs/*.md` none.
+    It fails closed: a pattern counts unless it is shown that it cannot name
+    one. The run's matcher (`Scope.permits`, which expands a pattern into
+    files in `mcgyvr.vet` and `drive.exec`) reads only `*` and `**` as wild,
+    and anchors the literal text after a pattern's last `*` at the end of the
+    path. A Python file ends in one of the adapter's suffixes. So a path the
+    pattern names can be a Python file only when that tail ends in a suffix
+    or is the end of one: `docs/*.md` cannot, and `*/*.py`, `src/**`, `*y`
+    may. A pattern with no `*` is read literally there, as a path is.
     """
-    if not is_pattern(target):
-        return python.owns(target)
-    *pieces, tail = _WILDCARD.split(target)
-    head = "".join(pieces)
-    fills = [""] + [
-        f"x{suffix[:cut]}"
-        for suffix in PYTHON_SUFFIXES
-        for cut in range(len(suffix) + 1)
-    ]
-    names = Scope.of([target])
-    return any(
-        python.owns(name) and names.permits(name)
-        for name in (f"{head}{fill}{tail}" for fill in fills)
-    )
+    if not is_pattern(named):
+        return python.owns(named)
+    tail = named.rpartition("*")[2]
+    return python.owns(tail) or any(suffix.endswith(tail) for suffix in PYTHON_SUFFIXES)
 
 
 def gate_adapters(config: Config | None) -> tuple[LanguageAdapter, ...]:

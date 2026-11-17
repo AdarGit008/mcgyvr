@@ -143,6 +143,9 @@ def test_opted_in_with_no_ruff_names_ruff_its_install_and_the_switch(
         "**/*.pyi",
         "src/*.p*",
         "src/pkg/mess?.py",
+        "*/*.py",
+        "*/tests/*.py",
+        "*/pkg/**",
     ],
 )
 def test_a_change_that_may_hold_python_is_checked(
@@ -151,6 +154,97 @@ def test_a_change_that_may_hold_python_is_checked(
     _hide_ruff(tmp_path, monkeypatch)
 
     assert _issue(_setup(True), target) is not None, target
+
+
+#: Python paths a pattern may name, one to four segments deep.
+PYTHON_PATHS = (
+    "m.py",
+    "x.pyi",
+    "pkg/m.py",
+    "src/x.p.py",
+    "tests/test_x.py",
+    "a/tests/b.py",
+    "a/pkg/b.pyi",
+    "src/pkg/messy.py",
+    "src/a/b/c.py",
+)
+
+#: Patterns written by hand, the review's probes and odd shapes among them.
+PATTERNS = (
+    "*",
+    "**",
+    "**/",
+    "*/*",
+    "*/**",
+    "**/*",
+    "*.p*",
+    "*y",
+    "*i",
+    "*.md",
+    "src/**",
+    "**/*.py",
+    "*.py",
+    "src/*.p*",
+    "src/pkg/mess?.py",
+    "src/*/x.py",
+    "pkg/*/*.py",
+    "src/**/test_*",
+    "*/*.py",
+    "*/tests/*.py",
+    "*/pkg/**",
+    "*/*/*/*.pyi",
+    "a*b*.py",
+    "**/py",
+    "docs/*.md",
+    "docs/**/*.md",
+    "*.js",
+    "src/**/*.ts",
+    "**/*.pyc",
+    "*.py/x",
+)
+
+
+def _derived(path: str) -> set[str]:
+    """Every pattern made from `path` by putting `*` or `**` in the place of
+    any of its segments, and of the stem or the whole name of its file."""
+    from itertools import product
+
+    *folders, name = path.split("/")
+    stem, dot, suffix = name.partition(".")
+    names = {name, "*", "**", f"*{dot}{suffix}", f"{stem}*", f"*{suffix[-1:]}"}
+    found: set[str] = set()
+    for chosen in product(*[(f, "*", "**") for f in folders], sorted(names)):
+        found.add("/".join(chosen))
+    return found
+
+
+def test_the_check_never_lets_through_a_pattern_the_matcher_lets_name_python(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Fail closed: for every pattern here, written by hand or derived from a
+    Python path, if `Scope.permits` lets it name any of `PYTHON_PATHS`, as a
+    target or as a scope entry, the check refuses. And a pattern that cannot
+    name Python (`docs/*.md`, `*.js`, `**/*.pyc`) is let through."""
+    from mcgyvr.scope import Scope
+
+    _hide_ruff(tmp_path, monkeypatch)
+    config = _setup(True)
+    patterns = set(PATTERNS).union(*(_derived(p) for p in PYTHON_PATHS))
+    names_python = {
+        p for p in patterns if any(Scope.of([p]).permits(q) for q in PYTHON_PATHS)
+    }
+    assert len(names_python) > 200, "the derived patterns did not come out"
+
+    open_as_target = sorted(p for p in names_python if _issue(config, p) is None)
+    open_as_scope = sorted(
+        p for p in names_python if _issue(config, "README.md", (p,)) is None
+    )
+
+    assert open_as_target == [], open_as_target
+    assert open_as_scope == [], open_as_scope
+    for safe in ("docs/*.md", "docs/**/*.md", "*.js", "src/**/*.ts", "**/*.pyc"):
+        assert safe not in names_python, safe
+        assert _issue(config, safe) is None, safe
 
 
 @pytest.mark.parametrize(
