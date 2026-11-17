@@ -596,6 +596,17 @@ def _consent_to_placement() -> bool:
     return _confirm(CONSENT_QUESTION)
 
 
+def _ask_skip_rec() -> str:
+    """Ask how a skipped recommendation goes on: `manual` (the default, the
+    all-manual terminal) or `model-path` (plan from a model store)."""
+    return _setup_choose(
+        SKIP_REC_QUESTION,
+        ("manual", "model-path"),
+        "a way to go on",
+        names=("I'll do it myself", "I have a model path"),
+    )
+
+
 def _print_all_manual(use_case: str, rigs: Sequence[str]) -> None:
     """The all-manual terminal: nothing was stamped, so print how to do it by hand."""
     _rule("Nothing was stamped — the setup is all-manual")
@@ -630,13 +641,7 @@ def _recommend_consented(
         )
         if auto or _consent_to_placement():
             return plans
-        said = _setup_choose(
-            SKIP_REC_QUESTION,
-            ("model-path", "manual"),
-            "a way to go on",
-            names=("I have a model path", "I'll do it myself"),
-        )
-        if said == "manual":
+        if _ask_skip_rec() == "manual":
             _print_all_manual(use_case, rigs)
             return None
         directory = _ask(MODEL_STORE_QUESTION)
