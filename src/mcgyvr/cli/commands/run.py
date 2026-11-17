@@ -289,7 +289,14 @@ def _run(args: argparse.Namespace) -> int:
         code = _floor(args, contract, repo, report, config, recording=recording)
     else:
         assert config is not None  # a climbing contract with none was refused above
-        code = _climb(args, contract, repo, config, recording=recording, report=report)
+        from mcgyvr import wake as wakelib
+
+        # A door the climb's waker starts reads its own setup, so the one named
+        # here is handed to it, on the capacity's worker threads too.
+        with wakelib.door_config(chosen):
+            code = _climb(
+                args, contract, repo, config, recording=recording, report=report
+            )
 
     report.exit_code = code
     # A mirror that failed while the run was going was recorded rather than
