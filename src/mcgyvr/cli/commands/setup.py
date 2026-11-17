@@ -1547,6 +1547,10 @@ def _handoff(path: Path) -> None:
     Nothing is written when the setup holds no ladder to serve. The key is the
     one mcgyvr already keeps for the unit (:mod:`mcgyvr.unitkey`), read the way
     `mcgyvr fleet key <unit>` reads it, never a second key.
+
+    A ``provider.env`` that cannot be written privately fails the run as the
+    wizard's own errors do: one ``error:`` line and exit 1. Every call comes
+    after the servers were started, so the line says they are up.
     """
     from mcgyvr import handoff
 
@@ -1557,7 +1561,13 @@ def _handoff(path: Path) -> None:
     provider = handoff.from_config(config)
     if provider is None:
         return
-    exported = handoff.write(path, provider)
+    try:
+        exported = handoff.write(path, provider)
+    except handoff.HandoffError as exc:
+        raise _SetupInteractiveError(
+            f"the servers are up, but {handoff.PROVIDER_FILENAME} was not "
+            f"written: {exc}"
+        ) from exc
     handoff.print_provider(provider, exported)
 
 

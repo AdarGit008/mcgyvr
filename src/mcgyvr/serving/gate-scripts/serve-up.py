@@ -18,7 +18,10 @@ file starts by default. Each selected unit is then polled until it serves,
 for at most `serving.start_timeout_s` (six minutes unset),
 and one line per unit states whether it is up, asleep, asleep with an
 unreadable probe, or not answering. The step exits 1 when `docker compose
-up` failed or any unit did not come up healthy, and 0 otherwise.
+up` failed or any unit did not come up healthy, and 0 otherwise. A
+`provider.env` that cannot be written privately is one `serve-up: error:`
+line and still exit 0: the units are up and filed, and setup and wake read a
+non-zero up as a unit that is not serving.
 """
 
 from __future__ import annotations
@@ -120,7 +123,15 @@ def _handoff(ctx: servelib.ServeContext, rows: list[dict[str, object]]) -> None:
             api_key=key,
             model=str(models[0]),
         )
-        exported = handoff.write(roots.data_home(), provider)
+        try:
+            exported = handoff.write(roots.data_home(), provider)
+        except handoff.HandoffError as exc:
+            print(
+                f"serve-up: error: the units are up, but "
+                f"{handoff.PROVIDER_FILENAME} was not written: {exc}",
+                file=sys.stderr,
+            )
+            return
         handoff.print_provider(provider, exported)
         return
 
