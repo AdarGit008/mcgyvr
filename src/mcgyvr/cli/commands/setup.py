@@ -500,15 +500,21 @@ def _install_ruff() -> None:
     reported, not fatal, so the run completes and a later install finishes
     what the gate needs.
     """
-    done = subprocess.run(
-        ["uv", "tool", "install", "ruff"],
-        stdin=subprocess.DEVNULL,
-        capture_output=True,
-        encoding="utf-8",
-        errors="replace",
-        check=False,
-        **hostos.popen_no_window_kwargs(),
-    )
+    try:
+        done = subprocess.run(
+            ["uv", "tool", "install", "ruff"],
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+            **hostos.popen_no_window_kwargs(),
+        )
+    except OSError as exc:
+        # No `uv` on PATH (or one that cannot be run): the same report as a
+        # failed install, so setup goes on.
+        print(f"ruff was not installed: `uv tool install ruff` did not run: {exc}")
+        return
     if done.returncode != 0:
         said = (done.stderr or done.stdout or "").strip()
         print(
