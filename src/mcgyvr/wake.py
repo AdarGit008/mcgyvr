@@ -41,6 +41,7 @@ from typing import TypeVar
 from mcgyvr import atomic
 from mcgyvr.capacity import Capacity, SlotUnavailableError
 from mcgyvr.config import ROLE_SLEEPER, Config
+from mcgyvr.ladder_proposal import DEFAULT_HEADROOM_GB
 from mcgyvr.runner import RefusedConnectionError
 from mcgyvr.serving import DEFAULT_ENGINE, Card, cards, host_of, port_of
 
@@ -369,9 +370,12 @@ def _room_mib(config: Config, rung: str) -> int | None:
     """The card room a rung needs in MiB, or None where nothing states it.
 
     `room_mib` states it outright. Where it does not, the launch's `vram_gb` —
-    the sizing figure `mcgyvr emit` stamps back into fleet.yaml — is the room
-    in GiB and is turned into whole MiB. A unit that states neither has no
-    figure to reckon a swap from.
+    the model's figure `mcgyvr emit` stamps back into fleet.yaml, in GiB — is
+    not the room by itself: the fit holds `DEFAULT_HEADROOM_GB` beyond it, and
+    setup writes a room as that figure plus the headroom, in whole MiB. The
+    same sum is taken here, so a unit sized from its launch gets the room setup
+    would have written for it. A unit that states neither has no figure to
+    reckon a swap from.
     """
     unit = config.units.get(rung)
     if unit is None:
@@ -380,7 +384,7 @@ def _room_mib(config: Config, rung: str) -> int | None:
         return unit.room_mib
     stated = unit.launch.get("vram_gb")
     if isinstance(stated, int | float) and not isinstance(stated, bool) and stated > 0:
-        return math.ceil(float(stated) * 1024)
+        return math.ceil((float(stated) + DEFAULT_HEADROOM_GB) * 1024)
     return None
 
 
