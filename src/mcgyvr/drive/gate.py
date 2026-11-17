@@ -427,18 +427,19 @@ def missing_gate_tool(
     setup asked, and a setup that never asked) is told apart from a yes; it keeps
     the gate's quiet skip. Nothing is said when the gate is off, when
     ``gate.ruff`` is false or unset, or when the contract's change cannot hold a
-    Python file: its target is a path the Python adapter does not own, or a
-    pattern that cannot name one (`_may_name_python`).
+    Python file: neither its target nor any entry of its `scope.allow` (what a
+    change may write, a rename's across files included) is a path the Python
+    adapter owns or a pattern that may name one (`_may_name_python`).
     """
     if config is None or config.get("gate.enabled") is False:
         return None
     if config.get("gate.ruff") is not True:
         return None
-    target = contract.target
     python = next(
         (a for a in gate_adapters(config) if isinstance(a, PythonAdapter)), None
     )
-    if python is None or not _may_name_python(python, target):
+    named = (contract.target, *contract.scope.allow)
+    if python is None or not any(_may_name_python(python, n) for n in named):
         return None
     try:
         require_tool(RUFF)

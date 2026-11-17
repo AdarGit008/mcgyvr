@@ -89,10 +89,19 @@ def _setup(ruff: bool | None, *, gate: bool | None = None) -> Config:
     return parse(FLEET, policy)
 
 
-def _issue(config: Config | None, target: str = "src/pkg/messy.py") -> object:
+def _issue(
+    config: Config | None,
+    target: str = "src/pkg/messy.py",
+    scope: tuple[str, ...] | None = None,
+) -> object:
+    """The check on `RENAME` with `target`, its scope `scope` (the target alone
+    when not given)."""
     from mcgyvr.drive import missing_gate_tool
+    from mcgyvr.scope import Scope
 
-    return missing_gate_tool(config, replace(loads(RENAME), target=target))
+    allow = scope if scope is not None else (target,)
+    contract = replace(loads(RENAME), target=target, scope=Scope.of(allow))
+    return missing_gate_tool(config, contract)
 
 
 # --- the check ---------------------------------------------------------------
@@ -142,6 +151,26 @@ def test_a_change_that_may_hold_python_is_checked(
     _hide_ruff(tmp_path, monkeypatch)
 
     assert _issue(_setup(True), target) is not None, target
+
+
+@pytest.mark.parametrize(
+    ("target", "scope"),
+    [
+        ("docs/*.md", "**"),
+        ("docs/*.md", "docs/**"),
+        ("README.md", "src/**"),
+        ("web/app.js", "**"),
+    ],
+)
+def test_a_scope_that_may_name_python_is_checked(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, target: str, scope: str
+) -> None:
+    """A change may write anywhere its scope allows (a rename rewrites every
+    file that uses the name), so a scope that may name a Python file counts
+    even when the target cannot."""
+    _hide_ruff(tmp_path, monkeypatch)
+
+    assert _issue(_setup(True), target, (scope,)) is not None, (target, scope)
 
 
 @pytest.mark.parametrize(
@@ -260,13 +289,22 @@ def test_the_floor_with_no_ruff_is_refused_and_nothing_runs(
     _refused(code, sent, repo, journal, printed.err, tmp_path)
 
 
-def test_a_pattern_that_cannot_name_python_meets_the_runs_own_error(
+@pytest.mark.parametrize(
+    ("scope", "refused"),
+    [("docs/**/*.md", False), ("**", True)],
+    ids=["markdown-scope", "whole-tree-scope"],
+)
+def test_a_rename_over_markdown_is_judged_by_what_its_scope_may_write(
     tmp_path: Path,
     home: Path,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
+    scope: str,
+    refused: bool,
 ) -> None:
-    """A rename over `docs/*.md` fails on its own terms, as it always did."""
+    """A rename over `docs/*.md` whose scope holds only markdown fails on its
+    own terms, as it always did. With scope `**` it would rewrite the Python
+    module that defines the name (`src/pkg/messy.py`), so it is refused."""
     _hide_ruff(tmp_path, monkeypatch)
     sent = lj.scripted(monkeypatch)
     repo = lj.make_repo(tmp_path / "repo")
@@ -278,15 +316,18 @@ def test_a_pattern_that_cannot_name_python_meets_the_runs_own_error(
     lj.append_policy(config, "gate:\n  ruff: true\n")
     markdown = RENAME.replace("target: src/pkg/messy.py", "target: docs/*.md")
     contract = lj.make_contract(
-        tmp_path / "c.yaml", markdown.replace('"src/**"', '"docs/**"')
+        tmp_path / "c.yaml", markdown.replace('"src/**"', f'"{scope}"')
     )
 
     code = lj.main(lj.run_args(contract, repo, config))
 
     err = capsys.readouterr().err
     assert code != 0, err
-    assert "ruff is not installed" not in err, err
+    assert ("ruff is not installed" in err) is refused, err
     assert sent == [], "a model was dispatched"
+    module = (repo / "src/pkg/messy.py").read_text(encoding="utf-8")
+    assert module == "x = 0\n", "the Python module was rewritten"
+    assert lj.git(repo, "rev-list", "--count", "HEAD").strip() == "2"
 
 
 @pytest.mark.parametrize("ruff", [None, False], ids=["unset", "opted-out"])
