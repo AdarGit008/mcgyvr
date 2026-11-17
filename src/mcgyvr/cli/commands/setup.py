@@ -523,6 +523,16 @@ def _install_ruff() -> None:
         )
 
 
+def _ruff_left_for_later(ruff_on: bool | None, stopped_after: str) -> None:
+    """Say, on a yes to ruff, that a run stopped at `stopped_after` installed
+    nothing, and how to install it."""
+    if ruff_on:
+        print(
+            f"ruff was not installed: setup stopped after {stopped_after}. "
+            "Install it with `uv tool install ruff`."
+        )
+
+
 def _ask_context_size() -> int | None:
     """Ask for the served context window, or None for the recommended one."""
     for _ in range(_SETUP_TRIES):
@@ -1477,10 +1487,9 @@ def _setup_interactive(
             users=slots if slots != 1 else None,
             unit_overrides=_unit_overrides(context_size, context_quant, model, slots),
         )
-        if ruff_on:
-            _install_ruff()
         print(f"Staged the setup at {staged.path}\n")
         if stop is Stop.CONFIG:
+            _ruff_left_for_later(ruff_on, "the config")
             print(
                 f"Wrote the config and stopped: nothing was emitted, started "
                 f"or sampled. The setup is at {path}.\n"
@@ -1489,11 +1498,16 @@ def _setup_interactive(
         rooms = _setup_rooms(path, ctx_per_slot)
         _setup_emit(path, ctx_per_slot)
         if stop is Stop.EMIT:
+            _ruff_left_for_later(ruff_on, "the launch specs")
             print(
                 f"Emitted the launch specs and stopped: nothing was started "
                 f"or sampled. The setup and its specs are at {path}.\n"
             )
             return 0
+        # A run that stops at the config or the launch specs writes files
+        # only, so the network install waits for a run that goes on.
+        if ruff_on:
+            _install_ruff()
 
         _rule("Step 4 of 4 — start and lock")
         for note in _native_notes(rigs):

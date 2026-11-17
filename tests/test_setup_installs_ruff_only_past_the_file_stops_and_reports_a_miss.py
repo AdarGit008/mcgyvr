@@ -60,3 +60,29 @@ def test_with_no_uv_on_path_setup_goes_on_and_says_ruff_was_not_installed(
     (line,) = _said(capsys.readouterr().out)
     assert "uv tool install ruff" in line
     assert _policy()["gate"]["enabled"] is True, "the config was staged as asked"
+
+
+@pytest.mark.parametrize(
+    ("stop", "stopped_after"),
+    [("config", "the config"), ("emit", "the launch specs")],
+)
+def test_a_run_that_stops_at_the_files_installs_nothing_and_says_how(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    stop: str,
+    stopped_after: str,
+) -> None:
+    installed: list[str] = []
+    monkeypatch.setattr(
+        cli.commands.setup, "_install_ruff", lambda: installed.append("ruff")
+    )
+    sd.interactive(
+        monkeypatch, sd.FakeRig(), {RUFF_QUESTION: True}, typed={USE_CASE: "m"}
+    )
+
+    assert cli.commands.setup.run_menu_setup(auto=False, stop=stop) == 0
+
+    assert installed == [], f"a run stopped after {stopped_after} installs nothing"
+    (line,) = _said(capsys.readouterr().out)
+    assert stopped_after in line and "`uv tool install ruff`" in line
+    assert _policy()["gate"]["enabled"] is True, "the config still says ruff is on"
