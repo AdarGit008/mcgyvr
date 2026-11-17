@@ -93,6 +93,11 @@ LOGS = "logs"
 BIN = Path("bin") / "llama.cpp"
 #: A unit name a file is made from: what a container name may hold.
 UNIT_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}")
+#: What a unit's lock, record and spec file add to its whole name. A unit name
+#: may hold dots (a model id's ``2.5``), none of which ends it.
+LOCK_END = ".lock"
+RECORD_END = ".json"
+SPEC_END = ".spec.json"
 #: How long :func:`up` waits for a supervisor to say its server started, how
 #: long :func:`down` gives one to stop before it is ended by force, and how
 #: often each looks.
@@ -250,13 +255,30 @@ def _private(path: Path) -> Path:
 
 
 def _paths(unit: str) -> tuple[Path, Path, Path]:
-    """The unit's lock, record and spec files."""
-    base = state_dir() / _checked(unit)
+    """The unit's lock, record and spec files: its whole name and each one's end."""
+    name = _checked(unit)
+    folder = state_dir()
     return (
-        base.with_suffix(".lock"),
-        base.with_suffix(".json"),
-        base.with_suffix(".spec.json"),
+        folder / f"{name}{LOCK_END}",
+        folder / f"{name}{RECORD_END}",
+        folder / f"{name}{SPEC_END}",
     )
+
+
+def _cut(unit: str) -> tuple[Path, Path] | None:
+    """The lock and record a supervisor an earlier mcgyvr started keeps for
+    `unit`, or None. That one named them by ``Path.with_suffix``, which cut a
+    dotted name at its last dot (``m-Qwen2.5-0.5B-8080`` into
+    ``m-Qwen2.5-0.lock``), so units of one model shared them; they are taken as
+    `unit`'s only while that record names `unit` itself. A name with no dot
+    was never cut."""
+    base = state_dir() / _checked(unit)
+    lock, record_file = base.with_suffix(LOCK_END), base.with_suffix(RECORD_END)
+    if record_file == _paths(unit)[1]:
+        return None
+    if (_record(record_file) or {}).get("unit") != unit:
+        return None
+    return lock, record_file
 
 
 # --- the launch spec ---------------------------------------------------------
@@ -531,6 +553,11 @@ def start(
         # session's) passes `{"max_restarts": 0}`.
         **(restart or {}),
     }
+    # A supervisor an earlier mcgyvr started for this unit keeps it under its
+    # cut name: it is stopped first, so one server holds the unit's port.
+    cut = _cut(unit.container)
+    if cut is not None and not _stop(*cut):
+        return f"{unit.container}: its old server would not stop"
     if supervised(unit.container):
         try:
             same = json.loads(spec_file.read_text(encoding="utf-8")) == spec
@@ -647,27 +674,36 @@ def down(names: Iterable[str]) -> subprocess.CompletedProcess[str]:
 
 
 def stop(unit: str) -> bool:
-    """Stop `unit`'s supervisor and server; True once neither is left."""
-    found = read_record(unit) or {}
+    """Stop `unit`'s supervisor and server, and one an earlier mcgyvr started
+    for it under its cut name (:func:`_cut`); True once none is left."""
+    lock, record_file, _spec = _paths(unit)
+    gone = _stop(lock, record_file)
+    cut = _cut(unit)
+    return (cut is None or _stop(*cut)) and gone
+
+
+def _stop(lock: Path, record_file: Path) -> bool:
+    """Stop the supervisor holding `lock` and the server `record_file` names."""
+    found = _record(record_file) or {}
     supervisor = matches(found.get("supervisor"))
     server = matches(found.get("server"))
-    if supervisor is not None and supervised(unit):
+    if supervisor is not None and _held(lock):
         # The supervisor heads the group its server runs in (POSIX), so the
         # group hears it; on Windows the supervisor is ended outright, and
         # its Job Object ends the server.
         hostos.end_pid(supervisor, group=True)
-        if not _wait(lambda: not supervised(unit), STOP_S):
+        if not _wait(lambda: not _held(lock), STOP_S):
             # Asked again by its start time before the kill: the pid may be
             # another process's by now.
             if matches(found.get("supervisor")) is not None:
                 hostos.end_pid(supervisor, force=True, group=True)
-            _wait(lambda: not supervised(unit), STOP_S)
+            _wait(lambda: not _held(lock), STOP_S)
     if server is not None and matches(found.get("server")) is not None:
         hostos.end_pid(server, force=True)
         _wait(lambda: matches(found.get("server")) is None, STOP_S)
-    gone = not supervised(unit) and matches(found.get("server")) is None
+    gone = not _held(lock) and matches(found.get("server")) is None
     if found and gone:
-        _write_json(_paths(unit)[1], {**found, "state": STOPPED})
+        _write_json(record_file, {**found, "state": STOPPED})
     return gone
 
 
@@ -719,7 +755,11 @@ def answers(port: int, path: str = "/v1/models") -> bool:
 
 def supervised(unit: str) -> bool:
     """Whether a supervisor holds `unit`'s lock right now."""
-    lock = _paths(unit)[0]
+    return _held(_paths(unit)[0])
+
+
+def _held(lock: Path) -> bool:
+    """Whether a supervisor holds `lock` right now."""
     try:
         fd = hostos.open_nofollow(lock, os.O_RDONLY)
     except OSError:
@@ -737,8 +777,13 @@ def supervised(unit: str) -> bool:
 
 def read_record(unit: str) -> dict[str, Any] | None:
     """`unit`'s record as its supervisor last wrote it, or None."""
+    return _record(_paths(unit)[1])
+
+
+def _record(record_file: Path) -> dict[str, Any] | None:
+    """The record in `record_file`, or None."""
     try:
-        found = json.loads(_paths(unit)[1].read_text(encoding="utf-8"))
+        found = json.loads(record_file.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return None
     return found if isinstance(found, dict) else None
@@ -747,13 +792,13 @@ def read_record(unit: str) -> dict[str, Any] | None:
 def units() -> list[str]:
     """Every unit a record names."""
     try:
-        listed = sorted(state_dir().glob("*.json"))
+        listed = sorted(state_dir().glob(f"*{RECORD_END}"))
     except OSError:
         return []
     return [
-        p.name[: -len(".json")]
+        p.name[: -len(RECORD_END)]
         for p in listed
-        if not p.name.endswith(".spec.json") and p.name != METAL_FILE
+        if not p.name.endswith(SPEC_END) and p.name != METAL_FILE
     ]
 
 
