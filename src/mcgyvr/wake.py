@@ -27,6 +27,7 @@ wake and make room with.
 from __future__ import annotations
 
 import json
+import math
 import os
 import subprocess
 import sys
@@ -42,6 +43,7 @@ from typing import TypeVar
 from mcgyvr import atomic
 from mcgyvr.capacity import Capacity, SlotUnavailableError
 from mcgyvr.config import CONFIG_PATH_ENV, ROLE_SLEEPER, Config
+from mcgyvr.ladder_proposal import DEFAULT_HEADROOM_GB
 from mcgyvr.runner import RefusedConnectionError
 from mcgyvr.serving import DEFAULT_ENGINE, Card, cards, host_of, port_of
 
@@ -393,6 +395,32 @@ def _stopped_alone(config: Config, rungs: Sequence[str]) -> bool:
     instead, which is why it is not covered here.
     """
     return bool(rungs) and all(_engine(config, r) == DEFAULT_ENGINE for r in rungs)
+
+
+def _room_mib(config: Config, rung: str) -> int | None:
+    """The card room a rung needs in MiB, or None where nothing states it.
+
+    `room_mib` states it outright. Where it does not, the launch's `vram_gb` —
+    the model's figure `mcgyvr emit` stamps back into fleet.yaml, in GiB, for a
+    model with no geometry that is not a mixture of experts — is not the room
+    by itself: the fit holds `DEFAULT_HEADROOM_GB` beyond it, and setup writes
+    a room as that figure plus the headroom, in whole MiB. The same sum is
+    taken here, so such a unit gets the room setup would have written for it.
+    A launch that also states `geometry_json` or `moe` is sized by the fit from
+    something else than `vram_gb`, so its `vram_gb` is no room and the unit
+    has none, like a unit that states neither figure.
+    """
+    unit = config.units.get(rung)
+    if unit is None:
+        return None
+    if unit.room_mib is not None:
+        return unit.room_mib
+    if unit.launch.get("geometry_json") or unit.launch.get("moe"):
+        return None
+    stated = unit.launch.get("vram_gb")
+    if isinstance(stated, int | float) and not isinstance(stated, bool) and stated > 0:
+        return math.ceil((float(stated) + DEFAULT_HEADROOM_GB) * 1024)
+    return None
 
 
 def _sleeper(config: Config, rung: str) -> bool:
@@ -886,13 +914,11 @@ class Waker:
             return False
         if alone:
             direction = _wake_direction(card, _ports(self._config, (rung,)))
-            # Name the unit when it is asleep, so the card's other units are
-            # left as they are, or when it is a llama.cpp unit being stopped.
-            only: tuple[str, ...] = (
-                (rung,)
-                if direction == "wake" or _stopped_alone(self._config, (rung,))
-                else ()
-            )
+            # A card whose units switch one at a time wakes this one rung
+            # alone, whichever engine it runs: a level-2 sleeper is woken in
+            # its process, a stopped container is started, and neither touches
+            # the card's other units.
+            only: tuple[str, ...] = (rung,)
         else:
             direction, only = _wake_direction(card), ()
         made = _run_door(self._config, card, direction, compose, only=only)
@@ -969,15 +995,29 @@ def sleep(config: Config, host: str) -> Wake:
 def put_down(config: Config, card: Card, only: tuple[str, ...] = ()) -> Wake:
     """Give a card back: sleep its vLLM units, or stop the card.
 
-    Sleep where every source is vLLM and no unit of it is split over machines,
-    and stop where the door answers with no sleep route. `only` narrows a card
-    whose units switch one at a time to the unit being put down. Raises
-    `WakeError` when the card holds the resident unit or has no single spec.
+    A whole card sleeps only where every source is vLLM and no unit of it is
+    split over machines, and stops where the door answers with no sleep route.
+    `only` narrows a card whose units switch one at a time to the units being
+    put down, and leaves the card's other units as they are: on a card where
+    every source is vLLM they sleep at level 2 (stopped where the door answers
+    with no sleep route), and on any other card they stop. Raises `WakeError`
+    when the card holds the resident unit or has no single spec.
     """
     _refuse_resident(config, card, "slept")
     compose = compose_for(card)
     if compose is None:
         raise WakeError(_why_not_one(card))
+    if only and _per_unit(config, card):
+        # Units that switch one at a time are put down alone. A llama.cpp unit
+        # is stopped, and so is a vLLM unit beside one: level 2 is not measured
+        # on a card of both engines, and a stop leaves no rest mark, so its wake
+        # is a start. Only a card of vLLM units alone sleeps them at level 2.
+        if _stopped_alone(config, only) or not _all_vllm(config, card):
+            return _run_door(config, card, "down", compose, only=only)
+        asked = _run_door(config, card, "sleep", compose, only=only)
+        if asked.code != NO_SLEEP_ROUTE:
+            return asked
+        return _run_door(config, card, "down", compose, only=only)
     split = _split_elsewhere(config, card)
     if split is not None:
         # A unit split over machines is stopped rather than slept: level 2 is
@@ -987,8 +1027,6 @@ def put_down(config: Config, card: Card, only: tuple[str, ...] = ()) -> Wake:
             f"split across machines, so {card.host} is stopped instead",
             file=sys.stderr,
         )
-    elif only and _per_unit(config, card) and _stopped_alone(config, only):
-        return _run_door(config, card, "down", compose, only=only)
     elif _all_vllm(config, card):
         asked = _run_door(config, card, "sleep", compose, only=only)
         if asked.code != NO_SLEEP_ROUTE:
@@ -1189,10 +1227,13 @@ class CardSwitches:
             )
         rooms: dict[str, int] = {}
         for name in card.rungs:
-            unit = self._config.units.get(name)
-            if unit is None or unit.room_mib is None:
-                return (), f"{name} states no room_mib"
-            rooms[name] = unit.room_mib
+            room = _room_mib(self._config, name)
+            if room is None:
+                return (), (
+                    f"{name} states no room_mib, and no launch.vram_gb without "
+                    "geometry_json or moe"
+                )
+            rooms[name] = room
         on = self._placement(card, sizes)
         if isinstance(on, str):
             return (), on
