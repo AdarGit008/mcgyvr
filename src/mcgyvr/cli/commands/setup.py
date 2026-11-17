@@ -32,6 +32,7 @@ from mcgyvr.capability import (
     CapabilityTableError,
 )
 from mcgyvr.config import (
+    AGENT,
     API_OUTPUT_TOKENS,
     CONFIG_PATH_ENV,
     DEFAULT_ENGINE,
@@ -75,6 +76,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from mcgyvr.knowledge.record import ModelRecord
 
 from mcgyvr.cli.common import INIT_DEFAULT_HELP, _named_path, _OneSetup
+from mcgyvr.cli.setup_stages import CONTEXT_QUANT_CHOICES, Stop
 from mcgyvr.cli.sizing import _hosts_wanted, _model_specs
 from mcgyvr.serving.rigfile import recorded_scans, resolve_hosts
 
@@ -94,7 +96,9 @@ def _setup_is_interactive(args: argparse.Namespace) -> bool:
 
     Any flag that names a host, a rig's address, an API unit, a use case or a
     Jev unit, or that forces the write, asks to start, or accepts an unsampled
-    lock, makes the run the flag path instead.
+    lock, makes the run the flag path instead. `--deployment` is the one
+    exception: it answers a question the wizard itself asks, so it is carried
+    into the wizard rather than silencing it.
     """
     if not _stdin_isatty():
         return False
@@ -105,7 +109,6 @@ def _setup_is_interactive(args: argparse.Namespace) -> bool:
         or args.force
         or args.priority is not None
         or args.use_case is not None
-        or args.deployment is not None
         or args.jev is not None
         or args.start
         or args.accept_unsampled
@@ -427,6 +430,287 @@ def _setup_pick_unit(role: str, units: Sequence[str]) -> str:
     )
 
 
+#: The coding branch's deployment question, and its two answers.
+DEPLOYMENT_QUESTION = (
+    "Run mcgyvr how? [hybrid] hybrid (an API-tier session agent drives it) "
+    "or local-only (mcgyvr is the backend): "
+)
+#: The coding branch's fan-out question, default `idle` under mcgyvr-code.
+FANOUT_QUESTION = "Fan-out across units? [idle] idle, none or full: "
+#: The coding branch's sleep/wake switch, the fleet's `serving.enable_sleep_wake`.
+SLEEP_WAKE_QUESTION = "May mcgyvr sleep and wake cards on its own? [y/n] "
+#: The coding branch's ruff switch, `gate.ruff`: the lint and format rungs and
+#: the repair. No skips only those; the rest of the gate judges as before.
+RUFF_QUESTION = (
+    "Install ruff for the gate's lint, format and repair? No skips only those: "
+    "syntax, types and the acceptance command still judge. [y/n] "
+)
+#: The raw branch's KV cache quant question, default `f16`.
+CONTEXT_QUANT_QUESTION = f"KV cache quant? [f16] {', '.join(CONTEXT_QUANT_CHOICES)}: "
+#: The agent branch's slot-count question, default 1.
+SLOTS_QUESTION = "Slots (concurrent requests)? [1] "
+#: The consent gate, between the printed placement and committing it.
+CONSENT_QUESTION = "Commit this placement and stage the setup? [y/n] "
+#: The skip-recommend branch: a model store, or leave it all-manual.
+SKIP_REC_QUESTION = (
+    "Skip the recommendation: [model-path] I have a model path, or "
+    "[manual] I'll do it myself? [manual] "
+)
+MODEL_STORE_QUESTION = "Model store directory (a folder of .gguf files): "
+
+
+def _ask_deployment(preferred: str | None = None) -> str:
+    """Ask how mcgyvr is run, answering `preferred` when a flag already said.
+
+    The default is `hybrid`; `local-only` makes mcgyvr the backend and, for
+    `mcgyvr-code`, provisions a local proposer unit.
+    """
+    if preferred is not None:
+        return preferred
+    return _setup_choose(
+        DEPLOYMENT_QUESTION,
+        ("hybrid", "local-only"),
+        "a deployment",
+    )
+
+
+def _ask_fanout() -> str:
+    """Ask how batches spread across units; the gated default is `idle`."""
+    return _setup_choose(
+        FANOUT_QUESTION,
+        ("idle", "none", "full"),
+        "a fan-out",
+    )
+
+
+def _ask_sleep_wake() -> bool:
+    """Ask whether the fleet switch `serving.enable_sleep_wake` is on."""
+    return _confirm(SLEEP_WAKE_QUESTION)
+
+
+def _ask_ruff() -> bool:
+    """Ask whether ruff runs the gate's lint and format rungs and the repair."""
+    return _confirm(RUFF_QUESTION)
+
+
+def _install_ruff() -> None:
+    """Install ruff (`uv tool install ruff`) for the gate and its repair.
+
+    The config is already staged; a missing `uv` or a failed install is
+    reported, not fatal, so the run completes and a later install finishes
+    what the gate needs.
+    """
+    try:
+        done = subprocess.run(
+            ["uv", "tool", "install", "ruff"],
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+            **hostos.popen_no_window_kwargs(),
+        )
+    except OSError as exc:
+        # No `uv` on PATH (or one that cannot be run): the same report as a
+        # failed install, so setup goes on.
+        print(f"ruff was not installed: `uv tool install ruff` did not run: {exc}")
+        return
+    if done.returncode != 0:
+        said = (done.stderr or done.stdout or "").strip()
+        print(
+            "ruff was not installed: `uv tool install ruff` failed"
+            + (f": {said}" if said else ".")
+        )
+
+
+def _ruff_left_for_later(ruff_on: bool | None, stopped_after: str) -> None:
+    """Say, on a yes to ruff, that a run stopped at `stopped_after` installed
+    nothing, and how to install it."""
+    if ruff_on:
+        print(
+            f"ruff was not installed: setup stopped after {stopped_after}. "
+            "Install it with `uv tool install ruff`."
+        )
+
+
+def _ask_context_quant() -> str:
+    """Ask for the KV cache quant, defaulting to `f16` (the recommended one)."""
+    return _setup_choose(
+        CONTEXT_QUANT_QUESTION,
+        CONTEXT_QUANT_CHOICES,
+        "a KV cache quant",
+    )
+
+
+def _ask_slots() -> int:
+    """Ask for the slot count a unit serves at once, defaulting to 1."""
+    for _ in range(_SETUP_TRIES):
+        said = _ask(SLOTS_QUESTION)
+        if not said:
+            return 1
+        try:
+            value = int(said)
+        except ValueError:
+            print(f"{said!r} is not a slot count.")
+            continue
+        if value < 1:
+            print("a unit serves at least 1 request at once.")
+            continue
+        return value
+    raise _SetupInteractiveError("no slot count was named")
+
+
+def _consent_to_placement() -> bool:
+    """The consent gate: whether the printed placement may be committed.
+
+    Nothing is staged unless this is an explicit yes; Enter is no.
+    """
+    return _confirm(CONSENT_QUESTION)
+
+
+def _ask_skip_rec() -> str:
+    """Ask how a skipped recommendation goes on: `manual` (the default, the
+    all-manual terminal) or `model-path` (plan from a model store)."""
+    return _setup_choose(
+        SKIP_REC_QUESTION,
+        ("manual", "model-path"),
+        "a way to go on",
+        names=("I'll do it myself", "I have a model path"),
+    )
+
+
+def _print_all_manual(use_case: str, rigs: Sequence[str], users: int = 1) -> None:
+    """The all-manual terminal: nothing was staged, so print how to do it by hand.
+
+    The commands are the ones setup itself would have run, one rig each: the
+    read (`mcgyvr scan` for this machine, `--rig` for a remote rig) and the
+    plan, under the profile the use case is placed as.
+    """
+    from mcgyvr.detect import is_local_host
+
+    profile = recommend_module.PROFILE_OF_USE_CASE.get(use_case, use_case)
+    named = tuple(rigs) or ("localhost",)
+    _rule("Nothing was stamped — the setup is all-manual")
+    print("Nothing was staged, started or locked. To stage this setup by hand:")
+    print("  1. Read each rig:")
+    for rig in named:
+        remote = "" if is_local_host(rig) else f" --rig {rig}"
+        print(f"       mcgyvr scan{remote}")
+    print("  2. Plan each rig from its reading:")
+    for rig in named:
+        print(
+            f"       mcgyvr recommend --profile {profile} --users {users} --host {rig}"
+        )
+    print("  3. Write fleet.yaml and policy.yaml from that plan (see SETUP.md).")
+    print("  4. Then mcgyvr emit, and mcgyvr serve up, sample and lock by hand.")
+    print()
+
+
+def _recommend_consented(
+    rigs: Sequence[str],
+    scans: Mapping[str, Scan],
+    use_case: str,
+    *,
+    users: int = 1,
+    auto: bool = False,
+) -> dict[str, Mapping[str, Any]] | None:
+    """Plan a placement, print it, and answer it only on the consent gate.
+
+    A skipped recommendation asks whether the user has a model store to plan
+    from instead, or will do the setup by hand; the latter is the all-manual
+    terminal, answered None. With `auto` the placement is committed without
+    asking.
+    """
+    model_stores: tuple[str, ...] = ()
+    while True:
+        plans = _setup_placements(
+            rigs, scans, use_case, users=users, model_stores=model_stores
+        )
+        if auto or _consent_to_placement():
+            return plans
+        if _ask_skip_rec() == "manual":
+            _print_all_manual(use_case, rigs, users)
+            return None
+        directory = _ask(MODEL_STORE_QUESTION)
+        if not directory:
+            _print_all_manual(use_case, rigs, users)
+            return None
+        model_stores = (directory,)
+
+
+def _unit_overrides(context_quant: str, slots: int) -> dict[str, Any] | None:
+    """The raw branch's per-unit choices, as fleet.yaml field overrides.
+
+    Only a choice that differs from what `initialize` or the recommendation
+    already writes is returned, so a default answer changes nothing.
+    """
+    overrides: dict[str, Any] = {}
+    if slots != 1:
+        overrides["width"] = slots
+    if context_quant != "f16":
+        overrides["launch"] = {
+            "kv_cache_dtype_k": context_quant,
+            "kv_cache_dtype_v": context_quant,
+        }
+    return overrides or None
+
+
+def _apply_setup_choices(
+    path: Path,
+    *,
+    detection: Detection,
+    fanout: str | None = None,
+    enable_sleep_wake: bool | None = None,
+    ruff: bool | None = None,
+    users: int | None = None,
+    unit_overrides: Mapping[str, Any] | None = None,
+) -> None:
+    """Write the wizard's choices back into the staged config, over the files
+    `initialize` wrote.
+
+    Each choice is an existing schema field, never a new one: `fanout`,
+    `users`, the `serving` block and `gate.ruff` in policy.yaml, and per-unit
+    `width` and the KV cache launch keys in fleet.yaml. A
+    choice of None leaves the field as `initialize` wrote it. `ruff` writes
+    `gate.ruff` explicitly, yes or no, so a later reader can tell an opt-in
+    from a config that never asked; `gate.enabled` is not written.
+    """
+    import yaml
+
+    from mcgyvr.initialize import _policy_notes, render_fleet, render_policy
+
+    fleet_path = path / FLEET_FILENAME
+    policy_path = path / POLICY_FILENAME
+    fleet = yaml.safe_load(fleet_path.read_text(encoding="utf-8"))
+    policy = yaml.safe_load(policy_path.read_text(encoding="utf-8"))
+    changed_policy = fanout is not None or users is not None
+    if fanout is not None:
+        policy["fanout"] = fanout
+    if users is not None:
+        policy["users"] = users
+    if enable_sleep_wake is not None:
+        policy.setdefault("serving", {})["enable_sleep_wake"] = enable_sleep_wake
+        changed_policy = True
+    if ruff is not None:
+        policy.setdefault("gate", {})["ruff"] = ruff
+        changed_policy = True
+    if unit_overrides:
+        units = fleet.get("units") or {}
+        for name in units:
+            block = units[name]
+            for key, value in unit_overrides.items():
+                if value is None:
+                    continue
+                if key == "launch":
+                    block.setdefault("launch", {}).update(value)
+                else:
+                    block[key] = value
+        fleet_path.write_text(render_fleet(fleet), encoding="utf-8")
+    if changed_policy:
+        notes = _policy_notes(detection, policy)
+        policy_path.write_text(render_policy(policy, notes), encoding="utf-8")
+
+
 _PATH_EXPORT = hostos.PATH_EXPORT
 _PATH_POWERSHELL = hostos.PATH_POWERSHELL
 #: How long setup waits for PowerShell to name its profile.
@@ -685,12 +969,19 @@ _CANDIDATES_FROM = {
 
 
 def _setup_placements(
-    rigs: Sequence[str], scans: Mapping[str, Scan], use_case: str
+    rigs: Sequence[str],
+    scans: Mapping[str, Scan],
+    use_case: str,
+    *,
+    users: int = 1,
+    model_stores: Sequence[str] = (),
 ) -> dict[str, Mapping[str, Any]]:
     """Plan a placement for each rig from its own scan, print it, and answer the plans.
 
     Each rig is planned alone, as one user of the use case asked, so what it can
-    serve is read off its own machine. Setup says where each plan's candidates
+    serve is read off its own machine; `users` is the slot count the agent
+    branch asks, and `model_stores` the directories a skipped recommendation
+    plans a local checkpoint from. Setup says where each plan's candidates
     came from: the Hub now, the cache of an earlier read, or the shipped
     catalog. A use case recommend does not place, a plan that recommends
     nothing, or one that carries no placement to serve, fails the step naming
@@ -707,9 +998,10 @@ def _setup_placements(
         try:
             plan = recommend_module.plan(
                 profile=profile,
-                users=1,
+                users=users,
                 hosts=(rig,),
                 premeasured={rig: scans[rig]},
+                model_stores=model_stores,
             )
         except (recommend_module.RecommendError, recommend_module.CatalogError) as exc:
             raise _SetupInteractiveError(f"{rig}: {exc}") from exc
@@ -1078,20 +1370,32 @@ def _native_notes(rigs: Sequence[str]) -> tuple[str, ...]:
 
 
 def _setup_interactive(
-    path: Path, run_id: str = "", *, auto: bool = False, stop: str | None = None
+    path: Path,
+    run_id: str = "",
+    *,
+    auto: bool = False,
+    stop: Stop | None = None,
+    deployment: str | None = None,
 ) -> int:
-    """Run the wizard end to end and answer the exit code.
+    """Run the wizard end to end, asking the ordered decision tree that
+    :data:`mcgyvr.cli.setup_stages.DECISION_TREE` records, and answer the exit
+    code.
 
-    It asks its questions, reads and plans the rigs, fetches missed weights,
-    stages the config, sizes the rooms, emits launch specs, then starts and
-    samples the containers when the user says so. With `auto` the start and the
-    lock run without asking; with `stop` one of ``"config"``, ``"emit"`` or
-    ``"start"`` the pipeline stops after that stage, so a manual run can write
-    only the config, only the launch specs, or bring the servers up without
-    sampling or locking. What was decided and what was left unconfigured are
-    printed at the end, along with the offer to put ~/.local/bin on PATH and,
-    once the servers are up, the endpoint and key a custom provider points at.
-    A step's error, or a refused init, config or capability table, is printed
+    The tree: rigs, then the use case. The coding branch asks deployment,
+    Jev, fan-out, sleep/wake and ruff (`gate.ruff`: the lint and format
+    rungs and the repair); the chat branch asks the KV cache quant, and the
+    agent branch adds slots. The scan and
+    recommendation run next, and the placement they print is committed only
+    on the consent gate; a skipped recommendation asks for a model path or
+    leaves the setup all-manual. Downloads, then start, sample and lock run
+    as before. With `auto` the placement, the start and the lock run without
+    asking; with `stop` one of :data:`~mcgyvr.cli.setup_stages.Stop` the
+    pipeline stops after that stage, so a manual run can write only the
+    config, only the launch specs, or bring the servers up without sampling
+    or locking. What was decided and what was left unconfigured are printed
+    at the end, along with the offer to put ~/.local/bin on PATH and, once
+    the servers are up, the endpoint and key a custom provider points at. A
+    step's error, or a refused init, config or capability table, is printed
     and answered with 1.
     """
     run_id = run_id or _setup_run_id()
@@ -1107,13 +1411,34 @@ def _setup_interactive(
         print(f"Serving on: {', '.join(rigs)}")
         _rule("Step 2 of 4 — what it serves")
         use_case = _ask_setup_use_case()
-        # Jev answers typed decisions inside mcgyvr's stages; a raw use case has
-        # none in its path, so it is not asked.
-        wants_jev = use_case == MCGYVR_CODE and _confirm(JEV_QUESTION)
+
+        # The use-case branch: coding asks deployment, Jev, fan-out,
+        # sleep/wake and ruff; the raw use cases ask the KV cache quant, and
+        # agent adds the slot count.
+        wants_jev = False
+        fanout: str | None = None
+        enable_sleep_wake: bool | None = None
+        ruff_on: bool | None = None
+        context_quant = "f16"
+        slots = 1
+        if use_case == MCGYVR_CODE:
+            deployment = _ask_deployment(deployment)
+            wants_jev = _confirm(JEV_QUESTION)
+            fanout = _ask_fanout()
+            enable_sleep_wake = _ask_sleep_wake()
+            ruff_on = _ask_ruff()
+        elif use_case == AGENT:
+            context_quant = _ask_context_quant()
+            slots = _ask_slots()
+        else:  # code and chat: raw, one model, no slot question
+            context_quant = _ask_context_quant()
+
         _rule("Step 3 of 4 — read and plan")
         scans, readings = _setup_scan_rigs(rigs)
         _ask_rig_addresses(rigs)
-        plans = _setup_placements(rigs, scans, use_case)
+        plans = _recommend_consented(rigs, scans, use_case, users=slots, auto=auto)
+        if plans is None:
+            return 0
         ctx_per_slot = _setup_context_window(plans)
         downloads = _setup_downloads(plans, scans)
         for rig, record in downloads:
@@ -1128,13 +1453,24 @@ def _setup_interactive(
             detection=detection,
             use_case=use_case,
             jev=jev,
+            deployment=deployment,
             # The launch specs are emitted beside the config it stages.
             compose_dir=path,
         )
         if not staged.written:
             raise _SetupInteractiveError("the staged setup was not written")
+        _apply_setup_choices(
+            path,
+            detection=detection,
+            fanout=fanout,
+            enable_sleep_wake=enable_sleep_wake,
+            ruff=ruff_on,
+            users=slots if slots != 1 else None,
+            unit_overrides=_unit_overrides(context_quant, slots),
+        )
         print(f"Staged the setup at {staged.path}\n")
-        if stop == "config":
+        if stop is Stop.CONFIG:
+            _ruff_left_for_later(ruff_on, "the config")
             print(
                 f"Wrote the config and stopped: nothing was emitted, started "
                 f"or sampled. The setup is at {path}.\n"
@@ -1142,17 +1478,22 @@ def _setup_interactive(
             return 0
         rooms = _setup_rooms(path, ctx_per_slot)
         _setup_emit(path, ctx_per_slot)
-        if stop == "emit":
+        if stop is Stop.EMIT:
+            _ruff_left_for_later(ruff_on, "the launch specs")
             print(
                 f"Emitted the launch specs and stopped: nothing was started "
                 f"or sampled. The setup and its specs are at {path}.\n"
             )
             return 0
+        # A run that stops at the config or the launch specs writes files
+        # only, so the network install waits for a run that goes on.
+        if ruff_on:
+            _install_ruff()
 
         _rule("Step 4 of 4 — start and lock")
         for note in _native_notes(rigs):
             _note(note)
-        if stop == "start":
+        if stop is Stop.START:
             _setup_start(rigs, scans, path)
             print(
                 f"Started the servers and stopped: nothing was sampled or "
@@ -1224,7 +1565,9 @@ def run_menu_setup(*, auto: bool, stop: str | None) -> int:
     """The no-args menu's way into `setup`: the wizard, auto or stopped at `stop`.
 
     The prologue is the wizard's own (`_setup`'s retired-keys mend, then the
-    wizard), so the menu's setup is the same command, not a second path.
+    wizard), so the menu's setup is the same command, not a second path. The
+    menu speaks the :class:`~mcgyvr.cli.setup_stages.Stop` words as strings;
+    they are read back into the enum here.
     """
     run_id = _setup_run_id()
     try:
@@ -1235,7 +1578,12 @@ def run_menu_setup(*, auto: bool, stop: str | None) -> int:
     mended = _setup_retired(path, False)
     if mended is not None:
         return mended
-    return _setup_interactive(path, run_id, auto=auto, stop=stop)
+    return _setup_interactive(
+        path,
+        run_id,
+        auto=auto,
+        stop=Stop(stop) if stop is not None else None,
+    )
 
 
 NOT_STARTED = "its containers were not started, so nothing of it runs to sample"
@@ -1475,7 +1823,7 @@ def _setup(args: argparse.Namespace) -> int:
     if stated is not None:
         return stated
     if _setup_is_interactive(args):
-        return _setup_interactive(path, run_id)
+        return _setup_interactive(path, run_id, deployment=args.deployment)
     refused = _use_case_refused(args.use_case)
     if refused is not None:
         print(f"error: --use-case `{args.use_case}` {refused}", file=sys.stderr)

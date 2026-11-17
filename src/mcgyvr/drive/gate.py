@@ -394,8 +394,9 @@ def gate_adapters(config: Config | None) -> tuple[LanguageAdapter, ...]:
     The Python adapter's reading of a function that changes a parameter it was
     handed comes from ``gate.param_mutation`` and defaults to
     ``ParamMutation.REFUSE``, the mode that refuses such a change; ``SKIP`` does
-    not look for it and ``REPORT`` reports it as style. The JavaScript adapter
-    takes no setting, and a caller with no config gets the defaults.
+    not look for it and ``REPORT`` reports it as style. ``gate.ruff`` false
+    leaves out its lint and format rungs. The JavaScript adapter takes no
+    setting, and a caller with no config gets the defaults.
     """
     if config is not None and config.get("gate.enabled") is False:
         # Switched off, delivery judges with no language adapter either: what is
@@ -406,4 +407,5 @@ def gate_adapters(config: Config | None) -> tuple[LanguageAdapter, ...]:
         if config is not None
         else ParamMutation.REFUSE
     )
-    return (PythonAdapter(param_mutation=mode), JavaScriptAdapter())
+    ruff = config is None or config.get("gate.ruff") is not False
+    return (PythonAdapter(param_mutation=mode, ruff=ruff), JavaScriptAdapter())

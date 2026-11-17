@@ -30,6 +30,12 @@ from tests import setup_door as sd
 
 LOCK = "Lock the fleet and name it live?"
 START = "Start the serving containers"
+USE_CASE = "Use case — [m] mcgyvr-code, [k] code, [c] chat, [a] agent: ?"
+DEPLOYMENT = "Run mcgyvr how?"
+JEV = "Dedicate a unit to Jev, which answers typed decisions?"
+FANOUT = "Fan-out across units?"
+SLEEP_WAKE = "May mcgyvr sleep and wake cards on its own?"
+RUFF = "Install ruff for the gate's lint, format and repair?"
 
 
 def _staged() -> Path:
@@ -47,8 +53,12 @@ def test_a_green_sample_is_stamped_locked_promoted_and_named_live(
 
     out = capsys.readouterr().out
     assert [q.split("?")[0] + "?" for q in asked] == [
-        "Use case — [m] mcgyvr-code, [k] code, [c] chat, [a] agent: ?",
-        "Dedicate a unit to Jev, which answers typed decisions?",
+        USE_CASE,
+        DEPLOYMENT,
+        JEV,
+        FANOUT,
+        SLEEP_WAKE,
+        RUFF,
         f"{START} on {sd.RIG}?",
         LOCK,
     ]

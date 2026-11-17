@@ -465,6 +465,18 @@ GATE_FIELDS: tuple[Field, ...] = (
         default=True,
     ),
     Field(
+        "ruff",
+        "bool",
+        "Whether ruff judges and repairs Python: the lint and format rungs, and "
+        "the repair (`cleanup.enabled`), which is ruff's fixes and formatter. "
+        "Off, a Python change is not judged on lint or format and is not "
+        "repaired, and ruff need not be installed; syntax, the structural "
+        "checks, types, the semantic rung, `param_mutation` and the acceptance "
+        "command judge it as before, and the JavaScript rungs are not touched. "
+        "Setup's ruff question writes it: yes on, no off. Unset reads as on.",
+        default=True,
+    ),
+    Field(
         "param_mutation",
         "enum",
         "A Python function that changes an object its caller passed in, on a "
@@ -2076,7 +2088,9 @@ def stages(config: Config) -> dict[str, bool]:
         "ladder": len(config.ladder.names) > 1 and config.get("max_escalations") != 0,
         "retry_notes": config.get("retry_notes", "climb") != "none",
         "gate": gate,
-        "repair": gate and config.get("cleanup.enabled") is not False,
+        "repair": gate
+        and config.get("cleanup.enabled") is not False
+        and config.get("gate.ruff") is not False,
         "verifier": config.get("verifier.enabled") is not False,
         "redecompose": int(
             config.get("max_redecompositions", MAX_REDECOMPOSITIONS_DEFAULT) or 0
