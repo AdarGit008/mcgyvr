@@ -29,6 +29,7 @@ inputs those rungs take.
 
 from __future__ import annotations
 
+import re
 from dataclasses import replace
 from typing import TYPE_CHECKING
 
@@ -39,6 +40,7 @@ from mcgyvr.gate import Finding, Gate, GateResult
 from mcgyvr.gate.acceptance import Acceptance
 from mcgyvr.gate.adapter import SandboxRunner, ToolUnavailableError, require_tool
 from mcgyvr.gate.adapters import JavaScriptAdapter, PythonAdapter
+from mcgyvr.gate.adapters.python import _EXTENSIONS as PYTHON_SUFFIXES
 from mcgyvr.gate.adapters.python import RUFF
 from mcgyvr.gate.changeset import ChangeSet
 from mcgyvr.gate.jev import JevCheck
@@ -46,7 +48,7 @@ from mcgyvr.gate.preflight import PreflightIssue
 from mcgyvr.gate.semantic import SemanticCheck
 from mcgyvr.gate.typecheck import ParamMutation, TypeCheck
 from mcgyvr.sandbox.base import nested_git
-from mcgyvr.scope import inside
+from mcgyvr.scope import Scope, inside
 from mcgyvr.verify import Reviewer, independent
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
@@ -425,18 +427,18 @@ def missing_gate_tool(
     setup asked, and a setup that never asked) is told apart from a yes; it keeps
     the gate's quiet skip. Nothing is said when the gate is off, when
     ``gate.ruff`` is false or unset, or when the contract's change cannot hold a
-    Python file: its target is owned by another adapter, or is one literal path
-    no adapter owns.
+    Python file: its target is a path the Python adapter does not own, or a
+    pattern that cannot name one (`_may_name_python`).
     """
     if config is None or config.get("gate.enabled") is False:
         return None
     if config.get("gate.ruff") is not True:
         return None
     target = contract.target
-    owner = next((a for a in gate_adapters(config) if a.owns(target)), None)
-    if not isinstance(owner, PythonAdapter) and not (
-        owner is None and is_pattern(target)
-    ):
+    python = next(
+        (a for a in gate_adapters(config) if isinstance(a, PythonAdapter)), None
+    )
+    if python is None or not _may_name_python(python, target):
         return None
     try:
         require_tool(RUFF)
@@ -452,6 +454,37 @@ def missing_gate_tool(
             ),
         )
     return None
+
+
+#: A wildcard of a pattern target as the run's matcher reads it
+#: (`mcgyvr.scope`): `**/`, `**` or `*`. Nothing else in a pattern is wild there.
+_WILDCARD = re.compile(r"\*\*/|\*\*|\*")
+
+
+def _may_name_python(python: PythonAdapter, target: str) -> bool:
+    """Whether `target` is, or as a pattern could name, a file `python` owns.
+
+    A pattern is read with the run's own matcher, `Scope.permits`, the one that
+    expands a pattern target into files (`mcgyvr.vet`, `drive.exec`). A file it
+    names ends in its last literal piece, so candidates are built with every
+    wildcard but the last read as empty and the last as a stem plus each start
+    of a Python suffix, and one that the matcher permits and the adapter owns
+    is enough: `src/**` names `src/x.py`, `*.p*` names `x.py`, `docs/*.md` none.
+    """
+    if not is_pattern(target):
+        return python.owns(target)
+    *pieces, tail = _WILDCARD.split(target)
+    head = "".join(pieces)
+    fills = [""] + [
+        f"x{suffix[:cut]}"
+        for suffix in PYTHON_SUFFIXES
+        for cut in range(len(suffix) + 1)
+    ]
+    names = Scope.of([target])
+    return any(
+        python.owns(name) and names.permits(name)
+        for name in (f"{head}{fill}{tail}" for fill in fills)
+    )
 
 
 def gate_adapters(config: Config | None) -> tuple[LanguageAdapter, ...]:

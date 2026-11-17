@@ -122,7 +122,18 @@ def test_opted_in_with_no_ruff_names_ruff_its_install_and_the_switch(
     assert "gate.ruff: false" in said, said
 
 
-@pytest.mark.parametrize("target", ["src/pkg/messy.py", "src/pkg/stub.pyi", "src/**"])
+@pytest.mark.parametrize(
+    "target",
+    [
+        "src/pkg/messy.py",
+        "src/pkg/stub.pyi",
+        "src/**",
+        "src/pkg/*",
+        "**/*.pyi",
+        "src/*.p*",
+        "src/pkg/mess?.py",
+    ],
+)
 def test_a_change_that_may_hold_python_is_checked(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, target: str
 ) -> None:
@@ -141,6 +152,9 @@ def test_a_change_that_may_hold_python_is_checked(
         (_setup(True), "src/app.js"),
         (_setup(True), "src/**/*.ts"),
         (_setup(True), "README.md"),
+        (_setup(True), "docs/*.md"),
+        (_setup(True), "docs/**/*.md"),
+        (_setup(True), "src/*.js"),
     ],
     ids=[
         "no-config",
@@ -150,6 +164,9 @@ def test_a_change_that_may_hold_python_is_checked(
         "javascript",
         "typescript-glob",
         "not-code",
+        "markdown-glob",
+        "markdown-tree",
+        "javascript-glob",
     ],
 )
 def test_nothing_is_said_where_the_gate_would_not_run_ruff(
@@ -238,6 +255,35 @@ def test_the_floor_with_no_ruff_is_refused_and_nothing_runs(
     printed = capsys.readouterr()
     assert "rename_symbol" not in printed.out, printed.out
     _refused(code, sent, repo, journal, printed.err, tmp_path)
+
+
+def test_a_pattern_that_cannot_name_python_meets_the_runs_own_error(
+    tmp_path: Path,
+    home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """A rename over `docs/*.md` fails on its own terms, as it always did."""
+    _hide_ruff(tmp_path, monkeypatch)
+    sent = lj.scripted(monkeypatch)
+    repo = lj.make_repo(tmp_path / "repo")
+    (repo / "docs").mkdir()
+    (repo / "docs" / "guide.md").write_text("# x\n", encoding="utf-8")
+    lj.git(repo, "add", "-A")
+    lj.git(repo, "commit", "-q", "-m", "docs")
+    config = lj.make_config(tmp_path / "setup", journal_dir=tmp_path / "journal")
+    lj.append_policy(config, "gate:\n  ruff: true\n")
+    markdown = RENAME.replace("target: src/pkg/messy.py", "target: docs/*.md")
+    contract = lj.make_contract(
+        tmp_path / "c.yaml", markdown.replace('"src/**"', '"docs/**"')
+    )
+
+    code = lj.main(lj.run_args(contract, repo, config))
+
+    err = capsys.readouterr().err
+    assert code != 0, err
+    assert "ruff is not installed" not in err, err
+    assert sent == [], "a model was dispatched"
 
 
 @pytest.mark.parametrize("ruff", [None, False], ids=["unset", "opted-out"])
