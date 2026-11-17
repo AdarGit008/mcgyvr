@@ -140,7 +140,9 @@ def test_after_no_a_lint_or_format_fault_is_not_judged(
     assert rung not in _checks(result), result.findings
 
 
-@pytest.mark.parametrize(("source", "fault"), [(SYNTAX, "syntax"), (WRONG_TYPE, "type")])
+@pytest.mark.parametrize(
+    ("source", "fault"), [(SYNTAX, "syntax"), (WRONG_TYPE, "type")]
+)
 def test_after_no_a_syntax_or_type_fault_is_still_refused(
     repo: Path, source: str, fault: str
 ) -> None:

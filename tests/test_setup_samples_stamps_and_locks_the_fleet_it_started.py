@@ -35,7 +35,7 @@ DEPLOYMENT = "Run mcgyvr how?"
 JEV = "Dedicate a unit to Jev, which answers typed decisions?"
 FANOUT = "Fan-out across units?"
 SLEEP_WAKE = "May mcgyvr sleep and wake cards on its own?"
-RUFF = "Install ruff and enable the lint/format gate and its repair?"
+RUFF = "Install ruff for the gate's lint, format and repair?"
 
 
 def _staged() -> Path:
