@@ -457,6 +457,22 @@ SKIP_REC_QUESTION = (
     "[manual] I'll do it myself? [manual] "
 )
 MODEL_STORE_QUESTION = "Model store directory (a folder of .gguf files): "
+#: What the menu's auto mode does without asking: the three questions it
+#: answers for the user (the placement consent, the start, the lock). The
+#: menu's setup prompt and the wizard's opening line both say it.
+AUTO_DOES = (
+    "takes the recommended placement, starts the servers and locks the "
+    "fleet live without asking"
+)
+#: The wizard's opening line, without auto and with it.
+OPENING = (
+    "Read each rig, plan a model per rig, then start and sample a "
+    "fleet and lock it live on your yes."
+)
+AUTO_OPENING = (
+    "Read each rig, plan a model per rig, then start and sample a "
+    f"fleet and lock it live. Auto {AUTO_DOES}."
+)
 
 
 def _ask_deployment(preferred: str | None = None) -> str:
@@ -1402,10 +1418,7 @@ def _setup_interactive(
     try:
         path.mkdir(parents=True, exist_ok=True)
         print("mcgyvr setup")
-        print(
-            "Read each rig, plan a model per rig, then start and sample a "
-            "fleet and lock it live on your yes."
-        )
+        print(AUTO_OPENING if auto else OPENING)
         _rule("Step 1 of 4 — where it runs")
         rigs = _ask_setup_rigs()
         print(f"Serving on: {', '.join(rigs)}")
