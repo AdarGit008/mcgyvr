@@ -401,18 +401,22 @@ def _room_mib(config: Config, rung: str) -> int | None:
     """The card room a rung needs in MiB, or None where nothing states it.
 
     `room_mib` states it outright. Where it does not, the launch's `vram_gb` —
-    the model's figure `mcgyvr emit` stamps back into fleet.yaml, in GiB — is
-    not the room by itself: the fit holds `DEFAULT_HEADROOM_GB` beyond it, and
-    setup writes a room as that figure plus the headroom, in whole MiB. The
-    same sum is taken here, so a unit sized from its launch gets the room setup
-    would have written for it. A unit that states neither has no figure to
-    reckon a swap from.
+    the model's figure `mcgyvr emit` stamps back into fleet.yaml, in GiB, for a
+    model with no geometry that is not a mixture of experts — is not the room
+    by itself: the fit holds `DEFAULT_HEADROOM_GB` beyond it, and setup writes
+    a room as that figure plus the headroom, in whole MiB. The same sum is
+    taken here, so such a unit gets the room setup would have written for it.
+    A launch that also states `geometry_json` or `moe` is sized by the fit from
+    something else than `vram_gb`, so its `vram_gb` is no room and the unit
+    has none, like a unit that states neither figure.
     """
     unit = config.units.get(rung)
     if unit is None:
         return None
     if unit.room_mib is not None:
         return unit.room_mib
+    if unit.launch.get("geometry_json") or unit.launch.get("moe"):
+        return None
     stated = unit.launch.get("vram_gb")
     if isinstance(stated, int | float) and not isinstance(stated, bool) and stated > 0:
         return math.ceil((float(stated) + DEFAULT_HEADROOM_GB) * 1024)
@@ -1225,7 +1229,10 @@ class CardSwitches:
         for name in card.rungs:
             room = _room_mib(self._config, name)
             if room is None:
-                return (), f"{name} states no room_mib and no launch.vram_gb"
+                return (), (
+                    f"{name} states no room_mib, and no launch.vram_gb without "
+                    "geometry_json or moe"
+                )
             rooms[name] = room
         on = self._placement(card, sizes)
         if isinstance(on, str):

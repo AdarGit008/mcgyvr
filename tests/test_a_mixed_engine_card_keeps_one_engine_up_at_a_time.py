@@ -51,6 +51,7 @@ def mixed_ladder(
     *,
     room: str = "room_mib",
     vram_gb: tuple[float, float] = (VLLM_GB, LLAMA_GB),
+    launch: str = "",
 ) -> str:
     """The shared host's two units, one per engine; the llama.cpp one is the
     sleeper, the vLLM one is always-on and up by default.
@@ -58,13 +59,15 @@ def mixed_ladder(
     ``room`` says how each unit's card room is stated: ``room_mib`` (the
     field), ``vram_gb`` (under ``launch``, as ``emit`` stamps it, the vLLM
     unit's and the llama.cpp unit's figure in that order), or ``none``.
+    ``launch`` is one more ``key: value`` line under each unit's ``launch``.
     """
 
     def room_field(gb: float) -> str:
         if room == "room_mib":
             return "    room_mib: 9000\n"
         if room == "vram_gb":
-            return f"    launch:\n      vram_gb: {gb}\n"
+            more = f"      {launch}\n" if launch else ""
+            return f"    launch:\n      vram_gb: {gb}\n" + more
         return ""
 
     serving = f"serving:\n  compose_dir: {compose_dir}\n  enable_sleep_wake: true\n"
@@ -312,6 +315,28 @@ def test_with_neither_room_mib_nor_vram_gb_no_room_is_made(
     assert switches(config).room_for(LLAMA) == ()
     why = switches(config).why_no_room(LLAMA)
     assert why is not None and "room_mib" in why and "vram_gb" in why, why
+
+
+@pytest.mark.parametrize("beside", ["geometry_json", "moe"])
+def test_a_launch_vram_gb_beside_a_geometry_or_moe_is_no_room(
+    tmp_path: Path, home: Path, beside: str
+) -> None:
+    # The fit sizes such a unit from its geometry, or refuses a mixture of
+    # experts with none, so the hand vram_gb is not what setup's room is made
+    # of: the unit is refused, as one that states no room at all.
+    from mcgyvr.wake import _room_mib
+
+    line = (
+        f"geometry_json: {tmp_path / 'large.json'}"
+        if beside == "geometry_json"
+        else "moe: true"
+    )
+    config = parse(mixed_ladder(mixed_spec(tmp_path), room="vram_gb", launch=line))
+
+    assert _room_mib(config, LLAMA) is None
+    assert switches(config).room_for(LLAMA) == ()
+    why = switches(config).why_no_room(LLAMA)
+    assert why is not None and "geometry_json" in why and "moe" in why, why
 
 
 # --- the swap never runs both engines ---------------------------------------
