@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import base64
 import subprocess
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -242,6 +243,11 @@ def test_a_linux_rig_is_refused_a_native_spec(
 def test_a_linux_rig_with_no_docker_controller_is_served_native_under_tmp(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
+    # The controller's own temp folder, a macOS one say: none of it crosses.
+    controller_tmp = tmp_path / "var" / "folders" / "zz" / "abc" / "T"
+    controller_tmp.mkdir(parents=True)
+    monkeypatch.setattr(tempfile, "tempdir", str(controller_tmp))
+    monkeypatch.setenv("TMPDIR", str(controller_tmp))
     monkeypatch.setattr(configlib, "docker_on_path", lambda: False)
     record_rig(monkeypatch, tmp_path, "box2", "linux-one-card")
     monkeypatch.setenv("RUN_HOST", "box2")
@@ -253,7 +259,8 @@ def test_a_linux_rig_with_no_docker_controller_is_served_native_under_tmp(
     assert servelib.up(spec).returncode == 0
     ((command, _stdin),) = shell.sent
     assert command.startswith("base64 -d | ")
-    assert f"{native.STAGE_ENV}='{native.stage_dir()}'" in command
+    assert f"{native.STAGE_ENV}='{native.STAGE_ON}' python3 -I -B - up " in command
+    assert str(controller_tmp) not in command and "mcgyvr-native" not in command
     assert " python3 -I -B - up " in command
 
 

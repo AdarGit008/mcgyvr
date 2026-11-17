@@ -134,7 +134,11 @@ def test_a_native_head_listens_on_the_loopback_and_reaches_its_worker_by_forward
     assert "LLAMA_ARG_HOST" not in said["env"]
     assert "HF_TOKEN" not in said["env"]
     assert rig.pool.sessions.head_port("s1") == 18080
-    verbs = rig.verbs()
+    # A lease is renewed every renew_s once the session is prepared, before the
+    # hub's up too (that is what keeps a prepared tunnel alive), so how many
+    # land in between depends on how fast this host runs: the order is the
+    # other verbs'.
+    verbs = [v for v in rig.verbs() if v != "lease"]
     assert verbs[:2] == ["prepare", "up"]
     assert verbs.index("forward") < verbs.index("spawn")
 

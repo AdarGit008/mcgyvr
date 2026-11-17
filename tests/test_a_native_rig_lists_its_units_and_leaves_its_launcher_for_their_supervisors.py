@@ -19,6 +19,7 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -149,8 +150,10 @@ def test_a_no_docker_stage_leaves_the_launcher_under_tmp(
         depends_on=(),
         asleep=False,
     )
-    stage = tmp_path / "tmp" / "mcgyvr-native"
-    monkeypatch.setenv(native.STAGE_ENV, str(stage))
+    monkeypatch.setattr(tempfile, "tempdir", str(tmp_path / "tmp"))
+    monkeypatch.setenv(native.STAGE_ENV, native.STAGE_ON)
+    stage = native.stage_dir()
+    assert stage == tmp_path / "tmp" / f"mcgyvr-native-{hostos.current_user_id()}"
     assert native.main(["up", native.units_text([unit]), "m"]) == 0
     (copy,) = (stage / native.SHIPPED).iterdir()
     assert copy.read_bytes() == program

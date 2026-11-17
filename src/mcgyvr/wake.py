@@ -33,14 +33,16 @@ import subprocess
 import sys
 import threading
 import time
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TypeVar
 
 from mcgyvr import atomic
 from mcgyvr.capacity import Capacity, SlotUnavailableError
-from mcgyvr.config import ROLE_SLEEPER, Config
+from mcgyvr.config import CONFIG_PATH_ENV, ROLE_SLEEPER, Config
 from mcgyvr.ladder_proposal import DEFAULT_HEADROOM_GB
 from mcgyvr.runner import RefusedConnectionError
 from mcgyvr.serving import DEFAULT_ENGINE, Card, cards, host_of, port_of
@@ -84,6 +86,35 @@ def spawn_door(argv: Sequence[str], **kwargs: object) -> int:
     done = subprocess.run(list(argv), check=False, **kwargs)  # type: ignore[call-overload]
     code: int = done.returncode
     return code
+
+
+#: The setup a person named for the doors run in this context, absolute, or
+#: None where nobody named one and the door finds its setup as it always has.
+_NAMED_SETUP: ContextVar[Path | None] = ContextVar("named_setup", default=None)
+
+
+@contextmanager
+def door_config(named: Path | None) -> Iterator[None]:
+    """Run the doors spawned in this block against the setup at `named`.
+
+    The door reads its setup from `MCGYVR_CONFIG`, so a setup named with
+    `--config` is handed to it there, as the sampler and setup's start hand it
+    theirs, by an absolute path. With `named` None a door's environment is the
+    process's own.
+    """
+    token = _NAMED_SETUP.set(named.absolute() if named is not None else None)
+    try:
+        yield
+    finally:
+        _NAMED_SETUP.reset(token)
+
+
+def _door_env() -> dict[str, object]:
+    """The `spawn_door` kwargs that hand a door the setup `door_config` named."""
+    named = _NAMED_SETUP.get()
+    if named is None:
+        return {}
+    return {"env": {**os.environ, CONFIG_PATH_ENV: str(named)}}
 
 
 def door_argv(
@@ -571,7 +602,8 @@ def _run_door(
             compose=compose,
             suffix=_suffix(),
             units=containers or (),
-        )
+        ),
+        **_door_env(),
     )
     made = Wake(
         host=card.host,

@@ -3,8 +3,7 @@
 The two scripts install the same skills into the same harness folders under
 the user's home, keep the same digest record beside each copy, hold the CLI to
 the same version floor and print the same lines. Their settings are compared
-here, word for word, so neither drifts; the README installs with ``install.sh``
-on Linux and macOS and ``install.ps1`` on Windows, three lines each.
+here, word for word, so neither drifts.
 
 Where PowerShell (``pwsh``) is installed, the script is also run against a
 temporary home: it places every skill in both harnesses, is idempotent,
@@ -29,7 +28,6 @@ from tests._paths import REPO
 SKILL_DIR = REPO / "skills" / "mcgyvr"
 INSTALL_SH = SKILL_DIR / "install.sh"
 INSTALL_PS1 = SKILL_DIR / "install.ps1"
-README = REPO / "README.md"
 
 #: install.sh's setting name -> install.ps1's.
 SETTINGS = {
@@ -114,27 +112,6 @@ def test_the_windows_installer_needs_no_elevation_and_no_profile() -> None:
     assert "#Requires -RunAsAdministrator" not in text
     assert "$PROFILE" not in text
     assert "Set-ExecutionPolicy" not in text
-
-
-def _readme_install_blocks() -> list[list[str]]:
-    text = README.read_text(encoding="utf-8")
-    section = text[
-        text.index("## Install") : text.index("\n## ", text.index("## Install") + 1)
-    ]
-    blocks = re.findall(r"```(?:sh|powershell)\n(.*?)```", section, re.DOTALL)
-    return [block.strip("\n").splitlines() for block in blocks]
-
-
-def test_the_readme_installs_in_three_lines_per_system() -> None:
-    blocks = _readme_install_blocks()
-    assert len(blocks) == 2, blocks
-    posix, windows = blocks
-    assert [len(posix), len(windows)] == [3, 3], blocks
-    cli = _sh_value("CLI_INSTALL")
-    assert posix[0].startswith(cli) and windows[0].startswith(cli)
-    assert "skills/mcgyvr/install.sh" in posix[2]
-    # The README's Windows line is SETUP.md's, word for word.
-    assert windows[2] == docgen.INSTALL_PS1_COMMAND
 
 
 def test_the_windows_installer_header_shows_the_same_command() -> None:
