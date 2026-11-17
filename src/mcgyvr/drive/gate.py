@@ -33,13 +33,16 @@ from dataclasses import replace
 from typing import TYPE_CHECKING
 
 import mcgyvr.drive as _drive
+from mcgyvr.contract import is_pattern
 from mcgyvr.deliver import Accepted, unchanged
 from mcgyvr.gate import Finding, Gate, GateResult
 from mcgyvr.gate.acceptance import Acceptance
-from mcgyvr.gate.adapter import SandboxRunner
+from mcgyvr.gate.adapter import SandboxRunner, ToolUnavailableError, require_tool
 from mcgyvr.gate.adapters import JavaScriptAdapter, PythonAdapter
+from mcgyvr.gate.adapters.python import RUFF
 from mcgyvr.gate.changeset import ChangeSet
 from mcgyvr.gate.jev import JevCheck
+from mcgyvr.gate.preflight import PreflightIssue
 from mcgyvr.gate.semantic import SemanticCheck
 from mcgyvr.gate.typecheck import ParamMutation, TypeCheck
 from mcgyvr.sandbox.base import nested_git
@@ -398,6 +401,57 @@ def ungated_notes(config: Config | None) -> tuple[str, ...]:
             "neither judges nor repairs this run's Python change",
         )
     return ()
+
+
+#: How a refusal for a missing ruff says to install it: the command setup's yes
+#: to ruff runs.
+RUFF_INSTALL = "uv tool install ruff"
+
+
+def missing_gate_tool(
+    config: Config | None, contract: Contract
+) -> PreflightIssue | None:
+    """The refusal for a run whose setup opted in to ruff and has no ruff to run.
+
+    Only setup's yes writes ``gate.ruff: true``, and it installs ruff then, so a
+    run under that key that cannot find ruff would otherwise be accepted with
+    lint and format skipped (an environment issue is not a finding) and with no
+    repair. It is refused before anything is dispatched instead, naming the tool,
+    how to install it and the switch that runs without it. "Installed" is the
+    gate's own test, ``require_tool``: ruff on this process's PATH, which is
+    where the lint, format and repair rungs look for it in every sandbox mode.
+
+    ``gate.ruff`` has no default value, so unset (every config written before
+    setup asked, and a setup that never asked) is told apart from a yes; it keeps
+    the gate's quiet skip. Nothing is said when the gate is off, when
+    ``gate.ruff`` is false or unset, or when the contract's change cannot hold a
+    Python file: its target is owned by another adapter, or is one literal path
+    no adapter owns.
+    """
+    if config is None or config.get("gate.enabled") is False:
+        return None
+    if config.get("gate.ruff") is not True:
+        return None
+    target = contract.target
+    owner = next((a for a in gate_adapters(config) if a.owns(target)), None)
+    if not isinstance(owner, PythonAdapter) and not (
+        owner is None and is_pattern(target)
+    ):
+        return None
+    try:
+        require_tool(RUFF)
+    except ToolUnavailableError:
+        return PreflightIssue(
+            reason="gate_tool",
+            message=(
+                f"gate.ruff is true and {RUFF} is not installed (not found on "
+                f"PATH): the gate could not judge this run's Python change on "
+                f"lint or format, nor repair it, so the run is refused before "
+                f"any work. Install it with `{RUFF_INSTALL}`, or set "
+                f"`gate.ruff: false` to run without lint, format and repair."
+            ),
+        )
+    return None
 
 
 def gate_adapters(config: Config | None) -> tuple[LanguageAdapter, ...]:
