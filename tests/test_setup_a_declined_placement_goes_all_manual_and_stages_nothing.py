@@ -27,6 +27,7 @@ from mcgyvr.cli.commands.setup import (
     _print_all_manual,
 )
 from mcgyvr.cli.dispatcher import build_parser
+from mcgyvr.fleet.roots import data_home, live_file
 from mcgyvr.recommend import PROFILE_OF_USE_CASE
 from tests import setup_door as sd
 
@@ -112,3 +113,21 @@ def test_every_command_the_all_manual_terminal_prints_parses(
     profile = PROFILE_OF_USE_CASE[use_case]
     assert all(argv[argv.index("--profile") + 1] == profile for argv in plans)
     assert "Nothing was staged" in out and "Nothing was written" not in out
+
+
+def test_a_declined_placement_exits_0_with_nothing_staged_started_or_locked(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    rig = sd.FakeRig()
+    asked = _declining(monkeypatch, rig)
+
+    assert cli.main(["setup"]) == 0
+
+    assert CONSENT_QUESTION in asked
+    assert not any(q.startswith("Start the serving") for q in asked)
+    setup_dir = data_home() / "setup"
+    assert not list(setup_dir.rglob("fleet.yaml")), "no fleet was staged"
+    assert not list(setup_dir.rglob("policy.yaml")), "no policy was staged"
+    assert rig.calls == [], "the door was never opened"
+    assert not live_file().exists(), "nothing was locked live"
+    assert "Nothing was staged, started or locked" in capsys.readouterr().out
