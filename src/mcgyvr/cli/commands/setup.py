@@ -607,15 +607,30 @@ def _ask_skip_rec() -> str:
     )
 
 
-def _print_all_manual(use_case: str, rigs: Sequence[str]) -> None:
-    """The all-manual terminal: nothing was stamped, so print how to do it by hand."""
+def _print_all_manual(use_case: str, rigs: Sequence[str], users: int = 1) -> None:
+    """The all-manual terminal: nothing was staged, so print how to do it by hand.
+
+    The commands are the ones setup itself would have run, one rig each: the
+    read (`mcgyvr scan` for this machine, `--rig` for a remote rig) and the
+    plan, under the profile the use case is placed as.
+    """
+    from mcgyvr.detect import is_local_host
+
+    profile = recommend_module.PROFILE_OF_USE_CASE.get(use_case, use_case)
+    named = tuple(rigs) or ("localhost",)
     _rule("Nothing was stamped — the setup is all-manual")
-    print("Nothing was written, started or locked. To stage this setup by hand:")
-    named = " ".join(rigs) if rigs else "localhost"
-    print(f"  1. mcgyvr scan --rig {named}")
-    print(f"  2. mcgyvr recommend --profile {use_case} --users 1 --host {named}")
+    print("Nothing was staged, started or locked. To stage this setup by hand:")
+    print("  1. Read each rig:")
+    for rig in named:
+        remote = "" if is_local_host(rig) else f" --rig {rig}"
+        print(f"       mcgyvr scan{remote}")
+    print("  2. Plan each rig from its reading:")
+    for rig in named:
+        print(
+            f"       mcgyvr recommend --profile {profile} --users {users} --host {rig}"
+        )
     print("  3. Write fleet.yaml and policy.yaml from that plan (see SETUP.md).")
-    print("  4. mcgyvr emit, then mcgyvr serve up, sample and lock by hand.")
+    print("  4. Then mcgyvr emit, and mcgyvr serve up, sample and lock by hand.")
     print()
 
 
@@ -642,11 +657,11 @@ def _recommend_consented(
         if auto or _consent_to_placement():
             return plans
         if _ask_skip_rec() == "manual":
-            _print_all_manual(use_case, rigs)
+            _print_all_manual(use_case, rigs, users)
             return None
         directory = _ask(MODEL_STORE_QUESTION)
         if not directory:
-            _print_all_manual(use_case, rigs)
+            _print_all_manual(use_case, rigs, users)
             return None
         model_stores = (directory,)
 
