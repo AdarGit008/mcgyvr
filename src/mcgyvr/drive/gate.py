@@ -378,14 +378,26 @@ def ungated(contract: Contract, changeset: ChangeSet) -> GateResult:
 
 def ungated_notes(config: Config | None) -> tuple[str, ...]:
     """The note a run under `gate.enabled: false` carries on stderr and in its
-    result file, so nobody reads an accepted change as a judged one."""
-    if config is None or config.get("gate.enabled") is not False:
+    result file, so nobody reads an accepted change as a judged one.
+
+    Under `gate.ruff: false` with the gate on, the note says the narrower thing:
+    no Python change of the run is judged on lint or format. A note is never a
+    finding, so it turns no accepted change into a refused one.
+    """
+    if config is None:
         return ()
-    return (
-        "ungated: gate.enabled is false, so no language check and no acceptance "
-        "command judges this run's change; only the scope, secret and "
-        "structured-data checks still refuse",
-    )
+    if config.get("gate.enabled") is False:
+        return (
+            "ungated: gate.enabled is false, so no language check and no acceptance "
+            "command judges this run's change; only the scope, secret and "
+            "structured-data checks still refuse",
+        )
+    if config.get("gate.ruff") is False:
+        return (
+            "python: lint and format not judged — gate.ruff is false, so ruff "
+            "neither judges nor repairs this run's Python change",
+        )
+    return ()
 
 
 def gate_adapters(config: Config | None) -> tuple[LanguageAdapter, ...]:

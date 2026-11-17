@@ -398,8 +398,8 @@ that takes mcgyvr out of that point:
   ones within `ride_scope` too, never a priced api rung.
 - **gate** (`gate.enabled`, `gate.param_mutation`; off `false`): the deterministic checks and
   acceptance commands that judge a change.
-- **repair** (`cleanup.enabled`; off `false`): the gate's own tools fix what they can in a rejected
-  change.
+- **repair** (`cleanup.enabled`, `gate.ruff`; off `false`): the gate's own tools fix what they can
+  in a rejected change.
 - **verifier** (`verifier.enabled`; off `false`): a second model, and Jev's typed checks, read the
   accepted diff.
 - **re-decompose** (`max_redecompositions`; off `0`): a contract whose ladder is spent goes back to
@@ -421,7 +421,7 @@ The four knobs, by their plain names:
 
 1. ladder vs single model — `ladder`, `max_escalations`.
 2. Jev unit on/off — `jev.enabled`.
-3. repair on/off — `cleanup.enabled`.
+3. repair on/off — `cleanup.enabled`, `gate.ruff`.
 4. attempts per rung and escalation — `attempts`, `max_attempts`, `max_escalations`.
 
 A single model is a `ladder` of one unit, or `max_escalations: 0`, which
@@ -651,7 +651,7 @@ What the deterministic gate refuses, where a setup may choose otherwise.
 | Key | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
 | `gate.enabled` | boolean | no | `true` | Whether the gate judges a change. Off, no language rung (syntax, lint, format, types, the semantic rung, `param_mutation`) and no acceptance command runs: a draw that changed its target is accepted as the worker left it, the run says `ungated` beside the change, delivery does not judge it again, and no repair runs, since a repair answers a rejection. The scope and secret checks and the parse of a structured file still refuse, because they guard the repository rather than judge the answer. The verifier (`verifier.enabled`) is a switch of its own. |
-| `gate.ruff` | boolean | no | `true` | Whether ruff judges and repairs Python: the lint and format rungs, and the repair (`cleanup.enabled`), which is ruff's fixes and formatter. Off, a Python change is not judged on lint or format and is not repaired, and ruff need not be installed; syntax, the structural checks, types, the semantic rung, `param_mutation` and the acceptance command judge it as before, and the JavaScript rungs are not touched. Setup's ruff question writes it: yes on, no off. Unset reads as on. |
+| `gate.ruff` | boolean | no | `true` | Whether ruff judges and repairs Python: the lint and format rungs, and the repair (`cleanup.enabled`), which is ruff's fixes and formatter. Off, a Python change is not judged on lint or format and is not repaired, the run says so in a note, and the gate and the repair need no ruff; syntax, the structural checks, types, the semantic rung, `param_mutation` and the acceptance command judge it as before, and the JavaScript rungs are not touched. A contract that asks for a ruff operation (a Python `format`, `import_sort` or `lint_fix` task) still runs ruff. Setup's ruff question writes it: yes on, no off. Unset reads as on. |
 | `gate.param_mutation` | one of `refuse`, `report`, `skip` | no | `refuse` | A Python function that changes an object its caller passed in, on a line the change adds: it assigns or deletes into a parameter, an element of one or a loop variable over one (`rows[0] = x`, `item.count += 1`, `del table[key]`), or calls append, extend, insert, remove, pop, clear, sort, reverse, update, setdefault, add, discard or popitem on it. `self`, `cls`, `*args` and `**kwargs` are not checked, nor is a parameter rebound to a new object on every path before the change. `refuse` rejects the change. `report` does not reject it: the finding is listed among the gate's observations, which an enabled verifier is shown and the gate's retry note does not carry, and a run prints it once, before delivering the accepted change, as reported by this setting. `skip` does not look. Delivery judges the change again by the same setting. A contract whose `task` or `interface` asks for in-place work stands the check down under every setting. |
 
 ## `serving`

@@ -165,3 +165,24 @@ def test_after_no_the_gate_stays_on_and_only_the_repair_is_off() -> None:
     assert {k: v for k, v in off.items() if k != "repair"} == {
         k: v for k, v in unset.items() if k != "repair"
     }
+
+
+def test_after_no_the_run_says_lint_and_format_were_not_judged() -> None:
+    """One note under `gate.ruff: false`; unset and on say what main says."""
+    from mcgyvr.drive import ungated_notes
+
+    (said,) = ungated_notes(_setup(False))
+    assert said.startswith("python: lint and format not judged")
+    assert "gate.ruff is false" in said
+    assert ungated_notes(_setup(None)) == ()
+    assert ungated_notes(_setup(True)) == ()
+    assert ungated_notes(None) == ()
+
+
+def test_with_the_gate_off_only_the_ungated_note_is_said() -> None:
+    """`gate.enabled: false` already says no language check judged the change."""
+    from mcgyvr.drive import ungated_notes
+
+    both = parse(FLEET, "ladder: [cheap]\ngate:\n  enabled: false\n  ruff: false\n")
+    (said,) = ungated_notes(both)
+    assert said.startswith("ungated:")
