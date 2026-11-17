@@ -90,11 +90,11 @@ def mixed_ladder(
     )
 
 
-def mixed_spec(tmp_path: Path, *, sleeper_profile: bool = False) -> Path:
+def mixed_spec(tmp_path: Path) -> Path:
     """One launch spec for the shared host: each unit its own container on card 0.
 
-    ``sleeper_profile`` puts the llama.cpp sleeper under the profile ``emit``
-    renders a unit that starts asleep under, so a whole-card start leaves it down.
+    As ``emit`` writes it, the llama.cpp sleeper is under the profile of a unit
+    that starts asleep, so a whole-card start leaves it down.
     """
     from mcgyvr.serving import COMPOSE_PREFIX, COMPOSE_SUFFIX, SLEEPER_PROFILE
 
@@ -112,10 +112,9 @@ def mixed_spec(tmp_path: Path, *, sleeper_profile: bool = False) -> Path:
             "container_name": LLAMA_CONTAINER,
             "command": ["--model", "/models/l.gguf", "--port", "8002"],
             "deploy": reservation(["0"]),
+            "profiles": [SLEEPER_PROFILE],
         },
     }
-    if sleeper_profile:
-        services["llama"]["profiles"] = [SLEEPER_PROFILE]
     (where / f"{COMPOSE_PREFIX}{SHARED_HOST}{COMPOSE_SUFFIX}").write_text(
         yaml.safe_dump({"services": services}), encoding="utf-8"
     )
@@ -435,7 +434,7 @@ def test_a_swap_over_an_emitted_spec_stops_and_starts_one_unit_at_a_time(
     from mcgyvr.pressure import Gauge
     from mcgyvr.runner import RefusedConnectionError
 
-    config = parse(mixed_ladder(mixed_spec(tmp_path, sleeper_profile=True)))
+    config = parse(mixed_ladder(mixed_spec(tmp_path)))
     runs, up, after = compose_door(monkeypatch, start=frozenset({VLLM_CONTAINER}))
     monkeypatch.setattr(
         wake, "saved_card_mib", lambda hosts: {SHARED_HOST: {0: CARD_MIB}}
