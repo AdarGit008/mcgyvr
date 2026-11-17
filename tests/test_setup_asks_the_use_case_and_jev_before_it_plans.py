@@ -25,10 +25,8 @@ import yaml
 from mcgyvr import cli
 from mcgyvr.cli.commands.setup import (
     CONTEXT_QUANT_QUESTION,
-    CONTEXT_SIZE_QUESTION,
     DEPLOYMENT_QUESTION,
     FANOUT_QUESTION,
-    MODEL_QUESTION,
     RUFF_QUESTION,
     SLEEP_WAKE_QUESTION,
     _ask_setup_use_case,
@@ -47,9 +45,7 @@ JEV = "Dedicate a unit to Jev, which answers typed decisions? [y/n] "
 FANOUT = FANOUT_QUESTION
 SLEEP_WAKE = SLEEP_WAKE_QUESTION
 RUFF = RUFF_QUESTION
-CONTEXT_SIZE = CONTEXT_SIZE_QUESTION
 CONTEXT_QUANT = CONTEXT_QUANT_QUESTION
-MODEL = MODEL_QUESTION
 START = "Start the serving containers"
 LOCK = "Lock the fleet and name it live?"
 UNSAMPLED = "no evidence"
@@ -126,7 +122,7 @@ def test_chat_is_planned_staged_and_sampled_by_one_completion_of_each_unit(
 
     assert asked[0] == USE_CASE
     assert JEV not in asked, "chat is raw: no Jev"
-    assert asked[1:4] == [CONTEXT_SIZE, CONTEXT_QUANT, MODEL]
+    assert asked[1] == CONTEXT_QUANT, "chat asks the KV cache quant, not a model"
     assert _policy(_staged())["use_case"] == "chat"
     assert len(completed) == 1, "the chat sample asked the unit one completion"
     assert _policy(_live())["use_case"] == "chat"

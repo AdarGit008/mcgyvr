@@ -94,11 +94,10 @@ class Decision(NamedTuple):
 #: The ordered decision tree, as the prompts in :mod:`mcgyvr.cli.commands.setup`
 #: ask it (``tests/test_setup_decision_tree_holds_what_its_prompts_offer.py``
 #: holds the two equal). A yes/no question takes ``yes`` or ``no``, and Enter
-#: is ``no``. A node with one option takes a free answer (a count or a name);
-#: its option names the kind of answer, and ``recommended`` as its default
-#: means Enter keeps what the plan picks. ``coding`` is the gated
+#: is ``no``. A node with one option takes a free answer (a count); its option
+#: names the kind of answer. ``coding`` is the gated
 #: ``mcgyvr-code`` use case; the raw coding use case ``code`` is served by the
-#: same raw branch as ``chat`` (context size, context quant and model), and
+#: same raw branch as ``chat`` (the KV cache quant), and
 #: ``agent`` adds slots to it.
 DECISION_TREE: tuple[Decision, ...] = (
     Decision("rigs", ("local", "remote", "both"), "local"),
@@ -108,9 +107,7 @@ DECISION_TREE: tuple[Decision, ...] = (
     Decision("coding.fanout", ("idle", "none", "full"), "idle"),
     Decision("coding.sleep-wake", ("yes", "no"), "no"),
     Decision("coding.ruff", ("yes", "no"), "no"),
-    Decision("chat.context-size", ("tokens",), "recommended"),
     Decision("chat.context-quant", CONTEXT_QUANT_CHOICES, "f16"),
-    Decision("chat.model", ("id-or-path",), "recommended"),
     Decision("agent.slots", ("count",), "1"),
     Decision("recommend", ("yes", "no"), "no"),
     Decision("skip-rec", ("manual", "model-path"), "manual"),

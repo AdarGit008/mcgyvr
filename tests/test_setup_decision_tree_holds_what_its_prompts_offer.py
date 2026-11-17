@@ -45,18 +45,6 @@ CONFIRM: dict[str, Callable[[], bool]] = {
 #: A free answer: the prompt, an answer of the kind the option names and what
 #: it reads it as, and the table's word for what Enter gives.
 FREE: dict[str, tuple[Callable[[], Any], str, Any, Callable[[Any], str]]] = {
-    "chat.context-size": (
-        setup._ask_context_size,
-        "4096",
-        4096,
-        lambda got: "recommended" if got is None else str(got),
-    ),
-    "chat.model": (
-        setup._ask_model,
-        "example-org/Model-GGUF",
-        "example-org/Model-GGUF",
-        lambda got: "recommended" if got is None else str(got),
-    ),
     "agent.slots": (setup._ask_slots, "4", 4, str),
 }
 #: Asked inside the recommend step (`_setup_downloads`), which lane L1B owns:

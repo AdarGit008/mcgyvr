@@ -445,12 +445,8 @@ RUFF_QUESTION = (
     "Install ruff for the gate's lint, format and repair? No skips only those: "
     "syntax, types and the acceptance command still judge. [y/n] "
 )
-#: The raw branch's context window question; Enter keeps the recommended one.
-CONTEXT_SIZE_QUESTION = "Context window in tokens (Enter for the recommended): "
 #: The raw branch's KV cache quant question, default `f16`.
 CONTEXT_QUANT_QUESTION = f"KV cache quant? [f16] {', '.join(CONTEXT_QUANT_CHOICES)}: "
-#: The raw branch's model question; Enter keeps the recommended one.
-MODEL_QUESTION = "Model (id or path, Enter for the recommended): "
 #: The agent branch's slot-count question, default 1.
 SLOTS_QUESTION = "Slots (concurrent requests)? [1] "
 #: The consent gate, between the printed placement and committing it.
@@ -537,24 +533,6 @@ def _ruff_left_for_later(ruff_on: bool | None, stopped_after: str) -> None:
         )
 
 
-def _ask_context_size() -> int | None:
-    """Ask for the served context window, or None for the recommended one."""
-    for _ in range(_SETUP_TRIES):
-        said = _ask(CONTEXT_SIZE_QUESTION)
-        if not said:
-            return None
-        try:
-            value = int(said)
-        except ValueError:
-            print(f"{said!r} is not a token count.")
-            continue
-        if value < 1:
-            print("a context window is at least 1 token.")
-            continue
-        return value
-    raise _SetupInteractiveError("no context window was named")
-
-
 def _ask_context_quant() -> str:
     """Ask for the KV cache quant, defaulting to `f16` (the recommended one)."""
     return _setup_choose(
@@ -562,11 +540,6 @@ def _ask_context_quant() -> str:
         CONTEXT_QUANT_CHOICES,
         "a KV cache quant",
     )
-
-
-def _ask_model() -> str | None:
-    """Ask for a model id or path to serve, or None for the recommended one."""
-    return _ask(MODEL_QUESTION) or None
 
 
 def _ask_slots() -> int:
@@ -585,11 +558,6 @@ def _ask_slots() -> int:
             continue
         return value
     raise _SetupInteractiveError("no slot count was named")
-
-
-def _ask_raw_model() -> tuple[int | None, str, str | None]:
-    """Ask the raw use-case questions: context size, context quant, model."""
-    return _ask_context_size(), _ask_context_quant(), _ask_model()
 
 
 def _consent_to_placement() -> bool:
@@ -670,22 +638,13 @@ def _recommend_consented(
         model_stores = (directory,)
 
 
-def _unit_overrides(
-    context_size: int | None,
-    context_quant: str,
-    model: str | None,
-    slots: int,
-) -> dict[str, Any] | None:
+def _unit_overrides(context_quant: str, slots: int) -> dict[str, Any] | None:
     """The raw branch's per-unit choices, as fleet.yaml field overrides.
 
     Only a choice that differs from what `initialize` or the recommendation
     already writes is returned, so a default answer changes nothing.
     """
     overrides: dict[str, Any] = {}
-    if context_size is not None:
-        overrides["window"] = context_size
-    if model is not None:
-        overrides["model"] = model
     if slots != 1:
         overrides["width"] = slots
     if context_quant != "f16":
@@ -711,7 +670,7 @@ def _apply_setup_choices(
 
     Each choice is an existing schema field, never a new one: `fanout`,
     `users`, the `serving` block and `gate.ruff` in policy.yaml, and per-unit
-    `window`, `width`, `model` and the KV cache launch keys in fleet.yaml. A
+    `width` and the KV cache launch keys in fleet.yaml. A
     choice of None leaves the field as `initialize` wrote it. `ruff` writes
     `gate.ruff` explicitly, yes or no, so a later reader can tell an opt-in
     from a config that never asked; `gate.enabled` is not written.
@@ -1424,8 +1383,8 @@ def _setup_interactive(
 
     The tree: rigs, then the use case. The coding branch asks deployment,
     Jev, fan-out, sleep/wake and ruff (`gate.ruff`: the lint and format
-    rungs and the repair); the chat branch asks context size, context quant and model,
-    and the agent branch adds slots. The scan and
+    rungs and the repair); the chat branch asks the KV cache quant, and the
+    agent branch adds slots. The scan and
     recommendation run next, and the placement they print is committed only
     on the consent gate; a skipped recommendation asks for a model path or
     leaves the setup all-manual. Downloads, then start, sample and lock run
@@ -1454,15 +1413,13 @@ def _setup_interactive(
         use_case = _ask_setup_use_case()
 
         # The use-case branch: coding asks deployment, Jev, fan-out,
-        # sleep/wake and ruff; the raw use cases ask context size, quant and
-        # model, and agent adds the slot count.
+        # sleep/wake and ruff; the raw use cases ask the KV cache quant, and
+        # agent adds the slot count.
         wants_jev = False
         fanout: str | None = None
         enable_sleep_wake: bool | None = None
         ruff_on: bool | None = None
-        context_size: int | None = None
         context_quant = "f16"
-        model: str | None = None
         slots = 1
         if use_case == MCGYVR_CODE:
             deployment = _ask_deployment(deployment)
@@ -1471,10 +1428,10 @@ def _setup_interactive(
             enable_sleep_wake = _ask_sleep_wake()
             ruff_on = _ask_ruff()
         elif use_case == AGENT:
-            context_size, context_quant, model = _ask_raw_model()
+            context_quant = _ask_context_quant()
             slots = _ask_slots()
         else:  # code and chat: raw, one model, no slot question
-            context_size, context_quant, model = _ask_raw_model()
+            context_quant = _ask_context_quant()
 
         _rule("Step 3 of 4 — read and plan")
         scans, readings = _setup_scan_rigs(rigs)
@@ -1482,7 +1439,7 @@ def _setup_interactive(
         plans = _recommend_consented(rigs, scans, use_case, users=slots, auto=auto)
         if plans is None:
             return 0
-        ctx_per_slot = context_size or _setup_context_window(plans)
+        ctx_per_slot = _setup_context_window(plans)
         downloads = _setup_downloads(plans, scans)
         for rig, record in downloads:
             _setup_fetch(rig, record, path)
@@ -1509,7 +1466,7 @@ def _setup_interactive(
             enable_sleep_wake=enable_sleep_wake,
             ruff=ruff_on,
             users=slots if slots != 1 else None,
-            unit_overrides=_unit_overrides(context_size, context_quant, model, slots),
+            unit_overrides=_unit_overrides(context_quant, slots),
         )
         print(f"Staged the setup at {staged.path}\n")
         if stop is Stop.CONFIG:
