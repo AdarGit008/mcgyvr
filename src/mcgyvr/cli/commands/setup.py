@@ -1415,8 +1415,9 @@ def _setup_interactive(
     stop: Stop | None = None,
     deployment: str | None = None,
 ) -> int:
-    """Run the wizard end to end, walking the ordered decision tree in
-    :data:`mcgyvr.cli.setup_stages.DECISION_TREE`, and answer the exit code.
+    """Run the wizard end to end, asking the ordered decision tree that
+    :data:`mcgyvr.cli.setup_stages.DECISION_TREE` records, and answer the exit
+    code.
 
     The tree: rigs, then the use case. The coding branch asks deployment,
     Jev, fan-out, sleep/wake and ruff (the lint/format gate and its
