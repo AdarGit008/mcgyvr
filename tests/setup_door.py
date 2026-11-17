@@ -332,8 +332,14 @@ def interactive(
     # does, so the wizard is not asked for one here.
     monkeypatch.setattr(cli.commands.setup, "_ask_rig_addresses", lambda rigs: None)
     monkeypatch.setattr(
-        cli.commands.setup, "_setup_placements", lambda rigs, scans, use_case: plan
+        cli.commands.setup,
+        "_setup_placements",
+        lambda rigs, scans, use_case, **kwargs: plan,
     )
+    # The consent gate is a new seam: the flow tests commit the recommended
+    # placement by default, and the consent gate's own tests drive it
+    # directly.
+    monkeypatch.setattr(cli.commands.setup, "_consent_to_placement", lambda: True)
     monkeypatch.setattr(
         cli.commands.setup, "_setup_downloads", lambda plans, scans, prompt=None: ()
     )

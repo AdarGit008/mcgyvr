@@ -151,9 +151,12 @@ def worker_attempt(
     # not name the key at all falls back to the schema's default, so its extra
     # draws are not copies of draw 0.
     temperature = float(config.get("breadth.temperature", BREADTH_TEMPERATURE_DEFAULT))
-    # Repair answers the gate's rejections, so a gate switched off repairs nothing.
-    tidying = bool(config.get("cleanup.enabled", True)) and bool(
-        config.get("gate.enabled", True)
+    # Repair answers the gate's rejections, so a gate switched off repairs nothing;
+    # its tools are ruff's, so `gate.ruff: false` repairs nothing either.
+    tidying = (
+        bool(config.get("cleanup.enabled", True))
+        and bool(config.get("gate.enabled", True))
+        and config.get("gate.ruff") is not False
     )
     # The run's `max_window_fraction`: the largest share of a rung's window one
     # contract's prompt may claim, the reply being given the rest, checked
