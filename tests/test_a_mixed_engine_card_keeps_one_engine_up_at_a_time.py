@@ -1,16 +1,16 @@
 """A card hosting both llama.cpp and vLLM never runs the two engines at once.
 
 Two units co-resident on one card, one served by llama.cpp and one by vLLM,
-switch one at a time like any two units that share a card: a llama.cpp unit's
-sleep is a stop of its container, a vLLM unit's sleep is level 2 (its process
-stays, its weights and cache leave), and a wake of either is a start or a wake
-of that one container, never a whole-card run that would bring its neighbour of
-the other engine up beside it.
+switch one at a time like any two units that share a card: putting either down
+stops its container alone, and a wake of either starts that one container, so
+the card's other unit is left as it is. A vLLM unit beside a llama.cpp unit is
+stopped, not slept at level 2: level 2 is not measured on a card of both
+engines, and a stop leaves no rest mark, so its wake is a start.
 
-A refused draw to the llama.cpp sleeper swaps it in: the waker puts the vLLM
-unit down first (``serve sleep --unit``) and starts the sleeper alone (``serve
-up --unit``). A later draw to the vLLM unit gives the room back in reverse
-(``serve down --unit`` the sleeper, ``serve wake --unit`` the vLLM unit). Every
+A refused draw to the llama.cpp sleeper swaps it in: the waker stops the vLLM
+unit first (``serve down --unit``) and starts the sleeper alone (``serve up
+--unit``). A later draw to the vLLM unit gives the room back in reverse
+(``serve down --unit`` the sleeper, ``serve up --unit`` the vLLM unit). Every
 step acts on one container, so the card is never asked to hold both engines at
 once.
 
@@ -87,9 +87,13 @@ def mixed_ladder(
     )
 
 
-def mixed_spec(tmp_path: Path) -> Path:
-    """One launch spec for the shared host: each unit its own container on card 0."""
-    from mcgyvr.serving import COMPOSE_PREFIX, COMPOSE_SUFFIX
+def mixed_spec(tmp_path: Path, *, sleeper_profile: bool = False) -> Path:
+    """One launch spec for the shared host: each unit its own container on card 0.
+
+    ``sleeper_profile`` puts the llama.cpp sleeper under the profile ``emit``
+    renders a unit that starts asleep under, so a whole-card start leaves it down.
+    """
+    from mcgyvr.serving import COMPOSE_PREFIX, COMPOSE_SUFFIX, SLEEPER_PROFILE
 
     where = tmp_path / "specs"
     where.mkdir(exist_ok=True)
@@ -107,6 +111,8 @@ def mixed_spec(tmp_path: Path) -> Path:
             "deploy": reservation(["0"]),
         },
     }
+    if sleeper_profile:
+        services["llama"]["profiles"] = [SLEEPER_PROFILE]
     (where / f"{COMPOSE_PREFIX}{SHARED_HOST}{COMPOSE_SUFFIX}").write_text(
         yaml.safe_dump({"services": services}), encoding="utf-8"
     )
@@ -181,14 +187,17 @@ def tracking_door(
 # --- one unit at a time -----------------------------------------------------
 
 
-def test_a_vllm_unit_on_a_mixed_card_sleeps_alone(
+def test_a_vllm_unit_on_a_mixed_card_stops_alone_and_is_not_slept(
     tmp_path: Path, home: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    from mcgyvr.wake import resting
+
     config = parse(mixed_ladder(mixed_spec(tmp_path)))
     log = door(monkeypatch)
 
     assert switches(config).sleep(VLLM) is True
-    assert log == [f"sleep {VLLM_CONTAINER}"], "the card was put down whole"
+    assert log == [f"down {VLLM_CONTAINER}"], "slept at level 2, or put down whole"
+    assert not resting(SHARED_HOST, 8001), "a stop left a rest mark"
 
 
 def test_a_vllm_unit_on_a_mixed_card_with_no_sleep_route_stops_alone(
@@ -198,9 +207,7 @@ def test_a_vllm_unit_on_a_mixed_card_with_no_sleep_route_stops_alone(
     log = door(monkeypatch, sleep_code=NO_SLEEP_ROUTE)
 
     assert switches(config).sleep(VLLM) is True
-    assert log == [f"sleep {VLLM_CONTAINER}", f"down {VLLM_CONTAINER}"], (
-        "the fallback stopped the whole card"
-    )
+    assert log == [f"down {VLLM_CONTAINER}"], "asked to sleep, or stopped whole"
 
 
 def test_a_llama_unit_on_a_mixed_card_stops_alone(
@@ -355,6 +362,82 @@ def test_a_refused_sleeper_swaps_in_and_gives_back_one_container_at_a_time(
     assert up == {VLLM_CONTAINER}
     assert wake.standing_swap(SHARED_HOST) is None
 
+    for held in after:
+        assert not ({VLLM_CONTAINER, LLAMA_CONTAINER} <= held), (
+            f"both engines were up at once: {sorted(held)}"
+        )
+
+
+def compose_door(
+    monkeypatch: pytest.MonkeyPatch, *, start: frozenset[str]
+) -> tuple[list[str], set[str], list[frozenset[str]]]:
+    """The door as compose acts: a per-unit run acts on its unit, a whole-card
+    start starts the services outside a profile, a whole-card stop stops all.
+
+    Answers the runs as ``<verb> <unit>`` (``<whole card>`` with no unit), the
+    containers up, and the up set after every run.
+    """
+    import mcgyvr.wake as wake
+
+    runs: list[str] = []
+    up = set(start)
+    after: list[frozenset[str]] = []
+
+    def spawn(argv: list[str], **_: Any) -> int:
+        verb = argv[argv.index("serve") + 1]
+        units = [argv[i + 1] for i, arg in enumerate(argv) if arg == "--unit"]
+        runs.append(f"{verb} {' '.join(units) or '<whole card>'}")
+        starts = verb in ("up", "wake")
+        if units:
+            for unit in units:
+                (up.add if starts else up.discard)(unit)
+        elif starts:
+            up.add(VLLM_CONTAINER)
+        else:
+            up.clear()
+        after.append(frozenset(up))
+        return 0
+
+    monkeypatch.setattr(wake, "spawn_door", spawn)
+    return runs, up, after
+
+
+def test_a_swap_over_an_emitted_spec_stops_and_starts_one_unit_at_a_time(
+    tmp_path: Path, home: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import mcgyvr.wake as wake
+    from mcgyvr.capacity import Capacity
+    from mcgyvr.pressure import Gauge
+    from mcgyvr.runner import RefusedConnectionError
+
+    config = parse(mixed_ladder(mixed_spec(tmp_path, sleeper_profile=True)))
+    runs, up, after = compose_door(monkeypatch, start=frozenset({VLLM_CONTAINER}))
+    monkeypatch.setattr(
+        wake, "saved_card_mib", lambda hosts: {SHARED_HOST: {0: CARD_MIB}}
+    )
+    waker = wake.for_config(config)
+    assert waker is not None
+    capacity = Capacity.of(config, gauge=Gauge())
+    sent: list[str] = []
+
+    def send() -> str:
+        sent.append(LLAMA)
+        if len(sent) == 1:
+            raise RefusedConnectionError("connection refused")
+        return "answered"
+
+    assert waker.dispatching(LLAMA, send, capacity=capacity) == "answered"
+    assert waker.dispatching(VLLM, lambda: "answered", capacity=capacity) == (
+        "answered"
+    )
+
+    assert runs == [
+        f"down {VLLM_CONTAINER}",
+        f"up {LLAMA_CONTAINER}",
+        f"down {LLAMA_CONTAINER}",
+        f"up {VLLM_CONTAINER}",
+    ]
+    assert up == {VLLM_CONTAINER}
     for held in after:
         assert not ({VLLM_CONTAINER, LLAMA_CONTAINER} <= held), (
             f"both engines were up at once: {sorted(held)}"

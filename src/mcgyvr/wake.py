@@ -994,18 +994,21 @@ def put_down(config: Config, card: Card, only: tuple[str, ...] = ()) -> Wake:
     A whole card sleeps only where every source is vLLM and no unit of it is
     split over machines, and stops where the door answers with no sleep route.
     `only` narrows a card whose units switch one at a time to the units being
-    put down: its vLLM units sleep at level 2 and its llama.cpp units stop,
-    either way alone. Raises `WakeError` when the card holds the resident unit
-    or has no single spec.
+    put down, and leaves the card's other units as they are: on a card where
+    every source is vLLM they sleep at level 2 (stopped where the door answers
+    with no sleep route), and on any other card they stop. Raises `WakeError`
+    when the card holds the resident unit or has no single spec.
     """
     _refuse_resident(config, card, "slept")
     compose = compose_for(card)
     if compose is None:
         raise WakeError(_why_not_one(card))
     if only and _per_unit(config, card):
-        # Units that switch one at a time: stop the llama.cpp ones, sleep the
-        # vLLM ones at level 2, and leave the card's other units as they are.
-        if _stopped_alone(config, only):
+        # Units that switch one at a time are put down alone. A llama.cpp unit
+        # is stopped, and so is a vLLM unit beside one: level 2 is not measured
+        # on a card of both engines, and a stop leaves no rest mark, so its wake
+        # is a start. Only a card of vLLM units alone sleeps them at level 2.
+        if _stopped_alone(config, only) or not _all_vllm(config, card):
             return _run_door(config, card, "down", compose, only=only)
         asked = _run_door(config, card, "sleep", compose, only=only)
         if asked.code != NO_SLEEP_ROUTE:
