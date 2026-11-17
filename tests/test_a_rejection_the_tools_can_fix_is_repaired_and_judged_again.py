@@ -104,3 +104,94 @@ def test_an_install_that_turned_the_cleanup_off_keeps_the_gates_rejection(
     out = capsys.readouterr()
     assert code != 0, (out.out, out.err)
     assert (repo / "src" / "pkg" / "messy.py").read_text(encoding="utf-8") == "x = 0\n"
+
+
+#: The repair test's contract, whose demonstration needs the line as the
+#: formatter writes it: a ``VALUE=1`` reply is a rejection the repair turns into
+#: an acceptance, whether or not the format rung is the one that rejects it.
+NEEDS_THE_FORMATTED_LINE = lj.MODEL_CONTRACT.replace(
+    "demonstration: [\"sh -c 'grep -q VALUE src/pkg/messy.py'\"]",
+    'demonstration: ["sh -c \'grep -qx \\"VALUE = 1\\" src/pkg/messy.py\'"]',
+)
+assert NEEDS_THE_FORMATTED_LINE != lj.MODEL_CONTRACT
+
+#: The note a run under ``gate.ruff: false`` carries.
+RUFF_OFF_NOTE = "python: lint and format not judged"
+
+
+def _repairs_seen(monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    """Record every call the driver makes to the repair and to the tidy."""
+    import mcgyvr.drive as drive
+    import mcgyvr.repair as repair_module
+
+    seen: list[str] = []
+    real_repair, real_tidy = repair_module.repair, drive.tidy
+
+    def repair_spy(**kwargs):  # type: ignore[no-untyped-def]
+        seen.append("repair")
+        return real_repair(**kwargs)
+
+    def tidy_spy(**kwargs):  # type: ignore[no-untyped-def]
+        seen.append("tidy")
+        return real_tidy(**kwargs)
+
+    monkeypatch.setattr(repair_module, "repair", repair_spy)
+    monkeypatch.setattr(drive, "tidy", tidy_spy)
+    return seen
+
+
+def _run_needing_the_formatted_line(
+    tmp_path: Path, policy: str
+) -> tuple[int, Path, list[str]]:
+    repo = lj.make_repo(tmp_path / "repo")
+    config = lj.make_config(tmp_path / "setup", journal_dir=tmp_path / "journal")
+    lj.append_policy(config, policy)
+    contract = lj.make_contract(tmp_path / "impl.yaml", NEEDS_THE_FORMATTED_LINE)
+    code = lj.main(lj.run_args(contract, repo, config))
+    result = json.loads(lj.result_of(contract).read_text(encoding="utf-8"))
+    return code, repo, [str(note) for note in result["notes"]]
+
+
+def test_with_the_key_unset_that_rejection_is_repaired_and_accepted(
+    tmp_path: Path,
+    home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """The fixture is a rejection the repair fixes, and unset says nothing new."""
+    lj.scripted(monkeypatch, UNFORMATTED_REPLY)
+    seen = _repairs_seen(monkeypatch)
+
+    code, repo, notes = _run_needing_the_formatted_line(tmp_path, "")
+
+    out = capsys.readouterr()
+    assert code == 0, (out.out, out.err)
+    assert "repair" in seen
+    assert (repo / "src" / "pkg" / "messy.py").read_text(
+        encoding="utf-8"
+    ) == "VALUE = 1\n"
+    assert not any(note.startswith(RUFF_OFF_NOTE) for note in notes), notes
+    assert RUFF_OFF_NOTE not in out.err
+
+
+def test_a_setup_that_said_no_to_ruff_runs_no_repair_on_that_rejection(
+    tmp_path: Path,
+    home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """`gate.ruff: false` is the driver's `tidying` switch: no repair, no tidy,
+    the rejection stands, and the run says lint and format were not judged."""
+    lj.scripted(monkeypatch, UNFORMATTED_REPLY)
+    seen = _repairs_seen(monkeypatch)
+
+    code, repo, notes = _run_needing_the_formatted_line(
+        tmp_path, "gate:\n  ruff: false\n"
+    )
+
+    out = capsys.readouterr()
+    assert seen == [], f"gate.ruff is false and the driver still ran {seen}"
+    assert code != 0, (out.out, out.err)
+    assert (repo / "src" / "pkg" / "messy.py").read_text(encoding="utf-8") == "x = 0\n"
+    assert any(note.startswith(RUFF_OFF_NOTE) for note in notes), notes
+    assert f"note: {RUFF_OFF_NOTE}" in out.err

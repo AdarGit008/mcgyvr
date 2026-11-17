@@ -470,10 +470,13 @@ GATE_FIELDS: tuple[Field, ...] = (
         "Whether ruff judges and repairs Python: the lint and format rungs, and "
         "the repair (`cleanup.enabled`), which is ruff's fixes and formatter. "
         "Off, a Python change is not judged on lint or format and is not "
-        "repaired, and ruff need not be installed; syntax, the structural "
-        "checks, types, the semantic rung, `param_mutation` and the acceptance "
-        "command judge it as before, and the JavaScript rungs are not touched. "
-        "Setup's ruff question writes it: yes on, no off. Unset reads as on.",
+        "repaired, the run says so in a note, and the gate and the repair need "
+        "no ruff; syntax, the structural checks, types, the semantic rung, "
+        "`param_mutation` and the acceptance command judge it as before, and the "
+        "JavaScript rungs are not touched. A contract that asks for a ruff "
+        "operation (a Python `format`, `import_sort` or `lint_fix` task) still "
+        "runs ruff. Setup's ruff question writes it: yes on, no off. Unset reads "
+        "as on.",
         default=True,
     ),
     Field(
@@ -2008,7 +2011,7 @@ SWITCHES: tuple[Switch, ...] = (
     ),
     Switch(
         "repair",
-        ("cleanup.enabled",),
+        ("cleanup.enabled", "gate.ruff"),
         "`false`",
         "the gate's own tools fix what they can in a rejected change",
         stage="repair",
