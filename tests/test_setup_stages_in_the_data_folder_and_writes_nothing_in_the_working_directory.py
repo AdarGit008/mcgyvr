@@ -18,6 +18,7 @@ from typing import Any
 import pytest
 
 from mcgyvr import cli
+from mcgyvr.detect import Detection
 from mcgyvr.fleet.roots import data_home, staging_dir
 from mcgyvr.initialize import InitResult
 
@@ -86,19 +87,25 @@ def test_the_interactive_setup_writes_once_from_the_plan_and_emits_once(
     monkeypatch.setattr(
         cli.commands.setup,
         "_setup_placements",
-        lambda rigs, scans, use_case: {"box1": {"placement": {"context_length": 4096}}},
+        lambda rigs, scans, use_case, **kwargs: {
+            "box1": {"placement": {"context_length": 4096}}
+        },
     )
+    monkeypatch.setattr(cli.commands.setup, "_consent_to_placement", lambda: True)
     monkeypatch.setattr(
         cli.commands.setup, "_setup_downloads", lambda plans, scans, prompt=None: ()
     )
     monkeypatch.setattr(
         cli.commands.setup,
         "_setup_synthetic_detection",
-        lambda plans, window=None: None,
+        lambda plans, window=None: Detection(),
     )
 
     def fake_initialize(path: Path, **kwargs: Any) -> InitResult:
         calls.append(("initialize", path, kwargs.get("detection", "-")))
+        path.mkdir(parents=True, exist_ok=True)
+        (path / "fleet.yaml").write_text("{}\n", encoding="utf-8")
+        (path / "policy.yaml").write_text("{}\n", encoding="utf-8")
         return InitResult(path=path, created=True, written=True)
 
     monkeypatch.setattr(cli.commands.setup, "initialize", fake_initialize)
@@ -121,5 +128,5 @@ def test_the_interactive_setup_writes_once_from_the_plan_and_emits_once(
     assert cli.main(["setup"]) == 0
 
     (staged,) = (data_home() / "setup").iterdir()
-    assert calls == [("initialize", staged, None), ("emit", staged, 4096)]
+    assert calls == [("initialize", staged, Detection()), ("emit", staged, 4096)]
     assert list(here.iterdir()) == []
