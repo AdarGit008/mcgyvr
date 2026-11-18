@@ -287,12 +287,54 @@ def test_the_check_never_lets_through_a_pattern_the_matcher_lets_name_python(
 def test_a_scope_that_may_name_python_is_checked(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, target: str, scope: str
 ) -> None:
-    """A change may write anywhere its scope allows (a rename rewrites every
-    file that uses the name), so a scope that may name a Python file counts
-    even when the target cannot."""
+    """A rename rewrites every file that uses the name, anywhere its scope
+    allows, so a scope that may name a Python file counts even when the
+    target cannot."""
     _hide_ruff(tmp_path, monkeypatch)
 
     assert _issue(_setup(True), target, (scope,)) is not None, (target, scope)
+
+
+#: A floor contract a program performs on its target alone.
+FORMAT = """
+id: format-x
+task_type: code
+operation: format
+task: Reformat the module.
+target: web/app.js
+scope:
+  allow: ["web/**"]
+"""
+
+
+@pytest.mark.parametrize(
+    ("text", "target", "scope"),
+    [
+        (lj.MODEL_CONTRACT, "web/app.js", "web/**"),
+        (lj.MODEL_CONTRACT, "web/app.js", "**"),
+        (lj.MODEL_CONTRACT, "docs/a.md", "docs/**"),
+        (FORMAT, "web/app.js", "web/**"),
+    ],
+    ids=["climb-js-folder", "climb-js-tree", "climb-docs-folder", "floor-format-js"],
+)
+def test_a_change_that_writes_its_target_alone_is_not_judged_by_its_scope(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    text: str,
+    target: str,
+    scope: str,
+) -> None:
+    """A model's reply and a floor program write the target alone, so a scope
+    that may name a Python file does not make such a change a Python one. Only
+    an operation run in process on the tree (`rename_symbol`) is judged by its
+    scope (`test_a_scope_that_may_name_python_is_checked`)."""
+    from mcgyvr.drive import missing_gate_tool
+    from mcgyvr.scope import Scope
+
+    _hide_ruff(tmp_path, monkeypatch)
+    contract = replace(loads(text), target=target, scope=Scope.of([scope]))
+
+    assert missing_gate_tool(_setup(True), contract) is None, (target, scope)
 
 
 @pytest.mark.parametrize(

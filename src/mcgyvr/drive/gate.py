@@ -426,9 +426,10 @@ def missing_gate_tool(
     setup asked, and a setup that never asked) is told apart from a yes; it keeps
     the gate's quiet skip. Nothing is said when the gate is off, when
     ``gate.ruff`` is false or unset, or when the contract's change cannot hold a
-    Python file: neither its target nor any entry of its `scope.allow` (what a
-    change may write, a rename's across files included) is a path the Python
-    adapter owns or a pattern that may name one (`_may_name_python`).
+    Python file: its target is not a path the Python adapter owns nor a
+    pattern that may name one (`_may_name_python`), and, for an operation that
+    writes beyond its target (`_writes_beyond_target`), no entry of its
+    `scope.allow` is either.
     """
     if config is None or config.get("gate.enabled") is False:
         return None
@@ -437,7 +438,9 @@ def missing_gate_tool(
     python = next(
         (a for a in gate_adapters(config) if isinstance(a, PythonAdapter)), None
     )
-    named = (contract.target, *contract.scope.allow)
+    named: tuple[str, ...] = (contract.target,)
+    if _writes_beyond_target(contract):
+        named = (*named, *contract.scope.allow)
     if python is None or not any(_may_name_python(python, n) for n in named):
         return None
     try:
@@ -456,6 +459,23 @@ def missing_gate_tool(
             ),
         )
     return None
+
+
+def _writes_beyond_target(contract: Contract) -> bool:
+    """Whether `contract`'s change may write a file its target does not name.
+
+    A model's reply writes the target alone (`mcgyvr.worker.reply`), and a
+    program on the floor is handed the target, or the files a pattern target
+    names, after `--` (`ToolStep.argv`, `argv_over`). An operation mcgyvr runs
+    in process has no program (`Tool.program` is None: `deterministic.
+    IN_PROCESS`) and works on the tree, so what it writes is bounded only by
+    the scope: `rename_symbol` rewrites every file that uses the name. Any
+    operation added to `IN_PROCESS` is read the same way.
+    """
+    from mcgyvr.deterministic import tool_for
+
+    tool = tool_for(contract)
+    return tool is not None and tool.program is None
 
 
 #: A wildcard token as the run's matcher reads one (`scope._glob_to_regex`):
