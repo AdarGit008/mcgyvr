@@ -1,16 +1,15 @@
-"""A setup that opted in to ruff with none installed is refused before any work.
+"""A gate that judges Python with ruff and has none is refused before any work.
 
-``gate.ruff: true`` is written only by setup's yes to ruff, which installs it.
-A run under that key on a machine with no ruff used to be accepted with lint
-and format skipped ("ruff not installed — lint skipped" is an environment
-issue, not a finding) and delivered. It is refused now, before a sandbox is
-opened or anything is dispatched, on the floor and on the climb (and so before
-delivery's re-gate), with a line naming ruff, its install command and the
-switch that runs without it.
+``gate.ruff`` on (``true``, or unset, which reads as on) has the gate lint,
+format and repair Python with ruff. A run under it on a machine with no ruff
+used to be accepted with lint and format skipped ("ruff not installed — lint
+skipped" is an environment issue, not a finding) and delivered. It is refused
+now, before a sandbox is opened or anything is dispatched, on the floor and on
+the climb (and so before delivery's re-gate), with a line naming ruff, its
+install command and the switch that runs without it.
 
-What does not move: ``gate.ruff`` unset (every config written before setup
-asked) keeps the quiet skip, ``false`` keeps its note, and ``true`` with ruff
-installed runs as before.
+What does not move: ``false`` keeps its note and runs, and ruff installed runs
+as before, key true or unset.
 
 Ruff is hidden the literal way: every ``PATH`` entry holding a ``ruff`` is
 replaced by a directory of links to everything else in it, so ``git``, ``sh``
@@ -107,25 +106,28 @@ def _issue(
 # --- the check ---------------------------------------------------------------
 
 
-def test_an_opt_in_is_told_apart_from_a_setup_that_never_asked() -> None:
-    """Unset has no value of its own and still reads as on everywhere else."""
+def test_unset_reads_as_on() -> None:
+    """The key's default is on, as every reader of it reads unset."""
     from mcgyvr.config import stages
 
     assert _setup(True).get("gate.ruff") is True
     assert _setup(False).get("gate.ruff") is False
-    assert _setup(None).get("gate.ruff") is None
+    assert _setup(None).get("gate.ruff") is True
     assert stages(_setup(None))["repair"], "unset no longer reads as on"
 
 
-def test_opted_in_with_no_ruff_names_ruff_its_install_and_the_switch(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+@pytest.mark.parametrize("ruff", [True, None], ids=["true", "unset"])
+def test_ruff_on_with_no_ruff_names_ruff_its_install_and_the_switch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, ruff: bool | None
 ) -> None:
     _hide_ruff(tmp_path, monkeypatch)
 
-    issue = _issue(_setup(True))
+    issue = _issue(_setup(ruff))
 
-    assert issue is not None, "gate.ruff true with no ruff was not refused"
+    assert issue is not None, f"gate.ruff {ruff} with no ruff was not refused"
     said = str(issue)
+    assert "gate.ruff is true" not in said, "the line says a key nobody wrote"
+    assert "`gate.ruff` is on" in said, said
     assert "ruff is not installed" in said, said
     assert "uv tool install ruff" in said, said
     assert "already installed" in said, said
@@ -341,7 +343,6 @@ def test_a_change_that_writes_its_target_alone_is_not_judged_by_its_scope(
     ("config", "target"),
     [
         (None, "src/pkg/messy.py"),
-        (_setup(None), "src/pkg/messy.py"),
         (_setup(False), "src/pkg/messy.py"),
         (_setup(True, gate=False), "src/pkg/messy.py"),
         (_setup(True), "src/app.js"),
@@ -353,7 +354,6 @@ def test_a_change_that_writes_its_target_alone_is_not_judged_by_its_scope(
     ],
     ids=[
         "no-config",
-        "unset",
         "opted-out",
         "gate-off",
         "javascript",
@@ -376,8 +376,9 @@ def test_nothing_is_said_where_the_gate_would_not_run_ruff(
 
 
 @needs_ruff
-def test_nothing_is_said_when_ruff_is_installed() -> None:
-    assert _issue(_setup(True)) is None
+@pytest.mark.parametrize("ruff", [True, None], ids=["true", "unset"])
+def test_nothing_is_said_when_ruff_is_installed(ruff: bool | None) -> None:
+    assert _issue(_setup(ruff)) is None
 
 
 # --- through the CLI ---------------------------------------------------------
@@ -423,30 +424,34 @@ def _refused(
     assert "uv tool install ruff" in result["detail"], result
 
 
+@pytest.mark.parametrize("ruff", [True, None], ids=["true", "unset"])
 def test_the_climb_with_no_ruff_is_refused_and_nothing_is_dispatched(
     tmp_path: Path,
     home: Path,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
+    ruff: bool | None,
 ) -> None:
     _hide_ruff(tmp_path, monkeypatch)
 
     code, sent, repo, journal = _run(
-        tmp_path, monkeypatch, lj.MODEL_CONTRACT, True, lj.GOOD_REPLY
+        tmp_path, monkeypatch, lj.MODEL_CONTRACT, ruff, lj.GOOD_REPLY
     )
 
     _refused(code, sent, repo, journal, capsys.readouterr().err, tmp_path)
 
 
+@pytest.mark.parametrize("ruff", [True, None], ids=["true", "unset"])
 def test_the_floor_with_no_ruff_is_refused_and_nothing_runs(
     tmp_path: Path,
     home: Path,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
+    ruff: bool | None,
 ) -> None:
     _hide_ruff(tmp_path, monkeypatch)
 
-    code, sent, repo, journal = _run(tmp_path, monkeypatch, RENAME, True)
+    code, sent, repo, journal = _run(tmp_path, monkeypatch, RENAME, ruff)
 
     printed = capsys.readouterr()
     assert "rename_symbol" not in printed.out, printed.out
@@ -494,16 +499,34 @@ def test_a_rename_over_markdown_is_judged_by_what_its_scope_may_write(
     assert lj.git(repo, "rev-list", "--count", "HEAD").strip() == "2"
 
 
-@pytest.mark.parametrize("ruff", [None, False], ids=["unset", "opted-out"])
-def test_without_the_opt_in_a_missing_ruff_still_runs_as_before(
+def test_opted_out_a_missing_ruff_still_runs_as_before(
+    tmp_path: Path,
+    home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    _hide_ruff(tmp_path, monkeypatch)
+
+    code, sent, _, _ = _run(
+        tmp_path, monkeypatch, lj.MODEL_CONTRACT, False, lj.GOOD_REPLY
+    )
+
+    printed = capsys.readouterr()
+    assert code == 0, printed
+    assert len(sent) == 1, "the climb did not dispatch"
+    assert "ruff is not installed" not in printed.err, printed.err
+    assert "gate.ruff is false" in printed.err, printed.err
+
+
+@needs_ruff
+@pytest.mark.parametrize("ruff", [True, None], ids=["true", "unset"])
+def test_ruff_on_with_ruff_installed_runs_as_before(
     tmp_path: Path,
     home: Path,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
     ruff: bool | None,
 ) -> None:
-    _hide_ruff(tmp_path, monkeypatch)
-
     code, sent, _, _ = _run(
         tmp_path, monkeypatch, lj.MODEL_CONTRACT, ruff, lj.GOOD_REPLY
     )
@@ -512,32 +535,15 @@ def test_without_the_opt_in_a_missing_ruff_still_runs_as_before(
     assert code == 0, printed
     assert len(sent) == 1, "the climb did not dispatch"
     assert "ruff is not installed" not in printed.err, printed.err
-    noted = "gate.ruff is false" in printed.err
-    assert noted is (ruff is False), printed.err
 
 
-@needs_ruff
-def test_opted_in_with_ruff_installed_runs_as_before(
-    tmp_path: Path,
-    home: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    code, sent, _, _ = _run(
-        tmp_path, monkeypatch, lj.MODEL_CONTRACT, True, lj.GOOD_REPLY
-    )
-
-    printed = capsys.readouterr()
-    assert code == 0, printed
-    assert len(sent) == 1, "the climb did not dispatch"
-    assert "ruff is not installed" not in printed.err, printed.err
-
-
+@pytest.mark.parametrize("ruff", [True, None], ids=["true", "unset"])
 def test_a_batch_with_a_part_refused_on_ruff_is_refused_whole_before_any_part_starts(
     tmp_path: Path,
     home: Path,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
+    ruff: bool | None,
 ) -> None:
     """Refused part by part, the parts ahead of it, or beside it under
     `--jobs`, would run and deliver: the batch is refused before any starts."""
@@ -548,7 +554,8 @@ def test_a_batch_with_a_part_refused_on_ruff_is_refused_whole_before_any_part_st
     repo = lj.make_repo(tmp_path / "repo")
     journal = tmp_path / "journal"
     config = lj.make_config(tmp_path / "setup", journal_dir=journal)
-    lj.append_policy(config, "gate:\n  ruff: true\n")
+    if ruff is not None:
+        lj.append_policy(config, "gate:\n  ruff: true\n")
     folder = tmp_path / "contracts"
     folder.mkdir()
     for cid, new in (("rename-a", "y"), ("rename-b", "z")):
