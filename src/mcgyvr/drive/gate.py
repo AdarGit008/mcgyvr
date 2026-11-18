@@ -412,28 +412,26 @@ RUFF_INSTALL = "uv tool install ruff"
 def missing_gate_tool(
     config: Config | None, contract: Contract
 ) -> PreflightIssue | None:
-    """The refusal for a run whose setup opted in to ruff and has no ruff to run.
+    """The refusal for a run whose gate judges Python with ruff and has no ruff.
 
-    Only setup's yes writes ``gate.ruff: true``, and it installs ruff then, so a
-    run under that key that cannot find ruff would otherwise be accepted with
-    lint and format skipped (an environment issue is not a finding) and with no
-    repair. It is refused before anything is dispatched instead, naming the tool,
-    how to install it and the switch that runs without it. "Installed" is the
+    ``gate.ruff`` on (true, or unset, which reads as on as it does for every
+    other reader of the key) has the gate lint, format and repair Python with
+    ruff. A run that cannot find ruff would otherwise be accepted with lint and
+    format skipped (an environment issue is not a finding) and with no repair.
+    It is refused before anything is dispatched instead, naming the tool, how
+    to install it and the switch that runs without it. "Installed" is the
     gate's own test, ``require_tool``: ruff on this process's PATH, which is
     where the lint, format and repair rungs look for it in every sandbox mode.
 
-    ``gate.ruff`` has no default value, so unset (every config written before
-    setup asked, and a setup that never asked) is told apart from a yes; it keeps
-    the gate's quiet skip. Nothing is said when the gate is off, when
-    ``gate.ruff`` is false or unset, or when the contract's change cannot hold a
-    Python file: its target is not a path the Python adapter owns nor a
-    pattern that may name one (`_may_name_python`), and, for an operation that
-    writes beyond its target (`_writes_beyond_target`), no entry of its
-    `scope.allow` is either.
+    Nothing is said with no config, when the gate is off, when ``gate.ruff``
+    is false, or when the contract's change cannot hold a Python file: its
+    target is not a path the Python adapter owns nor a pattern that may name
+    one (`_may_name_python`), and, for an operation that writes beyond its
+    target (`_writes_beyond_target`), no entry of its `scope.allow` is either.
     """
     if config is None or config.get("gate.enabled") is False:
         return None
-    if config.get("gate.ruff") is not True:
+    if config.get("gate.ruff") is False:
         return None
     python = next(
         (a for a in gate_adapters(config) if isinstance(a, PythonAdapter)), None

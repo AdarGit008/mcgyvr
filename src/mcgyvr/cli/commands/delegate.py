@@ -669,7 +669,7 @@ def _run_delegated(
     settled, and the error is raised.
 
     A batch of several contracts where one would be refused for a missing gate
-    tool (`missing_gate_tool`: `gate.ruff: true` and no ruff) is refused whole
+    tool (`missing_gate_tool`: `gate.ruff` on and no ruff) is refused whole
     first, exit 1, before the tree is read or any part starts. Refused one by
     one in `_run`, a part ahead of it, or beside it under `--jobs`, would run
     and deliver. One contract alone is left to `_run`, which refuses it and
