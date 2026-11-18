@@ -3,7 +3,14 @@ name: platforms
 # machine reader's tests pass there, on the real system, and setup's PATH offer
 # and the Windows skills installer run. The full suite runs on Linux in
 # ci.yml; this job is not a required check.
-on: [push, pull_request]
+# What starts a run: a pull request (opened, reopened, each push to its
+# branch) and a push to main. A push to any other branch starts nothing, so a
+# pull request's push runs each job once, not once per event; a tag starts
+# nothing (release.yml has its own tag trigger).
+on:
+  push:
+    branches: [main]
+  pull_request:
 permissions:
   contents: read
 jobs:

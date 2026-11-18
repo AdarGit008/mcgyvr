@@ -3,7 +3,14 @@ name: ci
 # before it may merge, so keep the workflow name `ci` and the job id `test`:
 # the required context is `ci / test (pull_request)`, and renaming either one
 # leaves every pull request waiting on a check that never reports.
-on: [push, pull_request]
+# What starts a run: a pull request (opened, reopened, each push to its
+# branch) and a push to main. A push to any other branch starts nothing, so a
+# pull request's push runs each job once, not once per event; a tag starts
+# nothing (release.yml has its own tag trigger).
+on:
+  push:
+    branches: [main]
+  pull_request:
 permissions:
   contents: read
 jobs:
