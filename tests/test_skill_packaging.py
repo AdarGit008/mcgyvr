@@ -406,7 +406,7 @@ def test_an_mcgyvr_that_cannot_state_its_version_warns_and_still_installs(
         _install_constant("MIN_VERSION"),
         # The shape a real dev build has: a PEP 440 pre-release plus local
         # build metadata. Naive string comparison reads this as older than
-        # `0.5.0` on the `+g...` tail; stripping the local part and comparing
+        # the floor on the `+g...` tail; stripping the local part and comparing
         # with `sort -V` reads it as newer, which it is.
         "0.5.3.dev376+ga624cdc2",
         # A build of main after the floor is raised and before its tag is
