@@ -40,6 +40,13 @@ The listener answers at once with a server error, so the attempt ends without
 waiting on any timeout and nothing leaves the machine. A loopback address bound
 as hosted would be refused approval: it is a machine of the user's.
 
+ruff is not a dependency of the wheel and a setup on the flags alone installs
+none, while the gate judges Python with it (an unset ``gate.ruff`` reads as on).
+So that run is given a ruff of the user's own, a copy of the binary in a folder
+outside the checkout, as ``uv tool install ruff`` leaves one; and the same run
+with no ruff anywhere on ``PATH`` is refused before any attempt, with the line
+that names the install command and ``gate.ruff: false``.
+
 The wheel is built and installed once per test session, also when the session
 runs on several workers: the first worker builds it under a lock in the
 session's shared temporary folder, the others wait and use it.
@@ -57,6 +64,7 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -485,11 +493,56 @@ def test_an_unconfigured_install_names_the_setup_document_it_carries(
     assert Path(named[0]).resolve() == carried.resolve(), _ran(done)
 
 
-def test_a_fresh_init_runs_a_contract_without_evidence_from_the_dev_repo(
-    installed: Installed, tmp_path: Path, listener: _Listener
-) -> None:
-    home, work, repo = _a_place(tmp_path)
-    env = installed.env(home, **{KEY_ENV: "unused"})
+def _a_ruff_of_its_own(tmp_path: Path) -> Path:
+    """A folder outside the checkout holding a copy of the ruff binary, as
+    ``uv tool install ruff`` leaves one in a bin folder of the user's.
+
+    A copy, not a link: ruff is one self-contained executable, so the copy runs
+    with nothing of the checkout beside it, and resolving it never leads back
+    into the development tree. ruff is not a dependency of the wheel, so a
+    stranger who wants the gate's lint and format rungs installs it apart."""
+    import shutil
+
+    found = shutil.which("ruff")
+    if found is None:
+        pytest.skip("no ruff on this test process's PATH to give the install")
+    tools = tmp_path / "tools" / "bin"
+    tools.mkdir(parents=True)
+    ruff = tools / "ruff"
+    shutil.copy2(Path(found).resolve(), ruff)
+    assert _outside_the_checkout(str(ruff.resolve())), ruff
+    return tools
+
+
+def _without_ruff(path: str, tmp_path: Path) -> str:
+    """``path`` with every entry that holds a ``ruff`` replaced by a folder of
+    links to everything else in it, so only ruff stops resolving."""
+    import shutil
+
+    kept: list[str] = []
+    for index, entry in enumerate(path.split(os.pathsep)):
+        if not entry or shutil.which("ruff", path=entry) is None:
+            kept.append(entry)
+            continue
+        shadow = tmp_path / "path" / str(index)
+        shadow.mkdir(parents=True)
+        for item in Path(entry).iterdir():
+            if item.name != "ruff":
+                (shadow / item.name).symlink_to(item)
+        kept.append(str(shadow))
+    return os.pathsep.join(kept)
+
+
+def _a_flag_path_setup_runs_the_contract(
+    installed: Installed,
+    listener: _Listener,
+    env: dict[str, str],
+    work: Path,
+    repo: Path,
+) -> tuple[subprocess.CompletedProcess[str], dict[str, Any]]:
+    """``mcgyvr setup`` on the flags alone (it writes no ``gate.ruff`` and
+    installs nothing), then ``mcgyvr direct`` on the Python contract; the run
+    and the result it wrote."""
     address = f"http://{HOSTED_HOST}:{listener.server_address[1]}"
     init = _run(
         work,
@@ -522,8 +575,29 @@ def test_a_fresh_init_runs_a_contract_without_evidence_from_the_dev_repo(
         written,
     )
     assert written.is_file(), _ran(done)
-    result = json.loads(written.read_text(encoding="utf-8"))
-    rungs = [attempt.get("rung") for attempt in result.get("attempts") or []]
+    return done, json.loads(written.read_text(encoding="utf-8"))
+
+
+def test_a_fresh_init_runs_a_contract_without_evidence_from_the_dev_repo(
+    installed: Installed, tmp_path: Path, listener: _Listener
+) -> None:
+    """With a ruff of the user's own on PATH (:func:`_a_ruff_of_its_own`, outside
+    the checkout like every other entry), the run reaches its attempt."""
+    import shutil
+
+    home, work, repo = _a_place(tmp_path)
+    env = installed.env(home, **{KEY_ENV: "unused"})
+    tools = _a_ruff_of_its_own(tmp_path)
+    env["PATH"] = os.pathsep.join([str(tools), env["PATH"]])
+    found = shutil.which("ruff", path=env["PATH"])
+    assert found is not None and Path(found).parent == tools, found
+    assert all(_outside_the_checkout(p) for p in env["PATH"].split(os.pathsep))
+
+    done, result = _a_flag_path_setup_runs_the_contract(
+        installed, listener, env, work, repo
+    )
+
+    rungs = [a.get("rung") for a in result.get("attempts") or []]
     assert rungs and rungs[0] == HOSTED_NAME, (
         f"the run made no attempt at {HOSTED_NAME}: {result.get('detail')}\n"
         + _ran(done)
@@ -531,3 +605,32 @@ def test_a_fresh_init_runs_a_contract_without_evidence_from_the_dev_repo(
     assert any(path.endswith("/chat/completions") for path in listener.asked), (
         f"the listener took no dispatch: {listener.asked}\n" + _ran(done)
     )
+
+
+def test_a_fresh_init_with_no_ruff_is_refused_before_any_attempt_with_the_remedy(
+    installed: Installed, tmp_path: Path, listener: _Listener
+) -> None:
+    """The wheel brings no ruff and a flag-path setup installs none, and an
+    unset ``gate.ruff`` reads as on: the first run of a change that may hold a
+    Python file is refused before any attempt, naming the install command and
+    the switch that runs without ruff."""
+    import shutil
+
+    assert not (installed.venv / "bin" / "ruff").exists(), "the wheel brought a ruff"
+    home, work, repo = _a_place(tmp_path)
+    env = installed.env(home, **{KEY_ENV: "unused"})
+    env["PATH"] = _without_ruff(env["PATH"], tmp_path)
+    assert shutil.which("ruff", path=env["PATH"]) is None, env["PATH"]
+
+    done, result = _a_flag_path_setup_runs_the_contract(
+        installed, listener, env, work, repo
+    )
+
+    assert done.returncode != 0, _ran(done)
+    assert result.get("outcome") == "error", result
+    assert not result.get("attempts"), result
+    assert listener.asked == [], listener.asked
+    for said in (done.stderr, str(result.get("detail"))):
+        assert "ruff is not installed" in said, _ran(done)
+        assert "uv tool install ruff" in said, _ran(done)
+        assert "gate.ruff: false" in said, _ran(done)
