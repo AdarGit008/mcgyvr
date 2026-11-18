@@ -1,21 +1,24 @@
 """The endpoint, API key and model a custom provider points at.
 
 At the end of a successful `mcgyvr setup` (and at the end of a `serve up`), the
-endpoint, key and model of the unit the ladder serves first are printed and
-written to ``provider.env``, so the user can ``source`` it into a custom
-provider (Pi, Hermes, VLM, …). The key is the one mcgyvr already keeps for the
+endpoint, key and model of the unit the ladder serves first are written to
+``provider.env``, so the user can ``source`` it into a custom provider (Pi,
+Hermes, VLM, …), and printed. The key is the one mcgyvr already keeps for the
 unit (:mod:`mcgyvr.unitkey`), read the way `mcgyvr fleet key <unit>` reads it;
-nothing here mints a second key.
+nothing here mints a second key. The key itself is never printed: the screen
+names the `mcgyvr fleet key` command that prints it (:func:`key_command`), and
+the file it is exported in.
 """
 
 from __future__ import annotations
 
+import os
 import shlex
 from dataclasses import dataclass
 from pathlib import Path
 
 from mcgyvr import atomic, unitkey
-from mcgyvr.config import Config, Unit
+from mcgyvr.config import EXPOSE_LAN, Config, Unit, named_config_path
 
 #: The environment variables a custom provider reads, written by :func:`write`.
 ENDPOINT_ENV = "MCGYVR_ENDPOINT"
@@ -33,11 +36,13 @@ class HandoffError(Exception):
 @dataclass(frozen=True)
 class Provider:
     """One unit's handoff: where it answers, its key (None when it asks none),
-    and the model it serves."""
+    the model it serves, and the unit's name as `fleet.yaml` writes it (None
+    when the caller does not know it)."""
 
     endpoint: str
     api_key: str | None
     model: str
+    unit: str | None = None
 
 
 def endpoint_of(address: str) -> str:
@@ -66,6 +71,7 @@ def for_unit(name: str, unit: Unit) -> Provider:
         endpoint=endpoint_of(unit.address),
         api_key=key,
         model=unit.model,
+        unit=name,
     )
 
 
@@ -120,17 +126,82 @@ def write(directory: Path, provider: Provider) -> Path:
         raise HandoffError(str(exc)) from exc
 
 
-def _key_shown(key: str | None) -> str:
-    return key if key is not None else "(none — the unit asks for no key)"
+def _passed_as(setup: Path) -> Path | None:
+    """The `--config` that names `setup` to `mcgyvr fleet key`, or None.
+
+    None when the bare command reads `setup`: no `MCGYVR_CONFIG` is set and
+    `setup` is the live fleet's folder. A setup `MCGYVR_CONFIG` names is still
+    passed, as an absolute path, so the command reads it from another shell or
+    folder too.
+    """
+    from mcgyvr.fleet import roots
+
+    if named_config_path() is None:
+        try:
+            live = roots.live_fleet_dir()
+        except roots.LiveFleetError:
+            # A live pointer that cannot be read names no folder the bare
+            # command reads, so the setup is passed.
+            live = None
+        if live is not None and os.path.realpath(live) == os.path.realpath(setup):
+            return None
+    return setup.absolute()
 
 
-def print_provider(provider: Provider, exported: Path) -> None:
+def key_command(
+    config: Config, unit: str | None, key: str | None, setup: Path
+) -> str | None:
+    """The `mcgyvr fleet key` command that prints `key`, or None when none does.
+
+    `config` is the setup loaded from `setup`, and `unit` the name it gives the
+    unit. The command is answered only when `mcgyvr fleet key` would print that
+    very key: the unit is one of the fleet's own (not a hitchhike or crew
+    unit), it is `expose: lan`, and its key file holds `key`. A unit that asks
+    no key, and one that command refuses, have no command.
+    """
+    from mcgyvr.serving import exposure
+
+    if key is None or unit is None:
+        return None
+    declared = config.units.get(unit)
+    if declared is None or declared.hitchhike or declared.crew:
+        return None
+    exposed = exposure(
+        declared.expose, address=declared.address, launcher=declared.launcher
+    )
+    if exposed != EXPOSE_LAN:
+        return None
+    try:
+        if unitkey.for_address(declared.address) != key:
+            return None
+    except unitkey.UnitKeyError:
+        return None
+    argv = ["mcgyvr", "fleet", "key", unit]
+    passed = _passed_as(setup)
+    if passed is not None:
+        argv += ["--config", str(passed)]
+    return shlex.join(argv)
+
+
+def _key_shown(key: str | None, command: str | None) -> str:
+    if key is None:
+        return "(none — the unit asks for no key)"
+    if command is None:
+        return "(not printed here)"
+    return f"`{command}` prints it"
+
+
+def print_provider(
+    provider: Provider, exported: Path, command: str | None = None
+) -> None:
     """Print the handoff on stdout, aligned the way a provider reads it.
 
     The three lines line up their values in one column, and the api-key line
-    also names the file the three are exported in.
+    also names the file the three are exported in. The key is never printed:
+    the api-key line names `command`, the one that prints it
+    (:func:`key_command`), or says it is not printed when no command would.
     """
     note = f"        (also exported in {exported})"
     print(f"endpoint: {provider.endpoint}")
-    print(f"api-key:  {_key_shown(provider.api_key)}{note}")
+    print(f"api-key:  {_key_shown(provider.api_key, command)}{note}")
     print(f"model:    {provider.model}")

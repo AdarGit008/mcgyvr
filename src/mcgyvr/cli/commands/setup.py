@@ -457,6 +457,22 @@ SKIP_REC_QUESTION = (
     "[manual] I'll do it myself? [manual] "
 )
 MODEL_STORE_QUESTION = "Model store directory (a folder of .gguf files): "
+#: What the menu's auto mode does without asking: the three questions it
+#: answers for the user (the placement consent, the start, the lock). The
+#: menu's setup prompt and the wizard's opening line both say it.
+AUTO_DOES = (
+    "takes the recommended placement, starts the servers and locks the "
+    "fleet live without asking"
+)
+#: The wizard's opening line, without auto and with it.
+OPENING = (
+    "Read each rig, plan a model per rig, then start and sample a "
+    "fleet and lock it live on your yes."
+)
+AUTO_OPENING = (
+    "Read each rig, plan a model per rig, then start and sample a "
+    f"fleet and lock it live. Auto {AUTO_DOES}."
+)
 
 
 def _ask_deployment(preferred: str | None = None) -> str:
@@ -1402,10 +1418,7 @@ def _setup_interactive(
     try:
         path.mkdir(parents=True, exist_ok=True)
         print("mcgyvr setup")
-        print(
-            "Read each rig, plan a model per rig, then start and sample a "
-            "fleet and lock it live on your yes."
-        )
+        print(AUTO_OPENING if auto else OPENING)
         _rule("Step 1 of 4 — where it runs")
         rigs = _ask_setup_rigs()
         print(f"Serving on: {', '.join(rigs)}")
@@ -1542,11 +1555,16 @@ def _setup_interactive(
 
 
 def _handoff(path: Path) -> None:
-    """Print and write the endpoint, key and model a custom provider points at.
+    """Write the endpoint, key and model a custom provider points at, and print them.
 
     Nothing is written when the setup holds no ladder to serve. The key is the
     one mcgyvr already keeps for the unit (:mod:`mcgyvr.unitkey`), read the way
-    `mcgyvr fleet key <unit>` reads it, never a second key.
+    `mcgyvr fleet key <unit>` reads it, never a second key; the screen names
+    that command, with this setup's `--config`, rather than the key.
+
+    A ``provider.env`` that cannot be written privately fails the run as the
+    wizard's own errors do: one ``error:`` line and exit 1. Every call comes
+    after the servers were started, so the line says they are up.
     """
     from mcgyvr import handoff
 
@@ -1557,8 +1575,15 @@ def _handoff(path: Path) -> None:
     provider = handoff.from_config(config)
     if provider is None:
         return
-    exported = handoff.write(path, provider)
-    handoff.print_provider(provider, exported)
+    try:
+        exported = handoff.write(path, provider)
+    except handoff.HandoffError as exc:
+        raise _SetupInteractiveError(
+            f"the servers are up, but {handoff.PROVIDER_FILENAME} was not "
+            f"written: {exc}"
+        ) from exc
+    command = handoff.key_command(config, provider.unit, provider.api_key, path)
+    handoff.print_provider(provider, exported, command)
 
 
 def run_menu_setup(*, auto: bool, stop: str | None) -> int:

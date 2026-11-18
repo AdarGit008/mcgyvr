@@ -18,11 +18,15 @@ file starts by default. Each selected unit is then polled until it serves,
 for at most `serving.start_timeout_s` (six minutes unset),
 and one line per unit states whether it is up, asleep, asleep with an
 unreadable probe, or not answering. The step exits 1 when `docker compose
-up` failed or any unit did not come up healthy, and 0 otherwise.
+up` failed or any unit did not come up healthy, and 0 otherwise. A
+`provider.env` that cannot be written privately is one `serve-up: error:`
+line and still exit 0: the units are up and filed, and setup and wake read a
+non-zero up as a unit that is not serving.
 """
 
 from __future__ import annotations
 
+import os
 import sys
 
 from mcgyvr.serving import servelib
@@ -95,13 +99,15 @@ def main() -> int:
 
 
 def _handoff(ctx: servelib.ServeContext, rows: list[dict[str, object]]) -> None:
-    """Print and write the endpoint, key and model of the first healthy unit.
+    """Write the endpoint, key and model of the first healthy unit, and print them.
 
     The endpoint is the unit's own address as this machine reaches it, the key
     the one mcgyvr already keeps for it (`Service.key`), and the model the first
     id its `/v1/models` listed. Written to the data folder, the serve step's
     equivalent of a setup directory, so a client on this machine can `source`
-    it. Nothing is written when no unit came up with a model listed.
+    it. Nothing is written when no unit came up with a model listed. The key is
+    not printed: the screen names the `mcgyvr fleet key` command that prints it
+    (`_key_command`).
     """
     from mcgyvr import handoff
     from mcgyvr.fleet import roots
@@ -120,9 +126,43 @@ def _handoff(ctx: servelib.ServeContext, rows: list[dict[str, object]]) -> None:
             api_key=key,
             model=str(models[0]),
         )
-        exported = handoff.write(roots.data_home(), provider)
-        handoff.print_provider(provider, exported)
+        try:
+            exported = handoff.write(roots.data_home(), provider)
+        except handoff.HandoffError as exc:
+            print(
+                f"serve-up: error: the units are up, but "
+                f"{handoff.PROVIDER_FILENAME} was not written: {exc}",
+                file=sys.stderr,
+            )
+            return
+        handoff.print_provider(provider, exported, _key_command(key))
         return
+
+
+def _key_command(key: str | None) -> str | None:
+    """The `mcgyvr fleet key` command that prints `key`, or None when none does.
+
+    The unit is named as the config the run is under names it: a compose
+    service carries the model and port, not that name, so the name is the
+    first unit of that config whose `fleet key` prints this very key
+    (`handoff.key_command`). A run under no config (`RUN_CONFIG=none`), or one
+    whose config cannot be read again, has no command.
+    """
+    from mcgyvr import config as configlib
+    from mcgyvr import handoff
+
+    if key is None or os.environ.get("RUN_CONFIG", "none") == "none":
+        return None
+    try:
+        setup = configlib.config_path()
+        config = configlib.load(setup)
+    except (configlib.ConfigError, OSError, RuntimeError):
+        return None
+    for name in config.units:
+        command = handoff.key_command(config, name, key, setup)
+        if command is not None:
+            return command
+    return None
 
 
 if __name__ == "__main__":

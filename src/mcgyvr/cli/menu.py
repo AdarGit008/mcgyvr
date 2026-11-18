@@ -149,8 +149,8 @@ def _setup_menu(main: Callable[[Sequence[str]], int]) -> int:
     from mcgyvr.cli.commands import setup as setup_cmd
 
     mode = pick(
-        "setup — [auto] the full pipeline, or [manual] a stage that "
-        "stops there? [auto] ",
+        f"setup — [auto] the full pipeline: it {setup_cmd.AUTO_DOES}; "
+        "or [manual] a stage that stops there? [auto] ",
         ("auto", "manual"),
         default="auto",
         what="auto or manual",
