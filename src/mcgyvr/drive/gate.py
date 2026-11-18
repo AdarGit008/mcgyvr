@@ -29,11 +29,11 @@ inputs those rungs take.
 
 from __future__ import annotations
 
+import re
 from dataclasses import replace
 from typing import TYPE_CHECKING
 
 import mcgyvr.drive as _drive
-from mcgyvr.contract import is_pattern
 from mcgyvr.deliver import Accepted, unchanged
 from mcgyvr.gate import Finding, Gate, GateResult
 from mcgyvr.gate.acceptance import Acceptance
@@ -47,7 +47,7 @@ from mcgyvr.gate.preflight import PreflightIssue
 from mcgyvr.gate.semantic import SemanticCheck
 from mcgyvr.gate.typecheck import ParamMutation, TypeCheck
 from mcgyvr.sandbox.base import nested_git
-from mcgyvr.scope import inside
+from mcgyvr.scope import _normalize, inside
 from mcgyvr.verify import Reviewer, independent
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
@@ -458,21 +458,30 @@ def missing_gate_tool(
     return None
 
 
+#: A wildcard token as the run's matcher reads one (`scope._glob_to_regex`):
+#: `**/` (any run of whole segments, none included), `**`, `*`. Nothing else in
+#: a pattern is wild there: `?` and `[` are literal.
+_WILDCARD = re.compile(r"\*\*/|\*\*|\*")
+
+
 def _may_name_python(python: PythonAdapter, named: str) -> bool:
     """Whether `named` (a target or a scope entry) may name a file `python` owns.
 
     It fails closed: a pattern counts unless it is shown that it cannot name
-    one. The run's matcher (`Scope.permits`, which expands a pattern into
-    files in `mcgyvr.vet` and `drive.exec`) reads only `*` and `**` as wild,
-    and anchors the literal text after a pattern's last `*` at the end of the
-    path. A Python file ends in one of the adapter's suffixes. So a path the
-    pattern names can be a Python file only when that tail ends in a suffix
-    or is the end of one: `docs/*.md` cannot, and `*/*.py`, `src/**`, `*y`
-    may. A pattern with no `*` is read literally there, as a path is.
+    one. The proof follows the run's matcher (`Scope.permits`, which expands a
+    pattern into files in `mcgyvr.vet` and `drive.exec`): it folds the pattern
+    (`scope._normalize`: backslashes to slashes), reads it as literal text
+    and wildcard tokens (`_WILDCARD`), and anchors the literal text after the
+    last token at the end of the path. A Python file ends in one of the
+    adapter's suffixes. So a path the pattern names can be a Python file only
+    when that tail ends in a suffix or is the end of one: `docs/*.md` cannot,
+    and `*/*.py`, `src/**`, `*y`, `****/` may. With no token the pattern is a
+    literal path to the matcher, and is read as one.
     """
-    if not is_pattern(named):
-        return python.owns(named)
-    tail = named.rpartition("*")[2]
+    pieces = _WILDCARD.split(_normalize(named))
+    tail = pieces[-1]
+    if len(pieces) == 1:
+        return python.owns(tail)
     return python.owns(tail) or any(suffix.endswith(tail) for suffix in PYTHON_SUFFIXES)
 
 

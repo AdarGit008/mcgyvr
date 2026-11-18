@@ -167,6 +167,14 @@ PYTHON_PATHS = (
     "a/pkg/b.pyi",
     "src/pkg/messy.py",
     "src/a/b/c.py",
+    "y.py",
+    "i.pyi",
+    "p.py",
+    ".py",
+    "x/.pyi",
+    "src/y/x.py",
+    "src/src/x.pyi",
+    "x.py/x.py",
 )
 
 #: Patterns written by hand, the review's probes and odd shapes among them.
@@ -201,7 +209,17 @@ PATTERNS = (
     "src/**/*.ts",
     "**/*.pyc",
     "*.py/x",
+    "****/",
+    "x.py**/",
+    "*.py**/",
+    "src/****/",
+    "x.py**\\",
+    "src\\*.py",
 )
+
+#: The pieces a pattern is spelled from in `_spelled`: every wildcard token the
+#: matcher reads, the pieces of a Python name, a folder, and both slashes.
+PIECES = ("*", "**", "**/", "src/", "x", ".", "p", "y", ".py", ".pyi", "/", "i", "\\")
 
 
 def _derived(path: str) -> set[str]:
@@ -218,22 +236,32 @@ def _derived(path: str) -> set[str]:
     return found
 
 
+def _spelled() -> set[str]:
+    """Every pattern spelled from one to three of `PIECES`, in any order."""
+    from itertools import product
+
+    return {"".join(p) for n in (1, 2, 3) for p in product(PIECES, repeat=n)}
+
+
 def test_the_check_never_lets_through_a_pattern_the_matcher_lets_name_python(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Fail closed: for every pattern here, written by hand or derived from a
-    Python path, if `Scope.permits` lets it name any of `PYTHON_PATHS`, as a
-    target or as a scope entry, the check refuses. And a pattern that cannot
-    name Python (`docs/*.md`, `*.js`, `**/*.pyc`) is let through."""
+    """Fail closed: for every pattern here, written by hand, derived from a
+    Python path or spelled from `PIECES`, if `Scope.permits` lets it name any
+    of `PYTHON_PATHS`, as a target or as a rename's scope entry, the check
+    refuses. And a pattern that cannot name Python (`docs/*.md`, `*.js`,
+    `**/*.pyc`) is let through."""
     from mcgyvr.scope import Scope
 
     _hide_ruff(tmp_path, monkeypatch)
     config = _setup(True)
-    patterns = set(PATTERNS).union(*(_derived(p) for p in PYTHON_PATHS))
+    spelled = _spelled()
+    patterns = set(PATTERNS).union(spelled, *(_derived(p) for p in PYTHON_PATHS))
     names_python = {
         p for p in patterns if any(Scope.of([p]).permits(q) for q in PYTHON_PATHS)
     }
-    assert len(names_python) > 200, "the derived patterns did not come out"
+    assert len(spelled) > 1500, "the spelled patterns did not come out"
+    assert len(names_python) > 700, "the patterns that name Python did not come out"
 
     open_as_target = sorted(p for p in names_python if _issue(config, p) is None)
     open_as_scope = sorted(
