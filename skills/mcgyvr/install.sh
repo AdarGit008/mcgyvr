@@ -73,9 +73,11 @@ CLI_INSTALL="uv tool install mcgyvr"
 # It is also the floor that is safe to compare with `sort -V`, which is a
 # version sort and not PEP 440: it orders `0.5.0` BEFORE `0.5.0.dev376`, where
 # PEP 440 puts the dev build first (a `.devN` is a pre-release of `0.5.0`, not
-# a successor to it). A `.devN` build only ever names a version ABOVE the last
-# release tag, so comparing against a released tag never reaches that case.
-MIN_VERSION="0.5.1"
+# a successor to it). A `.devN` build names a version above the last release
+# tag. Between the raise of the floor and its tag, builds of main are
+# `<floor>.devN`: PEP 440 calls them older, `sort -V` not older, and not older
+# is wanted: no release can satisfy the floor yet.
+MIN_VERSION="0.5.2"
 
 # Where a release's skill is cloned from, by its tag, when the CLI on PATH
 # refuses this checkout's skill. The same repository README.md clones.
@@ -349,7 +351,7 @@ probe_examples() {
 # comparing — it is build metadata, it orders nothing, and `+ga624cdc2` would
 # otherwise be compared character by character against whatever follows the
 # `+` on the other side. What remains of `sort -V`'s disagreement with PEP 440
-# is the pre-release case MIN_VERSION's comment rules out.
+# is the pre-release case MIN_VERSION's comment describes.
 check_version() {
   if ! command -v mcgyvr >/dev/null 2>&1; then
     echo "install.sh: no mcgyvr on PATH: the skills are installed, but there is nothing on this machine for them to drive. Get it with: ${CLI_INSTALL}" >&2
