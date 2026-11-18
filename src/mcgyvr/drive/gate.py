@@ -29,6 +29,7 @@ inputs those rungs take.
 
 from __future__ import annotations
 
+import re
 from dataclasses import replace
 from typing import TYPE_CHECKING
 
@@ -36,14 +37,17 @@ import mcgyvr.drive as _drive
 from mcgyvr.deliver import Accepted, unchanged
 from mcgyvr.gate import Finding, Gate, GateResult
 from mcgyvr.gate.acceptance import Acceptance
-from mcgyvr.gate.adapter import SandboxRunner
+from mcgyvr.gate.adapter import SandboxRunner, ToolUnavailableError, require_tool
 from mcgyvr.gate.adapters import JavaScriptAdapter, PythonAdapter
+from mcgyvr.gate.adapters.python import _EXTENSIONS as PYTHON_SUFFIXES
+from mcgyvr.gate.adapters.python import RUFF
 from mcgyvr.gate.changeset import ChangeSet
 from mcgyvr.gate.jev import JevCheck
+from mcgyvr.gate.preflight import PreflightIssue
 from mcgyvr.gate.semantic import SemanticCheck
 from mcgyvr.gate.typecheck import ParamMutation, TypeCheck
 from mcgyvr.sandbox.base import nested_git
-from mcgyvr.scope import inside
+from mcgyvr.scope import _normalize, inside
 from mcgyvr.verify import Reviewer, independent
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
@@ -398,6 +402,106 @@ def ungated_notes(config: Config | None) -> tuple[str, ...]:
             "neither judges nor repairs this run's Python change",
         )
     return ()
+
+
+#: How a refusal for a missing ruff says to install it: the command setup's yes
+#: to ruff runs.
+RUFF_INSTALL = "uv tool install ruff"
+
+
+def missing_gate_tool(
+    config: Config | None, contract: Contract
+) -> PreflightIssue | None:
+    """The refusal for a run whose gate judges Python with ruff and has no ruff.
+
+    ``gate.ruff`` on (true, or unset, which reads as on as it does for every
+    other reader of the key) has the gate lint, format and repair Python with
+    ruff. A run that cannot find ruff would otherwise be accepted with lint and
+    format skipped (an environment issue is not a finding) and with no repair.
+    It is refused before anything is dispatched instead, naming the tool, how
+    to install it and the switch that runs without it. "Installed" is the
+    gate's own test, ``require_tool``: ruff on this process's PATH, which is
+    where the lint, format and repair rungs look for it in every sandbox mode.
+
+    Nothing is said with no config, when the gate is off, when ``gate.ruff``
+    is false, or when the contract's change cannot hold a Python file: its
+    target is not a path the Python adapter owns nor a pattern that may name
+    one (`_may_name_python`), and, for an operation that writes beyond its
+    target (`_writes_beyond_target`), no entry of its `scope.allow` is either.
+    """
+    if config is None or config.get("gate.enabled") is False:
+        return None
+    if config.get("gate.ruff") is False:
+        return None
+    python = next(
+        (a for a in gate_adapters(config) if isinstance(a, PythonAdapter)), None
+    )
+    named: tuple[str, ...] = (contract.target,)
+    if _writes_beyond_target(contract):
+        named = (*named, *contract.scope.allow)
+    if python is None or not any(_may_name_python(python, n) for n in named):
+        return None
+    try:
+        require_tool(RUFF)
+    except ToolUnavailableError:
+        return PreflightIssue(
+            reason="gate_tool",
+            message=(
+                f"the gate judges Python with {RUFF} (`gate.ruff` is on) and "
+                f"{RUFF} is not installed (not found on PATH): the gate could "
+                f"not judge this run's Python change on lint or format, nor "
+                f"repair it, so the run is refused before any work. Install it "
+                f"with `{RUFF_INSTALL}`; if uv says it is already installed, put "
+                f"uv's tool bin folder on PATH with `uv tool update-shell` and "
+                f"open a new shell. Or set `gate.ruff: false` to run without "
+                f"lint, format and repair."
+            ),
+        )
+    return None
+
+
+def _writes_beyond_target(contract: Contract) -> bool:
+    """Whether `contract`'s change may write a file its target does not name.
+
+    A model's reply writes the target alone (`mcgyvr.worker.reply`), and a
+    program on the floor is handed the target, or the files a pattern target
+    names, after `--` (`ToolStep.argv`, `argv_over`). An operation mcgyvr runs
+    in process has no program (`Tool.program` is None: `deterministic.
+    IN_PROCESS`) and works on the tree, so what it writes is bounded only by
+    the scope: `rename_symbol` rewrites every file that uses the name. Any
+    operation added to `IN_PROCESS` is read the same way.
+    """
+    from mcgyvr.deterministic import tool_for
+
+    tool = tool_for(contract)
+    return tool is not None and tool.program is None
+
+
+#: A wildcard token as the run's matcher reads one (`scope._glob_to_regex`):
+#: `**/` (any run of whole segments, none included), `**`, `*`. Nothing else in
+#: a pattern is wild there: `?` and `[` are literal.
+_WILDCARD = re.compile(r"\*\*/|\*\*|\*")
+
+
+def _may_name_python(python: PythonAdapter, named: str) -> bool:
+    """Whether `named` (a target or a scope entry) may name a file `python` owns.
+
+    It fails closed: a pattern counts unless it is shown that it cannot name
+    one. The proof follows the run's matcher (`Scope.permits`, which expands a
+    pattern into files in `mcgyvr.vet` and `drive.exec`): it folds the pattern
+    (`scope._normalize`: backslashes to slashes), reads it as literal text
+    and wildcard tokens (`_WILDCARD`), and anchors the literal text after the
+    last token at the end of the path. A Python file ends in one of the
+    adapter's suffixes. So a path the pattern names can be a Python file only
+    when that tail ends in a suffix or is the end of one: `docs/*.md` cannot,
+    and `*/*.py`, `src/**`, `*y`, `****/` may. With no token the pattern is a
+    literal path to the matcher, and is read as one.
+    """
+    pieces = _WILDCARD.split(_normalize(named))
+    tail = pieces[-1]
+    if len(pieces) == 1:
+        return python.owns(tail)
+    return python.owns(tail) or any(suffix.endswith(tail) for suffix in PYTHON_SUFFIXES)
 
 
 def gate_adapters(config: Config | None) -> tuple[LanguageAdapter, ...]:

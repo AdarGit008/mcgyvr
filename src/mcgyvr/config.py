@@ -475,8 +475,10 @@ GATE_FIELDS: tuple[Field, ...] = (
         "`param_mutation` and the acceptance command judge it as before, and the "
         "JavaScript rungs are not touched. A contract that asks for a ruff "
         "operation (a Python `format`, `import_sort` or `lint_fix` task) still "
-        "runs ruff. Setup's ruff question writes it: yes on, no off. Unset reads "
-        "as on.",
+        "runs ruff. On, with no ruff on PATH, a run whose change may hold a "
+        "Python file is refused before any work, naming the two remedies: "
+        "`uv tool install ruff`, or this key false. Setup's ruff question "
+        "writes it: yes on, no off. Unset reads as on.",
         default=True,
     ),
     Field(

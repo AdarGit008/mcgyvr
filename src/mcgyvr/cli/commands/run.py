@@ -64,16 +64,18 @@ def _run(args: argparse.Namespace) -> int:
 
     The contract is loaded and the repository checked first, then the session
     and the config are settled, the journal directory is made, and the result's
-    skeleton is filled in before any work starts. A deterministic contract goes
-    to `_floor` and every other one to `_climb`. Afterwards the mirror copies
-    are reported, and the result is written to `--result` (or the journal's
-    copy) and copied into every mirror. The exit code returned is the run's.
+    skeleton is filled in before any work starts. A run whose gate judges Python
+    with ruff and finds none installed is refused then (`missing_gate_tool`);
+    otherwise a deterministic contract goes to `_floor` and every other one to
+    `_climb`. Afterwards the mirror copies are reported, and the result is
+    written to `--result` (or the journal's copy) and copied into every mirror.
+    The exit code returned is the run's.
     """
     from mcgyvr.config import journal_dir as journal_dir_of
     from mcgyvr.contract import ContractError
     from mcgyvr.contract import load as load_task_contract
     from mcgyvr.deliver import between_deliveries
-    from mcgyvr.drive import Recording, gate_adapters, ungated_notes
+    from mcgyvr.drive import Recording, gate_adapters, missing_gate_tool, ungated_notes
     from mcgyvr.notes import CarriedNotes, NotesError, primed, seeded
     from mcgyvr.result import (
         RunResult,
@@ -285,7 +287,14 @@ def _run(args: argparse.Namespace) -> int:
     # `delivery.branch`, so delivery sees one answer, not a flag and a policy.
     _settle_delivery(args, config)
 
-    if contract.is_deterministic:
+    # A run with `gate.ruff` on (true or unset) and no ruff on PATH is refused
+    # here, before either path opens a sandbox or dispatches: the gate would
+    # otherwise skip lint and format and accept, and delivery would commit a
+    # change ruff never judged. The result file below still records it.
+    missing = missing_gate_tool(config, contract)
+    if missing is not None:
+        code = _error(report, str(missing))
+    elif contract.is_deterministic:
         code = _floor(args, contract, repo, report, config, recording=recording)
     else:
         assert config is not None  # a climbing contract with none was refused above
