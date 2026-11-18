@@ -350,6 +350,8 @@ def test_no_mcgyvr_on_path_warns_and_still_installs(tmp_path: Path) -> None:
         # A dev build made between v0.4.16 and v0.5.0 (the shape hatch-vcs
         # gives one): above the last tag, below the floor.
         "0.4.17.dev18+g89eec3d3",
+        # The latest release, one below the floor.
+        "0.5.1",
     ],
 )
 def test_an_older_mcgyvr_warns_and_still_installs(
@@ -406,7 +408,11 @@ def test_an_mcgyvr_that_cannot_state_its_version_warns_and_still_installs(
         # build metadata. Naive string comparison reads this as older than
         # `0.5.0` on the `+g...` tail; stripping the local part and comparing
         # with `sort -V` reads it as newer, which it is.
-        "0.5.2.dev376+ga624cdc2",
+        "0.5.3.dev376+ga624cdc2",
+        # A build of main after the floor is raised and before its tag is
+        # cut. PEP 440 orders it before `0.5.2`; `sort -V` after it, so a
+        # user on main is not told to upgrade to a release that is not out.
+        "0.5.2.dev960+g51b21cb87",
         "0.6.0",
     ],
 )

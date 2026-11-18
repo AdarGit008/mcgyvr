@@ -355,8 +355,10 @@ def _fake_mcgyvr(folder: Path, version: str) -> Path:
     ("version", "warned"),
     [
         ("0.5.0", "is older than"),
-        ("0.5.1.dev3+g1", None),
-        ("0.5.1rc1", None),
+        ("0.5.1", "is older than"),
+        ("0.5.2.dev3+g1", None),
+        ("0.5.2rc1", None),
+        ("0.5.2", None),
         ("0.0.0+gdeadbee", "never installed"),
         ("9.0.0", None),
     ],

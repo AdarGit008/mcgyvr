@@ -41,7 +41,7 @@ $HarnessDirs = @(
 )
 $SetupDoc = "skills/mcgyvr/SETUP.md"
 $CliInstall = "uv tool install mcgyvr"
-$MinVersion = "0.5.1"
+$MinVersion = "0.5.2"
 $RepoUrl = "https://github.com/AdarGit008/mcgyvr"
 $Record = ".mcgyvr-installed"
 $DescriptionMax = 1024
