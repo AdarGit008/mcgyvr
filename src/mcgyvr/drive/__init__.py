@@ -52,6 +52,7 @@ from mcgyvr.drive.prompt import (
 from mcgyvr.drive.gate import (
     acceptance_for,
     gate_adapters,
+    missing_gate_tool,
     ungated_notes,
     gate_in_sandbox,
     gate_workspace,
@@ -81,6 +82,7 @@ __all__ = [
     "gate_in_sandbox",
     "gate_workspace",
     "judge",
+    "missing_gate_tool",
     "refuse_unsendable",
     "refuse_unsendable_climb",
     "run_batch",

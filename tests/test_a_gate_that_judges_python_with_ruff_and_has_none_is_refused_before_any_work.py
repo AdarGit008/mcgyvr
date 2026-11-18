@@ -1,0 +1,594 @@
+"""A gate that judges Python with ruff and has none is refused before any work.
+
+``gate.ruff`` on (``true``, or unset, which reads as on) has the gate lint,
+format and repair Python with ruff. A run under it on a machine with no ruff
+used to be accepted with lint and format skipped ("ruff not installed — lint
+skipped" is an environment issue, not a finding) and delivered. It is refused
+now, before a sandbox is opened or anything is dispatched, on the floor and on
+the climb (and so before delivery's re-gate), with a line naming ruff, its
+install command and the switch that runs without it.
+
+What does not move: ``false`` keeps its note and runs, and ruff installed runs
+as before, key true or unset.
+
+Ruff is hidden the literal way: every ``PATH`` entry holding a ``ruff`` is
+replaced by a directory of links to everything else in it, so ``git``, ``sh``
+and ``python`` still resolve and only ruff does not.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import shutil
+from dataclasses import replace
+from pathlib import Path
+
+import pytest
+
+from mcgyvr.config import Config, parse
+from mcgyvr.contract import loads
+from tests import livejournal as lj
+
+needs_ruff = pytest.mark.skipif(
+    shutil.which("ruff") is None,
+    reason="the case with ruff installed needs a ruff on PATH",
+)
+
+FLEET = """\
+units:
+  cheap:
+    address: http://127.0.0.1:9
+    model: any-model
+"""
+
+#: A floor contract whose program is in process, so it needs no ruff itself
+#: and only the gate's lint and format rungs would.
+RENAME = """
+id: rename-x
+task_type: code
+operation: rename_symbol
+task: Rename x to y.
+target: src/pkg/messy.py
+rename:
+  from: x
+  to: y
+scope:
+  allow: ["src/**"]
+"""
+
+
+def _hide_ruff(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    entries = os.environ.get("PATH", "").split(os.pathsep)
+    kept: list[str] = []
+    for index, entry in enumerate(entries):
+        if not entry or shutil.which("ruff", path=entry) is None:
+            kept.append(entry)
+            continue
+        shadow = tmp_path / "path" / str(index)
+        shadow.mkdir(parents=True)
+        for item in Path(entry).iterdir():
+            if item.name not in ("ruff", "ruff.exe"):
+                (shadow / item.name).symlink_to(item)
+        kept.append(str(shadow))
+    monkeypatch.setenv("PATH", os.pathsep.join(kept))
+    assert shutil.which("ruff") is None, "ruff is still on PATH"
+    assert shutil.which("git") is not None, "hiding ruff hid git too"
+
+
+def _setup(ruff: bool | None, *, gate: bool | None = None) -> Config:
+    policy = "ladder: [cheap]\n"
+    lines = []
+    if gate is not None:
+        lines.append(f"  enabled: {str(gate).lower()}")
+    if ruff is not None:
+        lines.append(f"  ruff: {str(ruff).lower()}")
+    if lines:
+        policy += "gate:\n" + "\n".join(lines) + "\n"
+    return parse(FLEET, policy)
+
+
+def _issue(
+    config: Config | None,
+    target: str = "src/pkg/messy.py",
+    scope: tuple[str, ...] | None = None,
+) -> object:
+    """The check on `RENAME` with `target`, its scope `scope` (the target alone
+    when not given)."""
+    from mcgyvr.drive import missing_gate_tool
+    from mcgyvr.scope import Scope
+
+    allow = scope if scope is not None else (target,)
+    contract = replace(loads(RENAME), target=target, scope=Scope.of(allow))
+    return missing_gate_tool(config, contract)
+
+
+# --- the check ---------------------------------------------------------------
+
+
+def test_unset_reads_as_on() -> None:
+    """The key's default is on, as every reader of it reads unset."""
+    from mcgyvr.config import stages
+
+    assert _setup(True).get("gate.ruff") is True
+    assert _setup(False).get("gate.ruff") is False
+    assert _setup(None).get("gate.ruff") is True
+    assert stages(_setup(None))["repair"], "unset no longer reads as on"
+
+
+@pytest.mark.parametrize("ruff", [True, None], ids=["true", "unset"])
+def test_ruff_on_with_no_ruff_names_ruff_its_install_and_the_switch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, ruff: bool | None
+) -> None:
+    _hide_ruff(tmp_path, monkeypatch)
+
+    issue = _issue(_setup(ruff))
+
+    assert issue is not None, f"gate.ruff {ruff} with no ruff was not refused"
+    said = str(issue)
+    assert "gate.ruff is true" not in said, "the line says a key nobody wrote"
+    assert "`gate.ruff` is on" in said, said
+    assert "ruff is not installed" in said, said
+    assert "uv tool install ruff" in said, said
+    assert "already installed" in said, said
+    assert "uv tool update-shell" in said, said
+    assert "gate.ruff: false" in said, said
+
+
+@pytest.mark.parametrize(
+    "target",
+    [
+        "src/pkg/messy.py",
+        "src/pkg/stub.pyi",
+        "src/**",
+        "src/pkg/*",
+        "**/*.pyi",
+        "src/*.p*",
+        "src/pkg/mess?.py",
+        "*/*.py",
+        "*/tests/*.py",
+        "*/pkg/**",
+    ],
+)
+def test_a_change_that_may_hold_python_is_checked(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, target: str
+) -> None:
+    _hide_ruff(tmp_path, monkeypatch)
+
+    assert _issue(_setup(True), target) is not None, target
+
+
+#: Python paths a pattern may name, one to four segments deep.
+PYTHON_PATHS = (
+    "m.py",
+    "x.pyi",
+    "pkg/m.py",
+    "src/x.p.py",
+    "tests/test_x.py",
+    "a/tests/b.py",
+    "a/pkg/b.pyi",
+    "src/pkg/messy.py",
+    "src/a/b/c.py",
+    "y.py",
+    "i.pyi",
+    "p.py",
+    ".py",
+    "x/.pyi",
+    "src/y/x.py",
+    "src/src/x.pyi",
+    "x.py/x.py",
+)
+
+#: Patterns written by hand, the review's probes and odd shapes among them.
+PATTERNS = (
+    "*",
+    "**",
+    "**/",
+    "*/*",
+    "*/**",
+    "**/*",
+    "*.p*",
+    "*y",
+    "*i",
+    "*.md",
+    "src/**",
+    "**/*.py",
+    "*.py",
+    "src/*.p*",
+    "src/pkg/mess?.py",
+    "src/*/x.py",
+    "pkg/*/*.py",
+    "src/**/test_*",
+    "*/*.py",
+    "*/tests/*.py",
+    "*/pkg/**",
+    "*/*/*/*.pyi",
+    "a*b*.py",
+    "**/py",
+    "docs/*.md",
+    "docs/**/*.md",
+    "*.js",
+    "src/**/*.ts",
+    "**/*.pyc",
+    "*.py/x",
+    "****/",
+    "x.py**/",
+    "*.py**/",
+    "src/****/",
+    "x.py**\\",
+    "src\\*.py",
+)
+
+#: The pieces a pattern is spelled from in `_spelled`: every wildcard token the
+#: matcher reads, the pieces of a Python name, a folder, and both slashes.
+PIECES = ("*", "**", "**/", "src/", "x", ".", "p", "y", ".py", ".pyi", "/", "i", "\\")
+
+
+def _derived(path: str) -> set[str]:
+    """Every pattern made from `path` by putting `*` or `**` in the place of
+    any of its segments, and of the stem or the whole name of its file."""
+    from itertools import product
+
+    *folders, name = path.split("/")
+    stem, dot, suffix = name.partition(".")
+    names = {name, "*", "**", f"*{dot}{suffix}", f"{stem}*", f"*{suffix[-1:]}"}
+    found: set[str] = set()
+    for chosen in product(*[(f, "*", "**") for f in folders], sorted(names)):
+        found.add("/".join(chosen))
+    return found
+
+
+def _spelled() -> set[str]:
+    """Every pattern spelled from one to three of `PIECES`, in any order."""
+    from itertools import product
+
+    return {"".join(p) for n in (1, 2, 3) for p in product(PIECES, repeat=n)}
+
+
+def test_the_check_never_lets_through_a_pattern_the_matcher_lets_name_python(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Fail closed: for every pattern here, written by hand, derived from a
+    Python path or spelled from `PIECES`, if `Scope.permits` lets it name any
+    of `PYTHON_PATHS`, as a target or as a rename's scope entry, the check
+    refuses. And a pattern that cannot name Python (`docs/*.md`, `*.js`,
+    `**/*.pyc`) is let through."""
+    from mcgyvr.scope import Scope
+
+    _hide_ruff(tmp_path, monkeypatch)
+    config = _setup(True)
+    spelled = _spelled()
+    patterns = set(PATTERNS).union(spelled, *(_derived(p) for p in PYTHON_PATHS))
+    names_python = {
+        p for p in patterns if any(Scope.of([p]).permits(q) for q in PYTHON_PATHS)
+    }
+    assert len(spelled) > 1500, "the spelled patterns did not come out"
+    assert len(names_python) > 700, "the patterns that name Python did not come out"
+
+    open_as_target = sorted(p for p in names_python if _issue(config, p) is None)
+    open_as_scope = sorted(
+        p for p in names_python if _issue(config, "README.md", (p,)) is None
+    )
+
+    assert open_as_target == [], open_as_target
+    assert open_as_scope == [], open_as_scope
+    for safe in ("docs/*.md", "docs/**/*.md", "*.js", "src/**/*.ts", "**/*.pyc"):
+        assert safe not in names_python, safe
+        assert _issue(config, safe) is None, safe
+
+
+@pytest.mark.parametrize(
+    ("target", "scope"),
+    [
+        ("docs/*.md", "**"),
+        ("docs/*.md", "docs/**"),
+        ("README.md", "src/**"),
+        ("web/app.js", "**"),
+    ],
+)
+def test_a_scope_that_may_name_python_is_checked(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, target: str, scope: str
+) -> None:
+    """A rename rewrites every file that uses the name, anywhere its scope
+    allows, so a scope that may name a Python file counts even when the
+    target cannot."""
+    _hide_ruff(tmp_path, monkeypatch)
+
+    assert _issue(_setup(True), target, (scope,)) is not None, (target, scope)
+
+
+#: A floor contract a program performs on its target alone.
+FORMAT = """
+id: format-x
+task_type: code
+operation: format
+task: Reformat the module.
+target: web/app.js
+scope:
+  allow: ["web/**"]
+"""
+
+
+@pytest.mark.parametrize(
+    ("text", "target", "scope"),
+    [
+        (lj.MODEL_CONTRACT, "web/app.js", "web/**"),
+        (lj.MODEL_CONTRACT, "web/app.js", "**"),
+        (lj.MODEL_CONTRACT, "docs/a.md", "docs/**"),
+        (FORMAT, "web/app.js", "web/**"),
+    ],
+    ids=["climb-js-folder", "climb-js-tree", "climb-docs-folder", "floor-format-js"],
+)
+def test_a_change_that_writes_its_target_alone_is_not_judged_by_its_scope(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    text: str,
+    target: str,
+    scope: str,
+) -> None:
+    """A model's reply and a floor program write the target alone, so a scope
+    that may name a Python file does not make such a change a Python one. Only
+    an operation run in process on the tree (`rename_symbol`) is judged by its
+    scope (`test_a_scope_that_may_name_python_is_checked`)."""
+    from mcgyvr.drive import missing_gate_tool
+    from mcgyvr.scope import Scope
+
+    _hide_ruff(tmp_path, monkeypatch)
+    contract = replace(loads(text), target=target, scope=Scope.of([scope]))
+
+    assert missing_gate_tool(_setup(True), contract) is None, (target, scope)
+
+
+@pytest.mark.parametrize(
+    ("config", "target"),
+    [
+        (None, "src/pkg/messy.py"),
+        (_setup(False), "src/pkg/messy.py"),
+        (_setup(True, gate=False), "src/pkg/messy.py"),
+        (_setup(True), "src/app.js"),
+        (_setup(True), "src/**/*.ts"),
+        (_setup(True), "README.md"),
+        (_setup(True), "docs/*.md"),
+        (_setup(True), "docs/**/*.md"),
+        (_setup(True), "src/*.js"),
+    ],
+    ids=[
+        "no-config",
+        "opted-out",
+        "gate-off",
+        "javascript",
+        "typescript-glob",
+        "not-code",
+        "markdown-glob",
+        "markdown-tree",
+        "javascript-glob",
+    ],
+)
+def test_nothing_is_said_where_the_gate_would_not_run_ruff(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    config: Config | None,
+    target: str,
+) -> None:
+    _hide_ruff(tmp_path, monkeypatch)
+
+    assert _issue(config, target) is None
+
+
+@needs_ruff
+@pytest.mark.parametrize("ruff", [True, None], ids=["true", "unset"])
+def test_nothing_is_said_when_ruff_is_installed(ruff: bool | None) -> None:
+    assert _issue(_setup(ruff)) is None
+
+
+# --- through the CLI ---------------------------------------------------------
+
+
+def _run(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    contract_text: str,
+    ruff: bool | None,
+    *replies: str,
+) -> tuple[int, list[str], Path, Path]:
+    sent = lj.scripted(monkeypatch, *replies)
+    repo = lj.make_repo(tmp_path / "repo")
+    journal = tmp_path / "journal"
+    config = lj.make_config(tmp_path / "setup", journal_dir=journal)
+    if ruff is not None:
+        lj.append_policy(config, f"gate:\n  ruff: {str(ruff).lower()}\n")
+    contract = lj.make_contract(tmp_path / "c.yaml", contract_text)
+    code = lj.main(lj.run_args(contract, repo, config))
+    return code, sent, repo, journal
+
+
+def _refused(
+    code: int,
+    sent: list[str],
+    repo: Path,
+    journal: Path,
+    err: str,
+    tmp_path: Path,
+) -> None:
+    assert code != 0, err
+    assert "ruff is not installed" in err, err
+    assert "uv tool install ruff" in err, err
+    assert "uv tool update-shell" in err, err
+    assert "gate.ruff: false" in err, err
+    assert sent == [], "a model was dispatched"
+    assert (repo / "src/pkg/messy.py").read_text(encoding="utf-8") == "x = 0\n"
+    assert lj.git(repo, "rev-list", "--count", "HEAD").strip() == "1"
+    assert lj.rows(journal) == [], "an attempt was journalled"
+    result = json.loads(lj.result_of(tmp_path / "c.yaml").read_text("utf-8"))
+    assert result["outcome"] == "error", result
+    assert "uv tool install ruff" in result["detail"], result
+
+
+@pytest.mark.parametrize("ruff", [True, None], ids=["true", "unset"])
+def test_the_climb_with_no_ruff_is_refused_and_nothing_is_dispatched(
+    tmp_path: Path,
+    home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    ruff: bool | None,
+) -> None:
+    _hide_ruff(tmp_path, monkeypatch)
+
+    code, sent, repo, journal = _run(
+        tmp_path, monkeypatch, lj.MODEL_CONTRACT, ruff, lj.GOOD_REPLY
+    )
+
+    _refused(code, sent, repo, journal, capsys.readouterr().err, tmp_path)
+
+
+@pytest.mark.parametrize("ruff", [True, None], ids=["true", "unset"])
+def test_the_floor_with_no_ruff_is_refused_and_nothing_runs(
+    tmp_path: Path,
+    home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    ruff: bool | None,
+) -> None:
+    _hide_ruff(tmp_path, monkeypatch)
+
+    code, sent, repo, journal = _run(tmp_path, monkeypatch, RENAME, ruff)
+
+    printed = capsys.readouterr()
+    assert "rename_symbol" not in printed.out, printed.out
+    _refused(code, sent, repo, journal, printed.err, tmp_path)
+
+
+@pytest.mark.parametrize(
+    ("scope", "refused"),
+    [("docs/**/*.md", False), ("**", True)],
+    ids=["markdown-scope", "whole-tree-scope"],
+)
+def test_a_rename_over_markdown_is_judged_by_what_its_scope_may_write(
+    tmp_path: Path,
+    home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    scope: str,
+    refused: bool,
+) -> None:
+    """A rename over `docs/*.md` whose scope holds only markdown fails on its
+    own terms, as it always did. With scope `**` it would rewrite the Python
+    module that defines the name (`src/pkg/messy.py`), so it is refused."""
+    _hide_ruff(tmp_path, monkeypatch)
+    sent = lj.scripted(monkeypatch)
+    repo = lj.make_repo(tmp_path / "repo")
+    (repo / "docs").mkdir()
+    (repo / "docs" / "guide.md").write_text("# x\n", encoding="utf-8")
+    lj.git(repo, "add", "-A")
+    lj.git(repo, "commit", "-q", "-m", "docs")
+    config = lj.make_config(tmp_path / "setup", journal_dir=tmp_path / "journal")
+    lj.append_policy(config, "gate:\n  ruff: true\n")
+    markdown = RENAME.replace("target: src/pkg/messy.py", "target: docs/*.md")
+    contract = lj.make_contract(
+        tmp_path / "c.yaml", markdown.replace('"src/**"', f'"{scope}"')
+    )
+
+    code = lj.main(lj.run_args(contract, repo, config))
+
+    err = capsys.readouterr().err
+    assert code != 0, err
+    assert ("ruff is not installed" in err) is refused, err
+    assert sent == [], "a model was dispatched"
+    module = (repo / "src/pkg/messy.py").read_text(encoding="utf-8")
+    assert module == "x = 0\n", "the Python module was rewritten"
+    assert lj.git(repo, "rev-list", "--count", "HEAD").strip() == "2"
+
+
+def test_opted_out_a_missing_ruff_still_runs_as_before(
+    tmp_path: Path,
+    home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    _hide_ruff(tmp_path, monkeypatch)
+
+    code, sent, _, _ = _run(
+        tmp_path, monkeypatch, lj.MODEL_CONTRACT, False, lj.GOOD_REPLY
+    )
+
+    printed = capsys.readouterr()
+    assert code == 0, printed
+    assert len(sent) == 1, "the climb did not dispatch"
+    assert "ruff is not installed" not in printed.err, printed.err
+    assert "gate.ruff is false" in printed.err, printed.err
+
+
+@needs_ruff
+@pytest.mark.parametrize("ruff", [True, None], ids=["true", "unset"])
+def test_ruff_on_with_ruff_installed_runs_as_before(
+    tmp_path: Path,
+    home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    ruff: bool | None,
+) -> None:
+    code, sent, _, _ = _run(
+        tmp_path, monkeypatch, lj.MODEL_CONTRACT, ruff, lj.GOOD_REPLY
+    )
+
+    printed = capsys.readouterr()
+    assert code == 0, printed
+    assert len(sent) == 1, "the climb did not dispatch"
+    assert "ruff is not installed" not in printed.err, printed.err
+
+
+@pytest.mark.parametrize("ruff", [True, None], ids=["true", "unset"])
+def test_a_batch_with_a_part_refused_on_ruff_is_refused_whole_before_any_part_starts(
+    tmp_path: Path,
+    home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    ruff: bool | None,
+) -> None:
+    """Refused part by part, the parts ahead of it, or beside it under
+    `--jobs`, would run and deliver: the batch is refused before any starts."""
+    from mcgyvr.cli.commands import delegate as command
+
+    _hide_ruff(tmp_path, monkeypatch)
+    sent = lj.scripted(monkeypatch)
+    repo = lj.make_repo(tmp_path / "repo")
+    journal = tmp_path / "journal"
+    config = lj.make_config(tmp_path / "setup", journal_dir=journal)
+    if ruff is not None:
+        lj.append_policy(config, "gate:\n  ruff: true\n")
+    folder = tmp_path / "contracts"
+    folder.mkdir()
+    for cid, new in (("rename-a", "y"), ("rename-b", "z")):
+        text = RENAME.replace("id: rename-x", f"id: {cid}")
+        text = text.replace("to y.", f"to {new}.").replace("to: y", f"to: {new}")
+        (folder / f"{cid}.yaml").write_text(text)
+    started: list[str] = []
+
+    def watched(args: object) -> int:
+        started.append(str(getattr(args, "contract", "")))
+        return 0
+
+    monkeypatch.setattr(command, "_run", watched)
+
+    code = lj.main(
+        [
+            "direct",
+            str(folder),
+            "--repo",
+            str(repo),
+            "--sandbox",
+            "tempdir",
+            "--config",
+            str(config),
+        ]
+    )
+
+    err = capsys.readouterr().err
+    assert code == 1, err
+    assert started == [], "a part of the batch started"
+    assert "ruff is not installed" in err, err
+    assert "uv tool install ruff" in err, err
+    assert "refused whole" in err, err
+    assert sent == [], "a model was dispatched"
+    assert lj.git(repo, "rev-list", "--count", "HEAD").strip() == "1"
+    assert not list((journal / "trees").glob("*.json")), "the tree was read"
