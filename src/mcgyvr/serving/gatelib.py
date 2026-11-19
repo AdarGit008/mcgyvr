@@ -48,6 +48,45 @@ DOOR = "python -m mcgyvr.serving.run serve|read|link --host H ..."
 DOOR_FILE = "mcgyvr/serving/run.py"
 DOOR_MODULE = "mcgyvr.serving.run"
 
+#: A word PowerShell hands a program as it is written, with nothing to quote.
+_POWERSHELL_PLAIN = re.compile(r"[A-Za-z0-9_./:=+-]+")
+#: What PowerShell's tokenizer reads as a single quote (`IsSingleQuote`): the
+#: ASCII one and the four typographic ones, U+2018, U+2019, U+201A and U+201B.
+#: Inside a single-quoted word, each stands for itself when written twice.
+_POWERSHELL_SINGLE_QUOTES = "'\u2018\u2019\u201a\u201b"
+
+
+def door_line(*args: str, windows: bool | None = None) -> str:
+    """The door command, with `args`, as a person pastes it into their shell.
+
+    The interpreter is the one running (`sys.executable`): the environment that
+    holds mcgyvr, where a bare `python` on PATH need not be that environment and
+    on a uv tool install is not there at all. On POSIX the words are joined as
+    `shlex.join` joins them, the rule the other commands printed for a person
+    follow. On Windows (`windows`, by default whether this machine is one) the
+    line is PowerShell's: a word that is not plain goes in single quotes, with
+    each character PowerShell reads as a single quote doubled, and the line
+    starts with the call operator `&`, without which PowerShell reads a quoted
+    first word as a string. A Windows user whose shell is a POSIX one (Git
+    Bash) is not served by that line, nor is cmd.exe. An interpreter that
+    reports no path (`sys.executable` empty) is printed as `python`.
+    """
+    words = [sys.executable or "python", "-m", DOOR_MODULE, *args]
+    if not (sys.platform == "win32" if windows is None else windows):
+        return shlex.join(words)
+    return "& " + " ".join(_powershell_word(word) for word in words)
+
+
+def _powershell_word(word: str) -> str:
+    """`word` as PowerShell reads it back: as it is when plain, else quoted."""
+    if _POWERSHELL_PLAIN.fullmatch(word):
+        return word
+    doubled = "".join(
+        mark * 2 if mark in _POWERSHELL_SINGLE_QUOTES else mark for mark in word
+    )
+    return f"'{doubled}'"
+
+
 #: The door's own `ssh` and `docker`, put first on a run's PATH (the shims), and
 #: the Windows launchers beside them that a program looking a command up by
 #: PATHEXT finds (`docker` looking up `ssh` for an ssh:// daemon).
