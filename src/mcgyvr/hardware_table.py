@@ -1,8 +1,9 @@
-"""The hardware capabilities table: what a chip can do, from its vendor's pages.
+"""The hardware capabilities table: what a chip can do, from the pages that say it.
 
 One row per graphics card, processor or Apple chip; each fact of a row is a cell
 that names its source, how the value was got and whether the vendor published
-it. The table holds only facts a machine cannot report about itself, and no
+it. The sources are the vendors' pages and third-party ones; ``official`` says
+which. The table holds only facts a machine cannot report about itself, and no
 reading of anyone's machine. It is built from the inputs under
 ``tools/hardware-table/`` (``build_db.py``), where every cell keeps the page's
 own words; the package carries the table without them.

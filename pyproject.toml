@@ -74,6 +74,11 @@ git_describe_command = [
 [tool.hatch.build.targets.wheel]
 packages = ["src/mcgyvr"]
 
+# tools/ builds the shipped data from the pages' own words, which stay in the
+# repository and are not published: neither the wheel nor the sdist carries them.
+[tool.hatch.build.targets.sdist]
+exclude = ["/tools"]
+
 # The shipped data files are read at runtime through `importlib.resources`, so
 # they have to be inside the package in a wheel — `data/` sits at the repo root
 # for editing, and the loaders' checkout fallback only works from a source tree.

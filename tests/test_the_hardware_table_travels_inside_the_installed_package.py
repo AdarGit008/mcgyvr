@@ -3,8 +3,9 @@
 The build copies the checkout's ``data/hardware-capabilities.json`` into the
 package (read here from ``pyproject.toml``; no wheel is built), and the loader
 finds the packaged copy first and the checkout's second; with neither, it
-refuses by the file's name. No module of the product imports the loader: the
-table ships ahead of its first reader, so it changes nothing a user gets.
+refuses by the file's name. No module of the product imports the loader or
+names its file: the table ships ahead of its first reader, so it changes nothing
+a user gets.
 """
 
 from __future__ import annotations
@@ -82,3 +83,13 @@ def test_no_product_module_imports_the_hardware_table() -> None:
             if any(name.endswith("hardware_table") for name in names):
                 readers.append(str(path.relative_to(SRC)))
     assert not readers, readers
+
+
+def test_no_product_module_names_the_table_file_but_its_loader() -> None:
+    named = [
+        str(path.relative_to(SRC))
+        for path in sorted(SRC.rglob("*.py"))
+        if path.name != "hardware_table.py"
+        and hardware_table.TABLE_FILENAME in path.read_text(encoding="utf-8")
+    ]
+    assert not named, named

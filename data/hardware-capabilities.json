@@ -2402,7 +2402,7 @@
        "int8"
       ],
       "src": "nvidia-gpu:s4",
-      "how": "stated: CUDA Programming Guide Table 36 row 12.x; 7 Yes = TF32, BF16, FP16, FP8, FP6, FP4, INT8, then an empty INT4 cell; FP6 is not in the schema's format set so it is left out (FP4 agrees with s14); the row label 12.x covers compute capability 12.0. Table 36 has 9 input-type columns (FP64 TF32 BF16 FP16 FP8 FP6 FP4 INT8 INT4); page.py collapses runs of empty cells, so each row's Yes cells are assigned to columns left to right with the known order and the trailing empty cell",
+      "how": "stated: CUDA Programming Guide Table 36 row 12.x; 7 Yes = TF32, BF16, FP16, FP8, FP6, FP4, INT8, then an empty INT4 cell; FP6 is kept: the build adds fp6, which the schema's format set holds (FP4 agrees with s14); the row label 12.x covers compute capability 12.0. Table 36 has 9 input-type columns (FP64 TF32 BF16 FP16 FP8 FP6 FP4 INT8 INT4); page.py collapses runs of empty cells, so each row's Yes cells are assigned to columns left to right with the known order and the trailing empty cell",
       "official": true,
       "scope": "compute-capability"
      }
@@ -2617,7 +2617,7 @@
        "int8"
       ],
       "src": "nvidia-gpu:s4",
-      "how": "stated: CUDA Programming Guide Table 36 row 12.x; 7 Yes = TF32, BF16, FP16, FP8, FP6, FP4, INT8, then an empty INT4 cell; FP6 is not in the schema's format set so it is left out (FP4 agrees with s14); the row label 12.x covers compute capability 12.0. Table 36 has 9 input-type columns (FP64 TF32 BF16 FP16 FP8 FP6 FP4 INT8 INT4); page.py collapses runs of empty cells, so each row's Yes cells are assigned to columns left to right with the known order and the trailing empty cell",
+      "how": "stated: CUDA Programming Guide Table 36 row 12.x; 7 Yes = TF32, BF16, FP16, FP8, FP6, FP4, INT8, then an empty INT4 cell; FP6 is kept: the build adds fp6, which the schema's format set holds (FP4 agrees with s14); the row label 12.x covers compute capability 12.0. Table 36 has 9 input-type columns (FP64 TF32 BF16 FP16 FP8 FP6 FP4 INT8 INT4); page.py collapses runs of empty cells, so each row's Yes cells are assigned to columns left to right with the known order and the trailing empty cell",
       "official": true,
       "scope": "compute-capability"
      }
@@ -2832,7 +2832,7 @@
        "int8"
       ],
       "src": "nvidia-gpu:s4",
-      "how": "stated: CUDA Programming Guide Table 36 row 12.x; 7 Yes = TF32, BF16, FP16, FP8, FP6, FP4, INT8, then an empty INT4 cell; FP6 is not in the schema's format set so it is left out (FP4 agrees with s14); the row label 12.x covers compute capability 12.0. Table 36 has 9 input-type columns (FP64 TF32 BF16 FP16 FP8 FP6 FP4 INT8 INT4); page.py collapses runs of empty cells, so each row's Yes cells are assigned to columns left to right with the known order and the trailing empty cell",
+      "how": "stated: CUDA Programming Guide Table 36 row 12.x; 7 Yes = TF32, BF16, FP16, FP8, FP6, FP4, INT8, then an empty INT4 cell; FP6 is kept: the build adds fp6, which the schema's format set holds (FP4 agrees with s14); the row label 12.x covers compute capability 12.0. Table 36 has 9 input-type columns (FP64 TF32 BF16 FP16 FP8 FP6 FP4 INT8 INT4); page.py collapses runs of empty cells, so each row's Yes cells are assigned to columns left to right with the known order and the trailing empty cell",
       "official": true,
       "scope": "compute-capability"
      }
@@ -3047,7 +3047,7 @@
        "int8"
       ],
       "src": "nvidia-gpu:s4",
-      "how": "stated: CUDA Programming Guide Table 36 row 12.x; 7 Yes = TF32, BF16, FP16, FP8, FP6, FP4, INT8, then an empty INT4 cell; FP6 is not in the schema's format set so it is left out (FP4 agrees with s14); the row label 12.x covers compute capability 12.0. Table 36 has 9 input-type columns (FP64 TF32 BF16 FP16 FP8 FP6 FP4 INT8 INT4); page.py collapses runs of empty cells, so each row's Yes cells are assigned to columns left to right with the known order and the trailing empty cell",
+      "how": "stated: CUDA Programming Guide Table 36 row 12.x; 7 Yes = TF32, BF16, FP16, FP8, FP6, FP4, INT8, then an empty INT4 cell; FP6 is kept: the build adds fp6, which the schema's format set holds (FP4 agrees with s14); the row label 12.x covers compute capability 12.0. Table 36 has 9 input-type columns (FP64 TF32 BF16 FP16 FP8 FP6 FP4 INT8 INT4); page.py collapses runs of empty cells, so each row's Yes cells are assigned to columns left to right with the known order and the trailing empty cell",
       "official": true,
       "scope": "compute-capability"
      }
@@ -3262,7 +3262,7 @@
        "int8"
       ],
       "src": "nvidia-gpu:s4",
-      "how": "stated: CUDA Programming Guide Table 36 row 12.x; 7 Yes = TF32, BF16, FP16, FP8, FP6, FP4, INT8, then an empty INT4 cell; FP6 is not in the schema's format set so it is left out (FP4 agrees with s14); the row label 12.x covers compute capability 12.0. Table 36 has 9 input-type columns (FP64 TF32 BF16 FP16 FP8 FP6 FP4 INT8 INT4); page.py collapses runs of empty cells, so each row's Yes cells are assigned to columns left to right with the known order and the trailing empty cell",
+      "how": "stated: CUDA Programming Guide Table 36 row 12.x; 7 Yes = TF32, BF16, FP16, FP8, FP6, FP4, INT8, then an empty INT4 cell; FP6 is kept: the build adds fp6, which the schema's format set holds (FP4 agrees with s14); the row label 12.x covers compute capability 12.0. Table 36 has 9 input-type columns (FP64 TF32 BF16 FP16 FP8 FP6 FP4 INT8 INT4); page.py collapses runs of empty cells, so each row's Yes cells are assigned to columns left to right with the known order and the trailing empty cell",
       "official": true,
       "scope": "compute-capability"
      }
@@ -3477,7 +3477,7 @@
        "int8"
       ],
       "src": "nvidia-gpu:s4",
-      "how": "stated: CUDA Programming Guide Table 36 row 12.x; 7 Yes = TF32, BF16, FP16, FP8, FP6, FP4, INT8, then an empty INT4 cell; FP6 is not in the schema's format set so it is left out (FP4 agrees with s14); the row label 12.x covers compute capability 12.0. Table 36 has 9 input-type columns (FP64 TF32 BF16 FP16 FP8 FP6 FP4 INT8 INT4); page.py collapses runs of empty cells, so each row's Yes cells are assigned to columns left to right with the known order and the trailing empty cell",
+      "how": "stated: CUDA Programming Guide Table 36 row 12.x; 7 Yes = TF32, BF16, FP16, FP8, FP6, FP4, INT8, then an empty INT4 cell; FP6 is kept: the build adds fp6, which the schema's format set holds (FP4 agrees with s14); the row label 12.x covers compute capability 12.0. Table 36 has 9 input-type columns (FP64 TF32 BF16 FP16 FP8 FP6 FP4 INT8 INT4); page.py collapses runs of empty cells, so each row's Yes cells are assigned to columns left to right with the known order and the trailing empty cell",
       "official": true,
       "scope": "compute-capability"
      }
@@ -3692,7 +3692,7 @@
        "int8"
       ],
       "src": "nvidia-gpu:s4",
-      "how": "stated: CUDA Programming Guide Table 36 row 12.x; 7 Yes = TF32, BF16, FP16, FP8, FP6, FP4, INT8, then an empty INT4 cell; FP6 is not in the schema's format set so it is left out (FP4 agrees with s14); the row label 12.x covers compute capability 12.0. Table 36 has 9 input-type columns (FP64 TF32 BF16 FP16 FP8 FP6 FP4 INT8 INT4); page.py collapses runs of empty cells, so each row's Yes cells are assigned to columns left to right with the known order and the trailing empty cell",
+      "how": "stated: CUDA Programming Guide Table 36 row 12.x; 7 Yes = TF32, BF16, FP16, FP8, FP6, FP4, INT8, then an empty INT4 cell; FP6 is kept: the build adds fp6, which the schema's format set holds (FP4 agrees with s14); the row label 12.x covers compute capability 12.0. Table 36 has 9 input-type columns (FP64 TF32 BF16 FP16 FP8 FP6 FP4 INT8 INT4); page.py collapses runs of empty cells, so each row's Yes cells are assigned to columns left to right with the known order and the trailing empty cell",
       "official": true,
       "scope": "compute-capability"
      }

@@ -374,6 +374,11 @@ def _scope_and_patch(
         and "FP6" in str(formats.get("quote", ""))
     ):
         formats["v"].insert(formats["v"].index("fp4"), "fp6")
+        # The value now holds fp6, so ``how`` (which ships) says so too.
+        left_out = "FP6 is not in the schema's format set so it is left out"
+        kept = "FP6 is kept: the build adds fp6, which the schema's format set holds"
+        how = str(formats.get("how", ""))
+        formats["how"] = how.replace(left_out, kept) if left_out in how else how
         formats["note"] = (
             str(formats.get("note", "")) + " fp6 added at the build: the quoted row "
             "says Yes under FP6 (table read with its column spans, 2026-11-18)."
@@ -491,9 +496,9 @@ def main(argv: list[str]) -> int:
     args = parser.parse_args(argv)
     datetime.date.fromisoformat(args.built)
     table, report = build(args.built)
-    args.out.write_text(text(shipped(table)), encoding="utf-8")
+    args.out.write_text(text(shipped(table)), encoding="utf-8", newline="\n")
     if args.quoted:
-        args.quoted.write_text(text(table), encoding="utf-8")
+        args.quoted.write_text(text(table), encoding="utf-8", newline="\n")
     problems = [line for line in report if not line.startswith("==")]
     print(
         f"built {len(table['rows'])} rows, {len(table['sources'])} sources; "

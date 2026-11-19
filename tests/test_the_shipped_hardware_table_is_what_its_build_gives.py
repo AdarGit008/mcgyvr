@@ -47,7 +47,8 @@ def test_the_quoted_table_keeps_a_quote_for_every_value(tmp_path: Path) -> None:
     def walk(node: object, at: str) -> None:
         if isinstance(node, dict) and "v" in node:
             value = node["v"]
-            if value not in (None, False, []) and not node.get("quote"):
+            empty = value is None or value is False or value == []
+            if not empty and not node.get("quote"):
                 bare.append(at)
         elif isinstance(node, dict):
             for key, value in node.items():

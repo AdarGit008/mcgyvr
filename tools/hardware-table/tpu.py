@@ -84,7 +84,9 @@ def index() -> None:
         for name, urls in got.items():
             names.setdefault(name, set()).update(urls)
     out = {name: sorted(urls) for name, urls in sorted(names.items())}
-    (WAVE / "tpu-index.json").write_text(json.dumps(out, indent=1))
+    (WAVE / "tpu-index.json").write_text(
+        json.dumps(out, indent=1), encoding="utf-8", newline="\n"
+    )
     print("\n".join(log))
     print(f"{len(out)} names in wave-4/tpu-index.json")
 
@@ -186,7 +188,9 @@ def mapping() -> None:
             left.append(
                 f"{row['id']} | {value(row['name'])} | {want} | {len(urls)} pages"
             )
-    (WAVE / "tpu-map.json").write_text(json.dumps(out, indent=1))
+    (WAVE / "tpu-map.json").write_text(
+        json.dumps(out, indent=1), encoding="utf-8", newline="\n"
+    )
     pages = len({m["url"] for m in out.values()})
     print(f"{len(out)} of {len(rows)} GPU rows mapped; {pages} pages")
     print("\n".join("  left: " + line for line in left))
@@ -567,7 +571,9 @@ def fill() -> None:
             "left": unread,
         },
     }
-    (WAVE / "tpu-gpu.json").write_text(json.dumps(doc, indent=1))
+    (WAVE / "tpu-gpu.json").write_text(
+        json.dumps(doc, indent=1), encoding="utf-8", newline="\n"
+    )
     count = sum(len(list(verify_quotes.cells(r))) for r in out)
     print(
         f"{len(out)} rows, {count} cells, {len(unread)} rows whose page is not read "
