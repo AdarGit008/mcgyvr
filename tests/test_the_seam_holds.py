@@ -93,7 +93,8 @@ from tests.wheels import (
 #: (sandbox.*), the docker probe that decides which sandbox mode is available
 #: (detect), what the hardware measures and what that is worth running
 #: (scan, capability, propose, initialize), how fast a device is estimated
-#: to decode before a unit of it is measured (estimate), what is known about a model
+#: to decode before a unit of it is measured (estimate), what a chip can do by
+#: the vendors' and third-party pages (hardware_table), what is known about a model
 #: before it is downloaded (knowledge.*), a serving unit to write out and
 #: launch (emit, serving.*), whether a card that is down is asleep and how it
 #: is woken (wake), the per-user temporary directories those keep their
@@ -136,6 +137,7 @@ BELOW_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.fleet.stamp",
     "mcgyvr.fleet.tolerance",
     "mcgyvr.handoff",
+    "mcgyvr.hardware_table",
     "mcgyvr.initialize",
     "mcgyvr.knowledge",
     "mcgyvr.knowledge.geometry",

@@ -1,0 +1,2975 @@
+{
+ "schema": 1,
+ "slice": "apple-soc",
+ "wave": 3,
+ "sources": [
+  {
+   "id": "s1",
+   "url": "https://www.apple.com/newsroom/2020/11/apple-unleashes-m1/",
+   "title": "Apple unleashes M1",
+   "publisher": "apple.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s2",
+   "url": "https://www.apple.com/newsroom/2021/10/introducing-m1-pro-and-m1-max-the-most-powerful-chips-apple-has-ever-built/",
+   "title": "Introducing M1 Pro and M1 Max",
+   "publisher": "apple.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s3",
+   "url": "https://www.apple.com/newsroom/2023/10/apple-unveils-m3-m3-pro-and-m3-max-the-most-advanced-chips-for-a-personal-computer/",
+   "title": "Apple unveils M3, M3 Pro, and M3 Max",
+   "publisher": "apple.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s4",
+   "url": "https://www.apple.com/newsroom/2024/05/apple-introduces-m4-chip/",
+   "title": "Apple introduces M4 chip",
+   "publisher": "apple.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s5",
+   "url": "https://support.apple.com/en-us/117735",
+   "title": "MacBook Pro (14-inch, M3, Nov 2023) - Tech Specs",
+   "publisher": "support.apple.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s6",
+   "url": "https://support.apple.com/en-us/117736",
+   "title": "MacBook Pro (14-inch, M3 Pro or M3 Max, Nov 2023) - Tech Specs",
+   "publisher": "support.apple.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s7",
+   "url": "https://support.apple.com/en-us/111340",
+   "title": "MacBook Pro (14-inch, 2023) - Tech Specs (M2 Pro / M2 Max)",
+   "publisher": "support.apple.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s8",
+   "url": "https://support.apple.com/en-us/111902",
+   "title": "MacBook Pro (14-inch, 2021) - Technical Specifications (M1 Pro / M1 Max)",
+   "publisher": "support.apple.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s9",
+   "url": "https://support.apple.com/en-us/121553",
+   "title": "MacBook Pro (14-inch, M4 Pro or M4 Max, 2024) - Tech Specs",
+   "publisher": "support.apple.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s10",
+   "url": "https://support.apple.com/en-us/121552",
+   "title": "MacBook Pro (14-inch, M4, 2024) - Tech Specs",
+   "publisher": "support.apple.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s11",
+   "url": "https://support.apple.com/en-us/111883",
+   "title": "MacBook Air (M1, 2020) - Tech Specs",
+   "publisher": "support.apple.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s12",
+   "url": "https://support.apple.com/en-us/111900",
+   "title": "Mac Studio (2022) - Tech Specs (M1 Max / M1 Ultra)",
+   "publisher": "support.apple.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s13",
+   "url": "https://support.apple.com/en-us/111835",
+   "title": "Mac Studio (2023) - Tech Specs (M2 Max / M2 Ultra)",
+   "publisher": "support.apple.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s14",
+   "url": "https://support.apple.com/en-us/122211",
+   "title": "Mac Studio (2025) - Tech Specs (M4 Max / M3 Ultra)",
+   "publisher": "support.apple.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s15",
+   "url": "https://support.apple.com/en-us/111867",
+   "title": "MacBook Air (M2, 2022) - Tech Specs",
+   "publisher": "support.apple.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s16",
+   "url": "https://www.apple.com/newsroom/2025/10/apple-unleashes-m5-the-next-big-leap-in-ai-performance-for-apple-silicon/",
+   "title": "Apple unleashes M5",
+   "publisher": "apple.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s17",
+   "url": "https://www.apple.com/newsroom/2026/03/apple-debuts-m5-pro-and-m5-max-to-supercharge-the-most-demanding-pro-workflows/",
+   "title": "Apple debuts M5 Pro and M5 Max",
+   "publisher": "apple.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s18",
+   "url": "https://www.apple.com/newsroom/2026/08/apple-introduces-m6-and-m5-ultra-for-a-big-leap-in-performance-and-ai-compute/",
+   "title": "Apple introduces M6 and M5 Ultra",
+   "publisher": "apple.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s19",
+   "url": "https://support.apple.com/en-us/125405",
+   "title": "MacBook Pro (M5) - Tech Specs",
+   "publisher": "support.apple.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s20",
+   "url": "https://support.apple.com/en-us/126318",
+   "title": "MacBook Pro (M5 Pro / M5 Max) - Tech Specs",
+   "publisher": "support.apple.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s21",
+   "url": "https://support.apple.com/en-us/128107",
+   "title": "Mac Studio (M5 Max / M5 Ultra) - Tech Specs",
+   "publisher": "support.apple.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s22",
+   "url": "https://support.apple.com/en-us/128108",
+   "title": "Mac mini (M6 / M5 Pro) - Tech Specs",
+   "publisher": "support.apple.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s23",
+   "url": "https://www.apple.com/newsroom/2022/03/apple-unveils-m1-ultra-the-worlds-most-powerful-chip-for-a-personal-computer/",
+   "title": "Apple unveils M1 Ultra",
+   "publisher": "apple.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s24",
+   "url": "https://www.apple.com/newsroom/2022/06/apple-unveils-m2-with-breakthrough-performance-and-capabilities/",
+   "title": "Apple unveils M2",
+   "publisher": "apple.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s25",
+   "url": "https://www.apple.com/newsroom/2023/01/apple-unveils-m2-pro-and-m2-max-next-generation-chips-for-next-level-workflows/",
+   "title": "Apple unveils M2 Pro and M2 Max",
+   "publisher": "apple.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s26",
+   "url": "https://www.apple.com/newsroom/2023/06/apple-introduces-m2-ultra/",
+   "title": "Apple introduces M2 Ultra",
+   "publisher": "apple.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s27",
+   "url": "https://www.apple.com/newsroom/2025/03/apple-reveals-m3-ultra-taking-apple-silicon-to-a-new-extreme/",
+   "title": "Apple reveals M3 Ultra",
+   "publisher": "apple.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s28",
+   "url": "https://www.apple.com/newsroom/2024/10/apple-introduces-m4-pro-and-m4-max/",
+   "title": "Apple introduces M4 Pro and M4 Max",
+   "publisher": "apple.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s29",
+   "url": "https://support.apple.com/en-us/121555",
+   "title": "Mac mini (2024) - Tech Specs",
+   "publisher": "support.apple.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s30",
+   "url": "https://developer.apple.com/videos/play/wwdc2025/205/",
+   "title": "Discover Metal 4 - WWDC25",
+   "publisher": "developer.apple.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s31",
+   "url": "https://developer.apple.com/videos/play/wwdc2020/10632/",
+   "title": "Optimize Metal Performance for Apple silicon Macs - WWDC20",
+   "publisher": "developer.apple.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s32",
+   "url": "https://developer.apple.com/metal/Metal-Feature-Set-Tables.pdf",
+   "title": "Metal Feature Set Tables (PDF)",
+   "publisher": "developer.apple.com",
+   "official": true,
+   "fetch": "blocked"
+  },
+  {
+   "id": "s33",
+   "url": "https://developer.apple.com/documentation/kernel/1387446-sysctlbyname/determining_instruction_set_characteristics",
+   "title": "Determining Instruction Set Characteristics",
+   "publisher": "developer.apple.com",
+   "official": true,
+   "fetch": "blocked"
+  },
+  {
+   "id": "s34",
+   "url": "https://www.apple.com/mac-mini/specs/",
+   "title": "Mac mini Technical Specifications (M6 / M5 Pro)",
+   "publisher": "apple.com",
+   "official": true,
+   "fetch": "ok"
+  }
+ ],
+ "source_map": [
+  {
+   "field": "name",
+   "source": "s5",
+   "note": "support.apple.com Tech Specs page per Mac, Chip section: 'Apple M3 chip'. Page ids: 111883 (MBA M1), 111867 (MBA M2), 111902 (M1 Pro/Max), 111900 (Mac Studio 2022), 111340 (M2 Pro/Max), 111835 (Mac Studio 2023), 117735/117736 (M3, M3 Pro/Max), 121552/121553 (M4, M4 Pro/Max), 121555 (Mac mini 2024), 122211 (Mac Studio 2025), 125405/126318 (M5, M5 Pro/Max), 128107 (Mac Studio M5 Max/M5 Ultra), 128108 (Mac mini M6/M5 Pro)."
+  },
+  {
+   "field": "launch",
+   "source": "s1",
+   "note": "Apple newsroom press release: the page text reads 'PRESS RELEASE <Month D, YYYY>' before the headline, and the URL path holds /YYYY/MM/. Read per chip: s1, s2, s23, s24, s25, s26, s3, s27, s4, s28, s16, s17, s18."
+  },
+  {
+   "field": "cores",
+   "source": "s5",
+   "note": "Tech Specs Chip section: 'N-core CPU with X performance cores and Y efficiency cores' (M5 and later: 'super cores' and 'performance cores'). Soft hyphens (U+00AD) or U+2010 hyphens occur in some pages (s11, s14, s21, s22); a quote must carry them as the page does. Where a configure-to-order chip variant has no split on the support page the newsroom gives it (s3, s27, s28)."
+  },
+  {
+   "field": "gpu_cores",
+   "source": "s5",
+   "note": "Same Chip section; the larger GPU variant is in the 'Configurable to' line (M1 Ultra 64-core on s12, M2 Ultra 76-core on s13, M2 Max 38-core on s7)."
+  },
+  {
+   "field": "memory.sizes_gb",
+   "source": "s5",
+   "note": "Tech Specs Memory section: base size and 'Configurable to' list with the chip variant in brackets. The brackets decide which row an option belongs to."
+  },
+  {
+   "field": "memory.bandwidth_gbps",
+   "source": "s5",
+   "note": "Tech Specs Chip section: '100GB/s memory bandwidth'; for chips with a configurable bigger variant the 'Configurable to' line carries '(546GB/s memory bandwidth)'. Ultra chips of the M5 generation say '1.2TB/s'. NOT stated for M1 on any Apple page read (s1, s11); newsroom s18 says M6 is '2.5x' M1 but gives no M1 number. M6 16GB: apple.com/mac-mini/specs (s34), column-aligned."
+  },
+  {
+   "field": "memory.type",
+   "source": null,
+   "note": "searched: newsroom pages, support.apple.com Tech Specs, apple.com/mac-mini/specs by search; Apple says only 'unified memory'. No LPDDR name on an Apple page."
+  },
+  {
+   "field": "isa",
+   "source": null,
+   "note": "developer.apple.com 'Determining Instruction Set Characteristics' (s33) is script-only: page.py reads 294 characters. A web search found no Apple page that ties SME, I8MM, BF16 or DotProd to a chip."
+  },
+  {
+   "field": "formats.matrix.name",
+   "source": "s20",
+   "note": "M5 generation onward: the Tech Specs Chip section lists 'Neural Accelerators' right after the GPU core count (s19, s20, s21, s22). M1 to M4: no Apple page read names GPU matrix units."
+  },
+  {
+   "field": "formats.fp16",
+   "source": "s31",
+   "note": "WWDC20 session 10632 (Apple silicon GPU): 'The operator core contains both a 16-bit and a 32-bit ALU'. A statement about the Apple silicon GPU in general, not a per-chip table. The per-chip Metal Feature Set Tables are a PDF (s32), not readable here."
+  },
+  {
+   "field": "api.metal",
+   "source": "s30",
+   "note": "WWDC25 session 205: 'Metal 4 is compatible with M1 (and later) and A14 Bionic (and later) Apple chips.' The per-chip GPU family table is the PDF s32 (blocked) and developer.apple.com/documentation/metal/mtlgpufamily/apple9 (script-only, 270 characters)."
+  }
+ ],
+ "rows": [
+  {
+   "id": "apple-m1",
+   "vendor": "apple",
+   "name": {
+    "v": "M1",
+    "src": "s11",
+    "quote": "Apple M1 chip",
+    "how": "stated",
+    "official": true
+   },
+   "launch": {
+    "v": "2020-11-10",
+    "src": "s1",
+    "quote": "PRESS RELEASE November 10, 2020",
+    "how": "stated",
+    "official": true,
+    "note": "date of Apple's newsroom press release (announcement), not the on-sale date"
+   },
+   "cores": {
+    "v": {
+     "performance": 4,
+     "efficient": 4
+    },
+    "src": "s11",
+    "quote": "8-core CPU with 4 perform­ance cores and 4 efficiency cores",
+    "how": "stated",
+    "official": true,
+    "note": "the page spells 'perform<soft hyphen>ance'; page's tier names: 'performance cores' and 'efficiency cores' (newsroom pages call them high-performance and high-efficiency); key 'efficient' = efficiency cores"
+   },
+   "gpu_cores": {
+    "v": [
+     7,
+     8
+    ],
+    "src": "s11",
+    "quote": "7-core GPU, 8-core GPU",
+    "how": "stated",
+    "official": true
+   },
+   "memory": {
+    "type": {
+     "v": null,
+     "why": "Apple pages say only 'unified memory'; no page of Apple's read names the DRAM type"
+    },
+    "sizes_gb": {
+     "v": [
+      8,
+      16
+     ],
+     "src": "s11",
+     "quote": "8GB unified memory Configurable to 16GB",
+     "how": "stated",
+     "official": true
+    },
+    "bandwidth_gbps": {
+     "v": null,
+     "why": "Apple states no number for M1: searched M1 newsroom page (s1: no GB/s), MacBook Air M1 specs (s11), Mac mini M1 (support 111894) and MacBook Pro 13 M1 (support 111897) pages, all without a bandwidth line; later newsroom pages give only ratios ('50 percent more than M1' on s24, 'nearly 6x that of M1' on s2). Archived 2020 apple.com spec pages: web.archive.org answered 429 (blocked). No derivation from a ratio."
+    }
+   },
+   "isa": {
+    "v": null,
+    "why": "Apple's sysctl instruction-set page is script-only; no Apple page read ties instruction set extensions to this chip"
+   },
+   "formats": {
+    "matrix.name": {
+     "v": null,
+     "why": "no Apple page read documents GPU matrix units for this chip; 'Neural Accelerators' appear from M5 on"
+    },
+    "fp16": {
+     "v": true,
+     "src": "s31",
+     "quote": "The operator core contains both a 16-bit and a 32-bit ALU so it can perform math at different precisions to reduce power usage and increase performance.",
+     "how": "stated",
+     "official": true,
+     "note": "Statement about the Apple GPU family, not a per-chip table. Source: WWDC20 session 10632 'Optimize Metal Performance for Apple silicon Macs' (2020), about the Apple shader core of Apple's GPUs; the session predates M2 to M6 and names no chip for the 16-bit ALU (it also says 'Apple GPUs are optimized for 16-bit data types.'). Read as: family-level, applies to every row only by that generality."
+    }
+   },
+   "api": {
+    "metal": {
+     "v": "Metal 4",
+     "src": "s30",
+     "quote": "Metal 4 is compatible with M1 (and later) and A14 Bionic (and later) Apple chips.",
+     "how": "stated",
+     "official": true,
+     "note": "WWDC25 session 205 'Discover Metal 4' (2025): states support by 'M1 (and later)' and 'A14 Bionic (and later)'; a family-level statement, no per-chip list. Covers every M1 to M4 row by name; M5, M5 Pro/Max/Ultra and M6 only through 'and later'. The per-chip table is a PDF (blocked)."
+    }
+   }
+  },
+  {
+   "id": "apple-m1-pro",
+   "vendor": "apple",
+   "name": {
+    "v": "M1 Pro",
+    "src": "s8",
+    "quote": "Apple M1 Pro chip",
+    "how": "stated",
+    "official": true
+   },
+   "launch": {
+    "v": "2021-10-18",
+    "src": "s2",
+    "quote": "PRESS RELEASE October 18, 2021",
+    "how": "stated",
+    "official": true,
+    "note": "date of Apple's newsroom press release (announcement), not the on-sale date"
+   },
+   "cores": {
+    "v": [
+     {
+      "performance": 6,
+      "efficient": 2
+     },
+     {
+      "performance": 8,
+      "efficient": 2
+     }
+    ],
+    "src": "s8",
+    "quote": "8-core CPU with 6 performance cores and 2 efficiency cores | M1 Pro with 10-core CPU and 14-core GPU",
+    "how": "stated",
+    "official": true,
+    "note": "list of the two CPU variants: 8-core (6+2, support page s8) and 10-core (8+2: newsroom s2 'A new 10-core CPU, including eight high-performance cores and two high-efficiency cores'); page tier names: performance / efficiency"
+   },
+   "gpu_cores": {
+    "v": [
+     14,
+     16
+    ],
+    "src": "s8",
+    "quote": "14-core GPU | M1 Pro with 10-core CPU and 16-core GPU",
+    "how": "stated",
+    "official": true
+   },
+   "memory": {
+    "type": {
+     "v": null,
+     "why": "Apple pages say only 'unified memory'; no page of Apple's read names the DRAM type"
+    },
+    "sizes_gb": {
+     "v": [
+      16,
+      32
+     ],
+     "src": "s8",
+     "quote": "16GB unified memory Configurable to 32GB (M1 Pro or M1 Max)",
+     "how": "stated",
+     "official": true
+    },
+    "bandwidth_gbps": {
+     "v": 200,
+     "src": "s8",
+     "quote": "200GB/s memory bandwidth",
+     "how": "stated",
+     "official": true,
+     "note": "unit GB/s as printed; the page prints it for the 14-core GPU entry; newsroom s2 'M1 Pro offers up to 200GB/s of memory bandwidth' covers the chip, so the 16-core GPU variant has the same figure"
+    }
+   },
+   "isa": {
+    "v": null,
+    "why": "Apple's sysctl instruction-set page is script-only; no Apple page read ties instruction set extensions to this chip"
+   },
+   "formats": {
+    "matrix.name": {
+     "v": null,
+     "why": "no Apple page read documents GPU matrix units for this chip; 'Neural Accelerators' appear from M5 on"
+    },
+    "fp16": {
+     "v": true,
+     "src": "s31",
+     "quote": "The operator core contains both a 16-bit and a 32-bit ALU so it can perform math at different precisions to reduce power usage and increase performance.",
+     "how": "stated",
+     "official": true,
+     "note": "Statement about the Apple GPU family, not a per-chip table. Source: WWDC20 session 10632 'Optimize Metal Performance for Apple silicon Macs' (2020), about the Apple shader core of Apple's GPUs; the session predates M2 to M6 and names no chip for the 16-bit ALU (it also says 'Apple GPUs are optimized for 16-bit data types.'). Read as: family-level, applies to every row only by that generality."
+    }
+   },
+   "api": {
+    "metal": {
+     "v": "Metal 4",
+     "src": "s30",
+     "quote": "Metal 4 is compatible with M1 (and later) and A14 Bionic (and later) Apple chips.",
+     "how": "stated",
+     "official": true,
+     "note": "WWDC25 session 205 'Discover Metal 4' (2025): states support by 'M1 (and later)' and 'A14 Bionic (and later)'; a family-level statement, no per-chip list. Covers every M1 to M4 row by name; M5, M5 Pro/Max/Ultra and M6 only through 'and later'. The per-chip table is a PDF (blocked)."
+    }
+   }
+  },
+  {
+   "id": "apple-m1-max",
+   "vendor": "apple",
+   "name": {
+    "v": "M1 Max",
+    "src": "s12",
+    "quote": "Apple M1 Max chip",
+    "how": "stated",
+    "official": true
+   },
+   "launch": {
+    "v": "2021-10-18",
+    "src": "s2",
+    "quote": "PRESS RELEASE October 18, 2021",
+    "how": "stated",
+    "official": true,
+    "note": "date of Apple's newsroom press release (announcement), not the on-sale date"
+   },
+   "cores": {
+    "v": {
+     "performance": 8,
+     "efficient": 2
+    },
+    "src": "s12",
+    "quote": "10-core CPU with 8 performance cores and 2 efficiency cores",
+    "how": "stated",
+    "official": true,
+    "note": "page's tier names: 'performance cores' and 'efficiency cores' (newsroom pages call them high-performance and high-efficiency); key 'efficient' = efficiency cores"
+   },
+   "gpu_cores": {
+    "v": [
+     24,
+     32
+    ],
+    "src": "s12",
+    "quote": "24-core GPU | M1 Max with 10-core CPU, 32-core GPU, and 16-core Neural Engine",
+    "how": "stated",
+    "official": true
+   },
+   "memory": {
+    "type": {
+     "v": null,
+     "why": "Apple pages say only 'unified memory'; no page of Apple's read names the DRAM type"
+    },
+    "sizes_gb": {
+     "v": [
+      32,
+      64
+     ],
+     "src": "s12",
+     "quote": "Apple M1 Max chip 32GB unified memory Configurable to 64GB",
+     "how": "stated",
+     "official": true
+    },
+    "bandwidth_gbps": {
+     "v": 400,
+     "src": "s12",
+     "quote": "400GB/s memory bandwidth",
+     "how": "stated",
+     "official": true,
+     "note": "unit GB/s as printed; page prints it for the 24-core GPU entry; the 32-core GPU variant is the same chip, newsroom s2: 'M1 Max delivers up to 400GB/s of memory bandwidth'"
+    }
+   },
+   "isa": {
+    "v": null,
+    "why": "Apple's sysctl instruction-set page is script-only; no Apple page read ties instruction set extensions to this chip"
+   },
+   "formats": {
+    "matrix.name": {
+     "v": null,
+     "why": "no Apple page read documents GPU matrix units for this chip; 'Neural Accelerators' appear from M5 on"
+    },
+    "fp16": {
+     "v": true,
+     "src": "s31",
+     "quote": "The operator core contains both a 16-bit and a 32-bit ALU so it can perform math at different precisions to reduce power usage and increase performance.",
+     "how": "stated",
+     "official": true,
+     "note": "Statement about the Apple GPU family, not a per-chip table. Source: WWDC20 session 10632 'Optimize Metal Performance for Apple silicon Macs' (2020), about the Apple shader core of Apple's GPUs; the session predates M2 to M6 and names no chip for the 16-bit ALU (it also says 'Apple GPUs are optimized for 16-bit data types.'). Read as: family-level, applies to every row only by that generality."
+    }
+   },
+   "api": {
+    "metal": {
+     "v": "Metal 4",
+     "src": "s30",
+     "quote": "Metal 4 is compatible with M1 (and later) and A14 Bionic (and later) Apple chips.",
+     "how": "stated",
+     "official": true,
+     "note": "WWDC25 session 205 'Discover Metal 4' (2025): states support by 'M1 (and later)' and 'A14 Bionic (and later)'; a family-level statement, no per-chip list. Covers every M1 to M4 row by name; M5, M5 Pro/Max/Ultra and M6 only through 'and later'. The per-chip table is a PDF (blocked)."
+    }
+   }
+  },
+  {
+   "id": "apple-m1-ultra",
+   "vendor": "apple",
+   "name": {
+    "v": "M1 Ultra",
+    "src": "s12",
+    "quote": "Apple M1 Ultra chip",
+    "how": "stated",
+    "official": true
+   },
+   "launch": {
+    "v": "2022-03-08",
+    "src": "s23",
+    "quote": "PRESS RELEASE March 8, 2022",
+    "how": "stated",
+    "official": true,
+    "note": "date of Apple's newsroom press release (announcement), not the on-sale date"
+   },
+   "cores": {
+    "v": {
+     "performance": 16,
+     "efficient": 4
+    },
+    "src": "s12",
+    "quote": "20-core CPU with 16 performance cores and 4 efficiency cores",
+    "how": "stated",
+    "official": true,
+    "note": "page's tier names: 'performance cores' and 'efficiency cores' (newsroom pages call them high-performance and high-efficiency); key 'efficient' = efficiency cores"
+   },
+   "gpu_cores": {
+    "v": [
+     48,
+     64
+    ],
+    "src": "s12",
+    "quote": "48-core GPU | M1 Ultra with 20-core CPU, 64-core GPU, and 32-core Neural Engine",
+    "how": "stated",
+    "official": true,
+    "note": "64-core variant added in wave 2"
+   },
+   "memory": {
+    "type": {
+     "v": null,
+     "why": "Apple pages say only 'unified memory'; no page of Apple's read names the DRAM type"
+    },
+    "sizes_gb": {
+     "v": [
+      64,
+      128
+     ],
+     "src": "s12",
+     "quote": "Apple M1 Ultra chip 64GB unified memory Configurable to 128GB",
+     "how": "stated",
+     "official": true
+    },
+    "bandwidth_gbps": {
+     "v": 800,
+     "src": "s12",
+     "quote": "800GB/s memory bandwidth",
+     "how": "stated",
+     "official": true,
+     "note": "unit GB/s; page prints it for the 48-core GPU entry; newsroom s23 'Memory bandwidth is increased to 800GB/s' covers the chip, so the 64-core variant has the same figure"
+    }
+   },
+   "isa": {
+    "v": null,
+    "why": "Apple's sysctl instruction-set page is script-only; no Apple page read ties instruction set extensions to this chip"
+   },
+   "formats": {
+    "matrix.name": {
+     "v": null,
+     "why": "no Apple page read documents GPU matrix units for this chip; 'Neural Accelerators' appear from M5 on"
+    },
+    "fp16": {
+     "v": true,
+     "src": "s31",
+     "quote": "The operator core contains both a 16-bit and a 32-bit ALU so it can perform math at different precisions to reduce power usage and increase performance.",
+     "how": "stated",
+     "official": true,
+     "note": "Statement about the Apple GPU family, not a per-chip table. Source: WWDC20 session 10632 'Optimize Metal Performance for Apple silicon Macs' (2020), about the Apple shader core of Apple's GPUs; the session predates M2 to M6 and names no chip for the 16-bit ALU (it also says 'Apple GPUs are optimized for 16-bit data types.'). Read as: family-level, applies to every row only by that generality."
+    }
+   },
+   "api": {
+    "metal": {
+     "v": "Metal 4",
+     "src": "s30",
+     "quote": "Metal 4 is compatible with M1 (and later) and A14 Bionic (and later) Apple chips.",
+     "how": "stated",
+     "official": true,
+     "note": "WWDC25 session 205 'Discover Metal 4' (2025): states support by 'M1 (and later)' and 'A14 Bionic (and later)'; a family-level statement, no per-chip list. Covers every M1 to M4 row by name; M5, M5 Pro/Max/Ultra and M6 only through 'and later'. The per-chip table is a PDF (blocked)."
+    }
+   }
+  },
+  {
+   "id": "apple-m2",
+   "vendor": "apple",
+   "name": {
+    "v": "M2",
+    "src": "s15",
+    "quote": "Apple M2 chip",
+    "how": "stated",
+    "official": true
+   },
+   "launch": {
+    "v": "2022-06-06",
+    "src": "s24",
+    "quote": "PRESS RELEASE June 6, 2022",
+    "how": "stated",
+    "official": true,
+    "note": "date of Apple's newsroom press release (announcement), not the on-sale date"
+   },
+   "cores": {
+    "v": {
+     "performance": 4,
+     "efficient": 4
+    },
+    "src": "s15",
+    "quote": "8-core CPU with 4 performance cores and 4 efficiency cores",
+    "how": "stated",
+    "official": true,
+    "note": "page's tier names: 'performance cores' and 'efficiency cores' (newsroom pages call them high-performance and high-efficiency); key 'efficient' = efficiency cores"
+   },
+   "gpu_cores": {
+    "v": [
+     8,
+     10
+    ],
+    "src": "s15",
+    "quote": "8-core GPU | M2 with 8-core CPU and 10-core GPU",
+    "how": "stated",
+    "official": true
+   },
+   "memory": {
+    "type": {
+     "v": null,
+     "why": "Apple pages say only 'unified memory'; no page of Apple's read names the DRAM type"
+    },
+    "sizes_gb": {
+     "v": [
+      8,
+      16,
+      24
+     ],
+     "src": "s15",
+     "quote": "8GB unified memory Configurable to: 16GB or 24GB",
+     "how": "stated",
+     "official": true
+    },
+    "bandwidth_gbps": {
+     "v": 100,
+     "src": "s15",
+     "quote": "100GB/s memory bandwidth",
+     "how": "stated",
+     "official": true,
+     "note": "unit GB/s; page prints it once for the chip, the 10-core GPU variant is a 'Configurable to' with no separate figure; newsroom s24 'M2 delivers 100GB/s of unified memory bandwidth'"
+    }
+   },
+   "isa": {
+    "v": null,
+    "why": "Apple's sysctl instruction-set page is script-only; no Apple page read ties instruction set extensions to this chip"
+   },
+   "formats": {
+    "matrix.name": {
+     "v": null,
+     "why": "no Apple page read documents GPU matrix units for this chip; 'Neural Accelerators' appear from M5 on"
+    },
+    "fp16": {
+     "v": true,
+     "src": "s31",
+     "quote": "The operator core contains both a 16-bit and a 32-bit ALU so it can perform math at different precisions to reduce power usage and increase performance.",
+     "how": "stated",
+     "official": true,
+     "note": "Statement about the Apple GPU family, not a per-chip table. Source: WWDC20 session 10632 'Optimize Metal Performance for Apple silicon Macs' (2020), about the Apple shader core of Apple's GPUs; the session predates M2 to M6 and names no chip for the 16-bit ALU (it also says 'Apple GPUs are optimized for 16-bit data types.'). Read as: family-level, applies to every row only by that generality."
+    }
+   },
+   "api": {
+    "metal": {
+     "v": "Metal 4",
+     "src": "s30",
+     "quote": "Metal 4 is compatible with M1 (and later) and A14 Bionic (and later) Apple chips.",
+     "how": "stated",
+     "official": true,
+     "note": "WWDC25 session 205 'Discover Metal 4' (2025): states support by 'M1 (and later)' and 'A14 Bionic (and later)'; a family-level statement, no per-chip list. Covers every M1 to M4 row by name; M5, M5 Pro/Max/Ultra and M6 only through 'and later'. The per-chip table is a PDF (blocked)."
+    }
+   }
+  },
+  {
+   "id": "apple-m2-pro",
+   "vendor": "apple",
+   "name": {
+    "v": "M2 Pro",
+    "src": "s7",
+    "quote": "Apple M2 Pro chip",
+    "how": "stated",
+    "official": true
+   },
+   "launch": {
+    "v": "2023-01-17",
+    "src": "s25",
+    "quote": "PRESS RELEASE January 17, 2023",
+    "how": "stated",
+    "official": true,
+    "note": "date of Apple's newsroom press release (announcement), not the on-sale date"
+   },
+   "cores": {
+    "v": [
+     {
+      "performance": 6,
+      "efficient": 4
+     },
+     {
+      "performance": 8,
+      "efficient": 4
+     }
+    ],
+    "src": "s7",
+    "quote": "10-core CPU with 6 performance cores and 4 efficiency cores, 12-core CPU with 8 performance cores and 4 efficiency cores",
+    "how": "stated",
+    "official": true,
+    "note": "page's tier names: 'performance cores' and 'efficiency cores' (newsroom pages call them high-performance and high-efficiency); key 'efficient' = efficiency cores"
+   },
+   "gpu_cores": {
+    "v": [
+     16,
+     19
+    ],
+    "src": "s7",
+    "quote": "16-core GPU,19-core GPU",
+    "how": "stated",
+    "official": true
+   },
+   "memory": {
+    "type": {
+     "v": null,
+     "why": "Apple pages say only 'unified memory'; no page of Apple's read names the DRAM type"
+    },
+    "sizes_gb": {
+     "v": [
+      16,
+      32
+     ],
+     "src": "s7",
+     "quote": "Apple M2 Pro chip 16GB unified memory Configurable to: 32GB (M2 Pro or M2 Max)",
+     "how": "stated",
+     "official": true,
+     "note": "64GB and 96GB on the page are for M2 Max"
+    },
+    "bandwidth_gbps": {
+     "v": 200,
+     "src": "s7",
+     "quote": "200GB/s memory bandwidth",
+     "how": "stated",
+     "official": true,
+     "note": "unit GB/s; the 19-core GPU variant has no separate figure on the page; newsroom s25 'M2 Pro features 40 billion transistors, 200GB/s of unified memory bandwidth' is chip-level"
+    }
+   },
+   "isa": {
+    "v": null,
+    "why": "Apple's sysctl instruction-set page is script-only; no Apple page read ties instruction set extensions to this chip"
+   },
+   "formats": {
+    "matrix.name": {
+     "v": null,
+     "why": "no Apple page read documents GPU matrix units for this chip; 'Neural Accelerators' appear from M5 on"
+    },
+    "fp16": {
+     "v": true,
+     "src": "s31",
+     "quote": "The operator core contains both a 16-bit and a 32-bit ALU so it can perform math at different precisions to reduce power usage and increase performance.",
+     "how": "stated",
+     "official": true,
+     "note": "Statement about the Apple GPU family, not a per-chip table. Source: WWDC20 session 10632 'Optimize Metal Performance for Apple silicon Macs' (2020), about the Apple shader core of Apple's GPUs; the session predates M2 to M6 and names no chip for the 16-bit ALU (it also says 'Apple GPUs are optimized for 16-bit data types.'). Read as: family-level, applies to every row only by that generality."
+    }
+   },
+   "api": {
+    "metal": {
+     "v": "Metal 4",
+     "src": "s30",
+     "quote": "Metal 4 is compatible with M1 (and later) and A14 Bionic (and later) Apple chips.",
+     "how": "stated",
+     "official": true,
+     "note": "WWDC25 session 205 'Discover Metal 4' (2025): states support by 'M1 (and later)' and 'A14 Bionic (and later)'; a family-level statement, no per-chip list. Covers every M1 to M4 row by name; M5, M5 Pro/Max/Ultra and M6 only through 'and later'. The per-chip table is a PDF (blocked)."
+    }
+   }
+  },
+  {
+   "id": "apple-m2-max",
+   "vendor": "apple",
+   "name": {
+    "v": "M2 Max",
+    "src": "s7",
+    "quote": "Apple M2 Max chip",
+    "how": "stated",
+    "official": true
+   },
+   "launch": {
+    "v": "2023-01-17",
+    "src": "s25",
+    "quote": "PRESS RELEASE January 17, 2023",
+    "how": "stated",
+    "official": true,
+    "note": "date of Apple's newsroom press release (announcement), not the on-sale date"
+   },
+   "cores": {
+    "v": {
+     "performance": 8,
+     "efficient": 4
+    },
+    "src": "s7",
+    "quote": "Apple M2 Max chip 12-core CPU with 8 performance cores and 4 efficiency cores",
+    "how": "stated",
+    "official": true,
+    "note": "page's tier names: 'performance cores' and 'efficiency cores' (newsroom pages call them high-performance and high-efficiency); key 'efficient' = efficiency cores"
+   },
+   "gpu_cores": {
+    "v": [
+     30,
+     38
+    ],
+    "src": "s7",
+    "quote": "30-core GPU | M2 Max with 12‐core CPU and 38‐core GPU",
+    "how": "stated",
+    "official": true,
+    "note": "the page uses U+2010 hyphens in the second part"
+   },
+   "memory": {
+    "type": {
+     "v": null,
+     "why": "Apple pages say only 'unified memory'; no page of Apple's read names the DRAM type"
+    },
+    "sizes_gb": {
+     "v": [
+      32,
+      64,
+      96
+     ],
+     "src": "s7",
+     "quote": "Apple M2 Max chip 32GB unified memory Configurable to: 64GB (M2 Max) or 96GB (M2 Max with 38‐core GPU)",
+     "how": "stated",
+     "official": true
+    },
+    "bandwidth_gbps": {
+     "v": 400,
+     "src": "s7",
+     "quote": "30-core GPU 16-core Neural Engine 400GB/s memory bandwidth",
+     "how": "stated",
+     "official": true,
+     "note": "unit GB/s; the page prints 400GB/s for the 30-core GPU entry and none for the 38-core variant; newsroom s25 'M2 Max features 67 billion transistors, 400GB/s of unified memory bandwidth' is chip-level, so the 38-core GPU variant has the same figure"
+    }
+   },
+   "isa": {
+    "v": null,
+    "why": "Apple's sysctl instruction-set page is script-only; no Apple page read ties instruction set extensions to this chip"
+   },
+   "formats": {
+    "matrix.name": {
+     "v": null,
+     "why": "no Apple page read documents GPU matrix units for this chip; 'Neural Accelerators' appear from M5 on"
+    },
+    "fp16": {
+     "v": true,
+     "src": "s31",
+     "quote": "The operator core contains both a 16-bit and a 32-bit ALU so it can perform math at different precisions to reduce power usage and increase performance.",
+     "how": "stated",
+     "official": true,
+     "note": "Statement about the Apple GPU family, not a per-chip table. Source: WWDC20 session 10632 'Optimize Metal Performance for Apple silicon Macs' (2020), about the Apple shader core of Apple's GPUs; the session predates M2 to M6 and names no chip for the 16-bit ALU (it also says 'Apple GPUs are optimized for 16-bit data types.'). Read as: family-level, applies to every row only by that generality."
+    }
+   },
+   "api": {
+    "metal": {
+     "v": "Metal 4",
+     "src": "s30",
+     "quote": "Metal 4 is compatible with M1 (and later) and A14 Bionic (and later) Apple chips.",
+     "how": "stated",
+     "official": true,
+     "note": "WWDC25 session 205 'Discover Metal 4' (2025): states support by 'M1 (and later)' and 'A14 Bionic (and later)'; a family-level statement, no per-chip list. Covers every M1 to M4 row by name; M5, M5 Pro/Max/Ultra and M6 only through 'and later'. The per-chip table is a PDF (blocked)."
+    }
+   }
+  },
+  {
+   "id": "apple-m2-ultra",
+   "vendor": "apple",
+   "name": {
+    "v": "M2 Ultra",
+    "src": "s13",
+    "quote": "Apple M2 Ultra chip",
+    "how": "stated",
+    "official": true
+   },
+   "launch": {
+    "v": "2023-06-05",
+    "src": "s26",
+    "quote": "PRESS RELEASE June 5, 2023",
+    "how": "stated",
+    "official": true,
+    "note": "date of Apple's newsroom press release (announcement), not the on-sale date"
+   },
+   "cores": {
+    "v": {
+     "performance": 16,
+     "efficient": 8
+    },
+    "src": "s13",
+    "quote": "24-core CPU with 16 performance cores and 8 efficiency cores",
+    "how": "stated",
+    "official": true,
+    "note": "page's tier names: 'performance cores' and 'efficiency cores' (newsroom pages call them high-performance and high-efficiency); key 'efficient' = efficiency cores"
+   },
+   "gpu_cores": {
+    "v": [
+     60,
+     76
+    ],
+    "src": "s13",
+    "quote": "60-core GPU | M2 Ultra with 24-core CPU, 76-core GPU, and 32-core Neural Engine",
+    "how": "stated",
+    "official": true,
+    "note": "76-core variant added in wave 2"
+   },
+   "memory": {
+    "type": {
+     "v": null,
+     "why": "Apple pages say only 'unified memory'; no page of Apple's read names the DRAM type"
+    },
+    "sizes_gb": {
+     "v": [
+      64,
+      128,
+      192
+     ],
+     "src": "s13",
+     "quote": "Apple M2 Ultra chip 64GB unified memory Configurable to: 128GB or 192GB",
+     "how": "stated",
+     "official": true
+    },
+    "bandwidth_gbps": {
+     "v": 800,
+     "src": "s13",
+     "quote": "800GB/s memory bandwidth",
+     "how": "stated",
+     "official": true,
+     "note": "unit GB/s; page prints it for the 60-core entry; newsroom s26 'features 800GB/s of memory bandwidth' is chip-level, so the 76-core variant has the same figure"
+    }
+   },
+   "isa": {
+    "v": null,
+    "why": "Apple's sysctl instruction-set page is script-only; no Apple page read ties instruction set extensions to this chip"
+   },
+   "formats": {
+    "matrix.name": {
+     "v": null,
+     "why": "no Apple page read documents GPU matrix units for this chip; 'Neural Accelerators' appear from M5 on"
+    },
+    "fp16": {
+     "v": true,
+     "src": "s31",
+     "quote": "The operator core contains both a 16-bit and a 32-bit ALU so it can perform math at different precisions to reduce power usage and increase performance.",
+     "how": "stated",
+     "official": true,
+     "note": "Statement about the Apple GPU family, not a per-chip table. Source: WWDC20 session 10632 'Optimize Metal Performance for Apple silicon Macs' (2020), about the Apple shader core of Apple's GPUs; the session predates M2 to M6 and names no chip for the 16-bit ALU (it also says 'Apple GPUs are optimized for 16-bit data types.'). Read as: family-level, applies to every row only by that generality."
+    }
+   },
+   "api": {
+    "metal": {
+     "v": "Metal 4",
+     "src": "s30",
+     "quote": "Metal 4 is compatible with M1 (and later) and A14 Bionic (and later) Apple chips.",
+     "how": "stated",
+     "official": true,
+     "note": "WWDC25 session 205 'Discover Metal 4' (2025): states support by 'M1 (and later)' and 'A14 Bionic (and later)'; a family-level statement, no per-chip list. Covers every M1 to M4 row by name; M5, M5 Pro/Max/Ultra and M6 only through 'and later'. The per-chip table is a PDF (blocked)."
+    }
+   }
+  },
+  {
+   "id": "apple-m3",
+   "vendor": "apple",
+   "name": {
+    "v": "M3",
+    "src": "s5",
+    "quote": "Apple M3 chip",
+    "how": "stated",
+    "official": true
+   },
+   "launch": {
+    "v": "2023-10-30",
+    "src": "s3",
+    "quote": "PRESS RELEASE October 30, 2023",
+    "how": "stated",
+    "official": true,
+    "note": "date of Apple's newsroom press release (announcement), not the on-sale date"
+   },
+   "cores": {
+    "v": {
+     "performance": 4,
+     "efficient": 4
+    },
+    "src": "s5",
+    "quote": "8-core CPU with 4 performance cores and 4 efficiency cores",
+    "how": "stated",
+    "official": true,
+    "note": "page's tier names: 'performance cores' and 'efficiency cores' (newsroom pages call them high-performance and high-efficiency); key 'efficient' = efficiency cores"
+   },
+   "gpu_cores": {
+    "v": [
+     10
+    ],
+    "src": "s5",
+    "quote": "10-core GPU",
+    "how": "stated",
+    "official": true
+   },
+   "memory": {
+    "type": {
+     "v": null,
+     "why": "Apple pages say only 'unified memory'; no page of Apple's read names the DRAM type"
+    },
+    "sizes_gb": {
+     "v": [
+      8,
+      16,
+      24
+     ],
+     "src": "s5",
+     "quote": "8GB or 16GB unified memory Configurable to: 16GB or 24GB",
+     "how": "stated",
+     "official": true
+    },
+    "bandwidth_gbps": {
+     "v": 100,
+     "src": "s5",
+     "quote": "100GB/s memory bandwidth",
+     "how": "stated",
+     "official": true
+    }
+   },
+   "isa": {
+    "v": null,
+    "why": "Apple's sysctl instruction-set page is script-only; no Apple page read ties instruction set extensions to this chip"
+   },
+   "formats": {
+    "matrix.name": {
+     "v": null,
+     "why": "no Apple page read documents GPU matrix units for this chip; 'Neural Accelerators' appear from M5 on"
+    },
+    "fp16": {
+     "v": true,
+     "src": "s31",
+     "quote": "The operator core contains both a 16-bit and a 32-bit ALU so it can perform math at different precisions to reduce power usage and increase performance.",
+     "how": "stated",
+     "official": true,
+     "note": "Statement about the Apple GPU family, not a per-chip table. Source: WWDC20 session 10632 'Optimize Metal Performance for Apple silicon Macs' (2020), about the Apple shader core of Apple's GPUs; the session predates M2 to M6 and names no chip for the 16-bit ALU (it also says 'Apple GPUs are optimized for 16-bit data types.'). Read as: family-level, applies to every row only by that generality."
+    }
+   },
+   "api": {
+    "metal": {
+     "v": "Metal 4",
+     "src": "s30",
+     "quote": "Metal 4 is compatible with M1 (and later) and A14 Bionic (and later) Apple chips.",
+     "how": "stated",
+     "official": true,
+     "note": "WWDC25 session 205 'Discover Metal 4' (2025): states support by 'M1 (and later)' and 'A14 Bionic (and later)'; a family-level statement, no per-chip list. Covers every M1 to M4 row by name; M5, M5 Pro/Max/Ultra and M6 only through 'and later'. The per-chip table is a PDF (blocked)."
+    }
+   }
+  },
+  {
+   "id": "apple-m3-pro",
+   "vendor": "apple",
+   "name": {
+    "v": "M3 Pro",
+    "src": "s6",
+    "quote": "Apple M3 Pro chip",
+    "how": "stated",
+    "official": true
+   },
+   "launch": {
+    "v": "2023-10-30",
+    "src": "s3",
+    "quote": "PRESS RELEASE October 30, 2023",
+    "how": "stated",
+    "official": true,
+    "note": "date of Apple's newsroom press release (announcement), not the on-sale date"
+   },
+   "cores": {
+    "v": [
+     {
+      "performance": 5,
+      "efficient": 6
+     },
+     {
+      "performance": 6,
+      "efficient": 6
+     }
+    ],
+    "src": "s6",
+    "quote": "11-core CPU with 5 performance cores and 6 efficiency cores, 12-core CPU with 6 performance cores and 6 efficiency cores",
+    "how": "stated",
+    "official": true,
+    "note": "page's tier names: 'performance cores' and 'efficiency cores' (newsroom pages call them high-performance and high-efficiency); key 'efficient' = efficiency cores"
+   },
+   "gpu_cores": {
+    "v": [
+     14,
+     18
+    ],
+    "src": "s6",
+    "quote": "14-core GPU, 18-core GPU",
+    "how": "stated",
+    "official": true
+   },
+   "memory": {
+    "type": {
+     "v": null,
+     "why": "Apple pages say only 'unified memory'; no page of Apple's read names the DRAM type"
+    },
+    "sizes_gb": {
+     "v": [
+      18,
+      36
+     ],
+     "src": "s6",
+     "quote": "Apple M3 Pro chip 18GB unified memory Configurable to: 36GB (M3 Pro or M3 Max with 14-core CPU)",
+     "how": "stated",
+     "official": true
+    },
+    "bandwidth_gbps": {
+     "v": 150,
+     "src": "s6",
+     "quote": "150GB/s memory bandwidth",
+     "how": "stated",
+     "official": true,
+     "note": "unit GB/s; printed for the 11-core CPU / 14-core GPU entry; the page prints no separate figure for the 12-core CPU / 18-core GPU variant and the M3 newsroom page s3 gives no GB/s number, so the 18-core variant rests on 'M3 Pro chip' being one entry (chip-level reading)"
+    }
+   },
+   "isa": {
+    "v": null,
+    "why": "Apple's sysctl instruction-set page is script-only; no Apple page read ties instruction set extensions to this chip"
+   },
+   "formats": {
+    "matrix.name": {
+     "v": null,
+     "why": "no Apple page read documents GPU matrix units for this chip; 'Neural Accelerators' appear from M5 on"
+    },
+    "fp16": {
+     "v": true,
+     "src": "s31",
+     "quote": "The operator core contains both a 16-bit and a 32-bit ALU so it can perform math at different precisions to reduce power usage and increase performance.",
+     "how": "stated",
+     "official": true,
+     "note": "Statement about the Apple GPU family, not a per-chip table. Source: WWDC20 session 10632 'Optimize Metal Performance for Apple silicon Macs' (2020), about the Apple shader core of Apple's GPUs; the session predates M2 to M6 and names no chip for the 16-bit ALU (it also says 'Apple GPUs are optimized for 16-bit data types.'). Read as: family-level, applies to every row only by that generality."
+    }
+   },
+   "api": {
+    "metal": {
+     "v": "Metal 4",
+     "src": "s30",
+     "quote": "Metal 4 is compatible with M1 (and later) and A14 Bionic (and later) Apple chips.",
+     "how": "stated",
+     "official": true,
+     "note": "WWDC25 session 205 'Discover Metal 4' (2025): states support by 'M1 (and later)' and 'A14 Bionic (and later)'; a family-level statement, no per-chip list. Covers every M1 to M4 row by name; M5, M5 Pro/Max/Ultra and M6 only through 'and later'. The per-chip table is a PDF (blocked)."
+    }
+   }
+  },
+  {
+   "id": "apple-m3-max-30c",
+   "vendor": "apple",
+   "name": {
+    "v": "M3 Max (14-core CPU, 30-core GPU)",
+    "src": "s6",
+    "quote": "M3 Max with 14-core CPU and 30-core GPU (300GB/s memory bandwidth)",
+    "how": "stated",
+    "official": true
+   },
+   "launch": {
+    "v": "2023-10-30",
+    "src": "s3",
+    "quote": "PRESS RELEASE October 30, 2023",
+    "how": "stated",
+    "official": true,
+    "note": "date of Apple's newsroom press release (announcement), not the on-sale date"
+   },
+   "cores": {
+    "v": {
+     "performance": 10,
+     "efficient": 4
+    },
+    "src": "s6",
+    "quote": "Apple M3 Max chip 14-core CPU with 10 performance cores and 4 efficiency cores",
+    "how": "stated",
+    "official": true,
+    "note": "page's tier names: 'performance cores' and 'efficiency cores' (newsroom pages call them high-performance and high-efficiency); key 'efficient' = efficiency cores"
+   },
+   "gpu_cores": {
+    "v": 30,
+    "src": "s6",
+    "quote": "14-core CPU with 10 performance cores and 4 efficiency cores 30-core GPU",
+    "how": "stated",
+    "official": true
+   },
+   "memory": {
+    "type": {
+     "v": null,
+     "why": "Apple pages say only 'unified memory'; no page of Apple's read names the DRAM type"
+    },
+    "sizes_gb": {
+     "v": [
+      36,
+      96
+     ],
+     "src": "s6",
+     "quote": "Apple M3 Max chip 36GB unified memory Configurable to: 96GB (M3 Max with 14-core CPU)",
+     "how": "stated",
+     "official": true
+    },
+    "bandwidth_gbps": {
+     "v": 300,
+     "src": "s6",
+     "quote": "M3 Max with 14-core CPU and 30-core GPU (300GB/s memory bandwidth)",
+     "how": "stated",
+     "official": true
+    }
+   },
+   "isa": {
+    "v": null,
+    "why": "Apple's sysctl instruction-set page is script-only; no Apple page read ties instruction set extensions to this chip"
+   },
+   "formats": {
+    "matrix.name": {
+     "v": null,
+     "why": "no Apple page read documents GPU matrix units for this chip; 'Neural Accelerators' appear from M5 on"
+    },
+    "fp16": {
+     "v": true,
+     "src": "s31",
+     "quote": "The operator core contains both a 16-bit and a 32-bit ALU so it can perform math at different precisions to reduce power usage and increase performance.",
+     "how": "stated",
+     "official": true,
+     "note": "Statement about the Apple GPU family, not a per-chip table. Source: WWDC20 session 10632 'Optimize Metal Performance for Apple silicon Macs' (2020), about the Apple shader core of Apple's GPUs; the session predates M2 to M6 and names no chip for the 16-bit ALU (it also says 'Apple GPUs are optimized for 16-bit data types.'). Read as: family-level, applies to every row only by that generality."
+    }
+   },
+   "api": {
+    "metal": {
+     "v": "Metal 4",
+     "src": "s30",
+     "quote": "Metal 4 is compatible with M1 (and later) and A14 Bionic (and later) Apple chips.",
+     "how": "stated",
+     "official": true,
+     "note": "WWDC25 session 205 'Discover Metal 4' (2025): states support by 'M1 (and later)' and 'A14 Bionic (and later)'; a family-level statement, no per-chip list. Covers every M1 to M4 row by name; M5, M5 Pro/Max/Ultra and M6 only through 'and later'. The per-chip table is a PDF (blocked)."
+    }
+   }
+  },
+  {
+   "id": "apple-m3-max-40c",
+   "vendor": "apple",
+   "name": {
+    "v": "M3 Max (16-core CPU, 40-core GPU)",
+    "src": "s6",
+    "quote": "M3 Max with 16-core CPU and 40-core GPU (400GB/s memory bandwidth)",
+    "how": "stated",
+    "official": true
+   },
+   "launch": {
+    "v": "2023-10-30",
+    "src": "s3",
+    "quote": "PRESS RELEASE October 30, 2023",
+    "how": "stated",
+    "official": true,
+    "note": "date of Apple's newsroom press release (announcement), not the on-sale date"
+   },
+   "cores": {
+    "v": {
+     "performance": 12,
+     "efficient": 4
+    },
+    "src": "s3",
+    "quote": "The 16-core CPU features 12 performance cores and four efficiency cores",
+    "how": "stated",
+    "official": true,
+    "note": "page's tier names: 'performance cores' and 'efficiency cores' (newsroom pages call them high-performance and high-efficiency); key 'efficient' = efficiency cores"
+   },
+   "gpu_cores": {
+    "v": 40,
+    "src": "s6",
+    "quote": "M3 Max with 16-core CPU and 40-core GPU (400GB/s memory bandwidth)",
+    "how": "stated",
+    "official": true
+   },
+   "memory": {
+    "type": {
+     "v": null,
+     "why": "Apple pages say only 'unified memory'; no page of Apple's read names the DRAM type"
+    },
+    "sizes_gb": {
+     "v": [
+      48,
+      64,
+      128
+     ],
+     "src": "s6",
+     "quote": "48GB, 64GB, or 128GB (M3 Max with 16-core CPU)",
+     "how": "stated",
+     "official": true
+    },
+    "bandwidth_gbps": {
+     "v": 400,
+     "src": "s6",
+     "quote": "M3 Max with 16-core CPU and 40-core GPU (400GB/s memory bandwidth)",
+     "how": "stated",
+     "official": true
+    }
+   },
+   "isa": {
+    "v": null,
+    "why": "Apple's sysctl instruction-set page is script-only; no Apple page read ties instruction set extensions to this chip"
+   },
+   "formats": {
+    "matrix.name": {
+     "v": null,
+     "why": "no Apple page read documents GPU matrix units for this chip; 'Neural Accelerators' appear from M5 on"
+    },
+    "fp16": {
+     "v": true,
+     "src": "s31",
+     "quote": "The operator core contains both a 16-bit and a 32-bit ALU so it can perform math at different precisions to reduce power usage and increase performance.",
+     "how": "stated",
+     "official": true,
+     "note": "Statement about the Apple GPU family, not a per-chip table. Source: WWDC20 session 10632 'Optimize Metal Performance for Apple silicon Macs' (2020), about the Apple shader core of Apple's GPUs; the session predates M2 to M6 and names no chip for the 16-bit ALU (it also says 'Apple GPUs are optimized for 16-bit data types.'). Read as: family-level, applies to every row only by that generality."
+    }
+   },
+   "api": {
+    "metal": {
+     "v": "Metal 4",
+     "src": "s30",
+     "quote": "Metal 4 is compatible with M1 (and later) and A14 Bionic (and later) Apple chips.",
+     "how": "stated",
+     "official": true,
+     "note": "WWDC25 session 205 'Discover Metal 4' (2025): states support by 'M1 (and later)' and 'A14 Bionic (and later)'; a family-level statement, no per-chip list. Covers every M1 to M4 row by name; M5, M5 Pro/Max/Ultra and M6 only through 'and later'. The per-chip table is a PDF (blocked)."
+    }
+   }
+  },
+  {
+   "id": "apple-m3-ultra-60c",
+   "vendor": "apple",
+   "name": {
+    "v": "M3 Ultra (28-core CPU, 60-core GPU)",
+    "src": "s14",
+    "quote": "Apple M3 Ultra chip 28-core CPU with 20 performance cores and 8 efficiency cores 60-core GPU",
+    "how": "stated",
+    "official": true
+   },
+   "launch": {
+    "v": "2025-03-05",
+    "src": "s27",
+    "quote": "PRESS RELEASE March 5, 2025",
+    "how": "stated",
+    "official": true,
+    "note": "date of Apple's newsroom press release (announcement), not the on-sale date"
+   },
+   "cores": {
+    "v": {
+     "performance": 20,
+     "efficient": 8
+    },
+    "src": "s14",
+    "quote": "28-core CPU with 20 performance cores and 8 efficiency cores",
+    "how": "stated",
+    "official": true,
+    "note": "page's tier names: 'performance cores' and 'efficiency cores' (newsroom pages call them high-performance and high-efficiency); key 'efficient' = efficiency cores"
+   },
+   "gpu_cores": {
+    "v": 60,
+    "src": "s14",
+    "quote": "28-core CPU with 20 performance cores and 8 efficiency cores 60-core GPU",
+    "how": "stated",
+    "official": true
+   },
+   "memory": {
+    "type": {
+     "v": null,
+     "why": "Apple pages say only 'unified memory'; no page of Apple's read names the DRAM type"
+    },
+    "sizes_gb": {
+     "v": [
+      96,
+      256
+     ],
+     "src": "s14",
+     "quote": "Apple M3 Ultra chip 96GB unified memory Configurable to: 256GB",
+     "how": "stated",
+     "official": true,
+     "note": "the newsroom page s27 says 'Starting at 96GB, it can be configured up to 512GB'; the support page lists no 512GB option and does not say which variant it belongs to; see gaps; the support page prints this list under 'Apple M3 Ultra chip' without naming a GPU variant, so the split between the 60-core and 80-core variant is not confirmed by Apple's page"
+    },
+    "bandwidth_gbps": {
+     "v": 819,
+     "src": "s14",
+     "quote": "819GB/s memory bandwidth",
+     "how": "stated",
+     "official": true
+    }
+   },
+   "isa": {
+    "v": null,
+    "why": "Apple's sysctl instruction-set page is script-only; no Apple page read ties instruction set extensions to this chip"
+   },
+   "formats": {
+    "matrix.name": {
+     "v": null,
+     "why": "no Apple page read documents GPU matrix units for this chip; 'Neural Accelerators' appear from M5 on"
+    },
+    "fp16": {
+     "v": true,
+     "src": "s31",
+     "quote": "The operator core contains both a 16-bit and a 32-bit ALU so it can perform math at different precisions to reduce power usage and increase performance.",
+     "how": "stated",
+     "official": true,
+     "note": "Statement about the Apple GPU family, not a per-chip table. Source: WWDC20 session 10632 'Optimize Metal Performance for Apple silicon Macs' (2020), about the Apple shader core of Apple's GPUs; the session predates M2 to M6 and names no chip for the 16-bit ALU (it also says 'Apple GPUs are optimized for 16-bit data types.'). Read as: family-level, applies to every row only by that generality."
+    }
+   },
+   "api": {
+    "metal": {
+     "v": "Metal 4",
+     "src": "s30",
+     "quote": "Metal 4 is compatible with M1 (and later) and A14 Bionic (and later) Apple chips.",
+     "how": "stated",
+     "official": true,
+     "note": "WWDC25 session 205 'Discover Metal 4' (2025): states support by 'M1 (and later)' and 'A14 Bionic (and later)'; a family-level statement, no per-chip list. Covers every M1 to M4 row by name; M5, M5 Pro/Max/Ultra and M6 only through 'and later'. The per-chip table is a PDF (blocked)."
+    }
+   }
+  },
+  {
+   "id": "apple-m3-ultra-80c",
+   "vendor": "apple",
+   "name": {
+    "v": "M3 Ultra (32-core CPU, 80-core GPU)",
+    "src": "s14",
+    "quote": "M3 Ultra with 32‐core CPU, 80‐core GPU, and 32‐core Neural Engine (819GB/s memory bandwidth)",
+    "how": "stated",
+    "official": true,
+    "note": "the page uses U+2010 hyphens"
+   },
+   "launch": {
+    "v": "2025-03-05",
+    "src": "s27",
+    "quote": "PRESS RELEASE March 5, 2025",
+    "how": "stated",
+    "official": true,
+    "note": "date of Apple's newsroom press release (announcement), not the on-sale date"
+   },
+   "cores": {
+    "v": {
+     "performance": 24,
+     "efficient": 8
+    },
+    "src": "s27",
+    "quote": "up to a 32-core CPU with 24 performance cores and eight efficiency cores",
+    "how": "stated",
+    "official": true,
+    "note": "newsroom says 'up to'; the support page s14 gives the 80-core GPU variant a 32-core CPU, so 24+8 is the full chip; page's tier names: 'performance cores' and 'efficiency cores' (newsroom pages call them high-performance and high-efficiency); key 'efficient' = efficiency cores; newsroom says 'up to a 32-core CPU', the support page ties the 32-core CPU to the 80-core GPU entry"
+   },
+   "gpu_cores": {
+    "v": 80,
+    "src": "s14",
+    "quote": "M3 Ultra with 32‐core CPU, 80‐core GPU, and 32‐core Neural Engine (819GB/s memory bandwidth)",
+    "how": "stated",
+    "official": true
+   },
+   "memory": {
+    "type": {
+     "v": null,
+     "why": "Apple pages say only 'unified memory'; no page of Apple's read names the DRAM type"
+    },
+    "sizes_gb": {
+     "v": null,
+     "why": "pages disagree: support page s14 lists 96GB configurable to 256GB only (not tied to a variant), newsroom s27 says 'Starting at 96GB, it can be configured up to 512GB'; no Apple page read ties 512GB to the 80-core variant. web.archive.org copies of apple.com/mac-studio/specs and of support 122211 (March 2025) were requested and answered 429, so not read; apple.com/mac-studio/specs now shows M5 Max / M5 Ultra only."
+    },
+    "bandwidth_gbps": {
+     "v": 819,
+     "src": "s14",
+     "quote": "M3 Ultra with 32‐core CPU, 80‐core GPU, and 32‐core Neural Engine (819GB/s memory bandwidth)",
+     "how": "stated",
+     "official": true
+    }
+   },
+   "isa": {
+    "v": null,
+    "why": "Apple's sysctl instruction-set page is script-only; no Apple page read ties instruction set extensions to this chip"
+   },
+   "formats": {
+    "matrix.name": {
+     "v": null,
+     "why": "no Apple page read documents GPU matrix units for this chip; 'Neural Accelerators' appear from M5 on"
+    },
+    "fp16": {
+     "v": true,
+     "src": "s31",
+     "quote": "The operator core contains both a 16-bit and a 32-bit ALU so it can perform math at different precisions to reduce power usage and increase performance.",
+     "how": "stated",
+     "official": true,
+     "note": "Statement about the Apple GPU family, not a per-chip table. Source: WWDC20 session 10632 'Optimize Metal Performance for Apple silicon Macs' (2020), about the Apple shader core of Apple's GPUs; the session predates M2 to M6 and names no chip for the 16-bit ALU (it also says 'Apple GPUs are optimized for 16-bit data types.'). Read as: family-level, applies to every row only by that generality."
+    }
+   },
+   "api": {
+    "metal": {
+     "v": "Metal 4",
+     "src": "s30",
+     "quote": "Metal 4 is compatible with M1 (and later) and A14 Bionic (and later) Apple chips.",
+     "how": "stated",
+     "official": true,
+     "note": "WWDC25 session 205 'Discover Metal 4' (2025): states support by 'M1 (and later)' and 'A14 Bionic (and later)'; a family-level statement, no per-chip list. Covers every M1 to M4 row by name; M5, M5 Pro/Max/Ultra and M6 only through 'and later'. The per-chip table is a PDF (blocked)."
+    }
+   }
+  },
+  {
+   "id": "apple-m4",
+   "vendor": "apple",
+   "name": {
+    "v": "M4",
+    "src": "s10",
+    "quote": "Apple M4 chip",
+    "how": "stated",
+    "official": true
+   },
+   "launch": {
+    "v": "2024-05-07",
+    "src": "s4",
+    "quote": "PRESS RELEASE May 7, 2024",
+    "how": "stated",
+    "official": true,
+    "note": "date of Apple's newsroom press release (announcement), not the on-sale date"
+   },
+   "cores": {
+    "v": {
+     "performance": 4,
+     "efficient": 6
+    },
+    "src": "s10",
+    "quote": "10-core CPU with 4 performance cores and 6 efficiency cores",
+    "how": "stated",
+    "official": true,
+    "note": "page's tier names: 'performance cores' and 'efficiency cores' (newsroom pages call them high-performance and high-efficiency); key 'efficient' = efficiency cores"
+   },
+   "gpu_cores": {
+    "v": [
+     10
+    ],
+    "src": "s10",
+    "quote": "10-core GPU",
+    "how": "stated",
+    "official": true
+   },
+   "memory": {
+    "type": {
+     "v": null,
+     "why": "Apple pages say only 'unified memory'; no page of Apple's read names the DRAM type"
+    },
+    "sizes_gb": {
+     "v": [
+      16,
+      24,
+      32
+     ],
+     "src": "s10",
+     "quote": "16GB or 24GB unified memory Configurable to: 24GB or 32GB",
+     "how": "stated",
+     "official": true
+    },
+    "bandwidth_gbps": {
+     "v": 120,
+     "src": "s10",
+     "quote": "120GB/s memory bandwidth",
+     "how": "stated",
+     "official": true
+    }
+   },
+   "isa": {
+    "v": null,
+    "why": "Apple's sysctl instruction-set page is script-only; no Apple page read ties instruction set extensions to this chip"
+   },
+   "formats": {
+    "matrix.name": {
+     "v": null,
+     "why": "no Apple page read documents GPU matrix units for this chip; 'Neural Accelerators' appear from M5 on"
+    },
+    "fp16": {
+     "v": true,
+     "src": "s31",
+     "quote": "The operator core contains both a 16-bit and a 32-bit ALU so it can perform math at different precisions to reduce power usage and increase performance.",
+     "how": "stated",
+     "official": true,
+     "note": "Statement about the Apple GPU family, not a per-chip table. Source: WWDC20 session 10632 'Optimize Metal Performance for Apple silicon Macs' (2020), about the Apple shader core of Apple's GPUs; the session predates M2 to M6 and names no chip for the 16-bit ALU (it also says 'Apple GPUs are optimized for 16-bit data types.'). Read as: family-level, applies to every row only by that generality."
+    }
+   },
+   "api": {
+    "metal": {
+     "v": "Metal 4",
+     "src": "s30",
+     "quote": "Metal 4 is compatible with M1 (and later) and A14 Bionic (and later) Apple chips.",
+     "how": "stated",
+     "official": true,
+     "note": "WWDC25 session 205 'Discover Metal 4' (2025): states support by 'M1 (and later)' and 'A14 Bionic (and later)'; a family-level statement, no per-chip list. Covers every M1 to M4 row by name; M5, M5 Pro/Max/Ultra and M6 only through 'and later'. The per-chip table is a PDF (blocked)."
+    }
+   }
+  },
+  {
+   "id": "apple-m4-pro",
+   "vendor": "apple",
+   "name": {
+    "v": "M4 Pro",
+    "src": "s9",
+    "quote": "Apple M4 Pro chip",
+    "how": "stated",
+    "official": true
+   },
+   "launch": {
+    "v": "2024-10-30",
+    "src": "s28",
+    "quote": "PRESS RELEASE October 30, 2024",
+    "how": "stated",
+    "official": true,
+    "note": "date of Apple's newsroom press release (announcement), not the on-sale date"
+   },
+   "cores": {
+    "v": [
+     {
+      "performance": 8,
+      "efficient": 4
+     },
+     {
+      "performance": 10,
+      "efficient": 4
+     }
+    ],
+    "src": "s9",
+    "quote": "12-core CPU with 8 performance cores and 4 efficiency cores, 14-core CPU with 10 performance cores and 4 efficiency cores",
+    "how": "stated",
+    "official": true,
+    "note": "page's tier names: 'performance cores' and 'efficiency cores' (newsroom pages call them high-performance and high-efficiency); key 'efficient' = efficiency cores"
+   },
+   "gpu_cores": {
+    "v": [
+     16,
+     20
+    ],
+    "src": "s9",
+    "quote": "16-core GPU, 20-core GPU",
+    "how": "stated",
+    "official": true
+   },
+   "memory": {
+    "type": {
+     "v": null,
+     "why": "Apple pages say only 'unified memory'; no page of Apple's read names the DRAM type"
+    },
+    "sizes_gb": {
+     "v": [
+      24,
+      48,
+      64
+     ],
+     "src": "s29",
+     "quote": "Apple M4 Pro chip 24GB unified memory Configurable to: 48GB or 64GB",
+     "how": "stated",
+     "official": true,
+     "note": "Mac mini (2024) page; 64GB option added in wave 2"
+    },
+    "bandwidth_gbps": {
+     "v": 273,
+     "src": "s9",
+     "quote": "273GB/s memory bandwidth",
+     "how": "stated",
+     "official": true,
+     "note": "unit GB/s; printed for the 12-core CPU / 16-core GPU entry; the 20-core GPU variant has no separate figure on the page; newsroom s28 'M4 Pro supports up to 64GB of fast unified memory and 273GB/s of memory bandwidth' is chip-level"
+    }
+   },
+   "isa": {
+    "v": null,
+    "why": "Apple's sysctl instruction-set page is script-only; no Apple page read ties instruction set extensions to this chip"
+   },
+   "formats": {
+    "matrix.name": {
+     "v": null,
+     "why": "no Apple page read documents GPU matrix units for this chip; 'Neural Accelerators' appear from M5 on"
+    },
+    "fp16": {
+     "v": true,
+     "src": "s31",
+     "quote": "The operator core contains both a 16-bit and a 32-bit ALU so it can perform math at different precisions to reduce power usage and increase performance.",
+     "how": "stated",
+     "official": true,
+     "note": "Statement about the Apple GPU family, not a per-chip table. Source: WWDC20 session 10632 'Optimize Metal Performance for Apple silicon Macs' (2020), about the Apple shader core of Apple's GPUs; the session predates M2 to M6 and names no chip for the 16-bit ALU (it also says 'Apple GPUs are optimized for 16-bit data types.'). Read as: family-level, applies to every row only by that generality."
+    }
+   },
+   "api": {
+    "metal": {
+     "v": "Metal 4",
+     "src": "s30",
+     "quote": "Metal 4 is compatible with M1 (and later) and A14 Bionic (and later) Apple chips.",
+     "how": "stated",
+     "official": true,
+     "note": "WWDC25 session 205 'Discover Metal 4' (2025): states support by 'M1 (and later)' and 'A14 Bionic (and later)'; a family-level statement, no per-chip list. Covers every M1 to M4 row by name; M5, M5 Pro/Max/Ultra and M6 only through 'and later'. The per-chip table is a PDF (blocked)."
+    }
+   }
+  },
+  {
+   "id": "apple-m4-max-32c",
+   "vendor": "apple",
+   "name": {
+    "v": "M4 Max (14-core CPU, 32-core GPU)",
+    "src": "s9",
+    "quote": "Apple M4 Max chip 14-core CPU with 10 performance cores and 4 efficiency cores 32-core GPU",
+    "how": "stated",
+    "official": true
+   },
+   "launch": {
+    "v": "2024-10-30",
+    "src": "s28",
+    "quote": "PRESS RELEASE October 30, 2024",
+    "how": "stated",
+    "official": true,
+    "note": "date of Apple's newsroom press release (announcement), not the on-sale date"
+   },
+   "cores": {
+    "v": {
+     "performance": 10,
+     "efficient": 4
+    },
+    "src": "s9",
+    "quote": "Apple M4 Max chip 14-core CPU with 10 performance cores and 4 efficiency cores",
+    "how": "stated",
+    "official": true,
+    "note": "page's tier names: 'performance cores' and 'efficiency cores' (newsroom pages call them high-performance and high-efficiency); key 'efficient' = efficiency cores"
+   },
+   "gpu_cores": {
+    "v": 32,
+    "src": "s9",
+    "quote": "14-core CPU with 10 performance cores and 4 efficiency cores 32-core GPU",
+    "how": "stated",
+    "official": true
+   },
+   "memory": {
+    "type": {
+     "v": null,
+     "why": "Apple pages say only 'unified memory'; no page of Apple's read names the DRAM type"
+    },
+    "sizes_gb": {
+     "v": [
+      36
+     ],
+     "src": "s9",
+     "quote": "36GB (M4 Max with 14-core CPU)",
+     "how": "stated",
+     "official": true
+    },
+    "bandwidth_gbps": {
+     "v": 410,
+     "src": "s9",
+     "quote": "32-core GPU Hardware-accelerated ray tracing 16-core Neural Engine 410GB/s memory bandwidth",
+     "how": "stated",
+     "official": true
+    }
+   },
+   "isa": {
+    "v": null,
+    "why": "Apple's sysctl instruction-set page is script-only; no Apple page read ties instruction set extensions to this chip"
+   },
+   "formats": {
+    "matrix.name": {
+     "v": null,
+     "why": "no Apple page read documents GPU matrix units for this chip; 'Neural Accelerators' appear from M5 on"
+    },
+    "fp16": {
+     "v": true,
+     "src": "s31",
+     "quote": "The operator core contains both a 16-bit and a 32-bit ALU so it can perform math at different precisions to reduce power usage and increase performance.",
+     "how": "stated",
+     "official": true,
+     "note": "Statement about the Apple GPU family, not a per-chip table. Source: WWDC20 session 10632 'Optimize Metal Performance for Apple silicon Macs' (2020), about the Apple shader core of Apple's GPUs; the session predates M2 to M6 and names no chip for the 16-bit ALU (it also says 'Apple GPUs are optimized for 16-bit data types.'). Read as: family-level, applies to every row only by that generality."
+    }
+   },
+   "api": {
+    "metal": {
+     "v": "Metal 4",
+     "src": "s30",
+     "quote": "Metal 4 is compatible with M1 (and later) and A14 Bionic (and later) Apple chips.",
+     "how": "stated",
+     "official": true,
+     "note": "WWDC25 session 205 'Discover Metal 4' (2025): states support by 'M1 (and later)' and 'A14 Bionic (and later)'; a family-level statement, no per-chip list. Covers every M1 to M4 row by name; M5, M5 Pro/Max/Ultra and M6 only through 'and later'. The per-chip table is a PDF (blocked)."
+    }
+   }
+  },
+  {
+   "id": "apple-m4-max-40c",
+   "vendor": "apple",
+   "name": {
+    "v": "M4 Max (16-core CPU, 40-core GPU)",
+    "src": "s9",
+    "quote": "M4 Max with 16-core CPU and 40-core GPU (546GB/s memory bandwidth)",
+    "how": "stated",
+    "official": true
+   },
+   "launch": {
+    "v": "2024-10-30",
+    "src": "s28",
+    "quote": "PRESS RELEASE October 30, 2024",
+    "how": "stated",
+    "official": true,
+    "note": "date of Apple's newsroom press release (announcement), not the on-sale date"
+   },
+   "cores": {
+    "v": {
+     "performance": 12,
+     "efficient": 4
+    },
+    "src": "s28",
+    "quote": "A graphic shows the M4 Max chip’s 16-core CPU, with 12 performance cores and four efficiency cores.",
+    "how": "stated",
+    "official": true,
+    "note": "filled in wave 2; page's tier names: 'performance cores' and 'efficiency cores' (newsroom pages call them high-performance and high-efficiency); key 'efficient' = efficiency cores"
+   },
+   "gpu_cores": {
+    "v": 40,
+    "src": "s9",
+    "quote": "M4 Max with 16-core CPU and 40-core GPU (546GB/s memory bandwidth)",
+    "how": "stated",
+    "official": true
+   },
+   "memory": {
+    "type": {
+     "v": null,
+     "why": "Apple pages say only 'unified memory'; no page of Apple's read names the DRAM type"
+    },
+    "sizes_gb": {
+     "v": [
+      48,
+      64,
+      128
+     ],
+     "src": "s9",
+     "quote": "Apple M4 Max chip 36GB unified memory Configurable to: 48GB, 64GB, or 128GB (M4 Max with 16-core CPU)",
+     "how": "stated",
+     "official": true
+    },
+    "bandwidth_gbps": {
+     "v": 546,
+     "src": "s9",
+     "quote": "M4 Max with 16-core CPU and 40-core GPU (546GB/s memory bandwidth)",
+     "how": "stated",
+     "official": true
+    }
+   },
+   "isa": {
+    "v": null,
+    "why": "Apple's sysctl instruction-set page is script-only; no Apple page read ties instruction set extensions to this chip"
+   },
+   "formats": {
+    "matrix.name": {
+     "v": null,
+     "why": "no Apple page read documents GPU matrix units for this chip; 'Neural Accelerators' appear from M5 on"
+    },
+    "fp16": {
+     "v": true,
+     "src": "s31",
+     "quote": "The operator core contains both a 16-bit and a 32-bit ALU so it can perform math at different precisions to reduce power usage and increase performance.",
+     "how": "stated",
+     "official": true,
+     "note": "Statement about the Apple GPU family, not a per-chip table. Source: WWDC20 session 10632 'Optimize Metal Performance for Apple silicon Macs' (2020), about the Apple shader core of Apple's GPUs; the session predates M2 to M6 and names no chip for the 16-bit ALU (it also says 'Apple GPUs are optimized for 16-bit data types.'). Read as: family-level, applies to every row only by that generality."
+    }
+   },
+   "api": {
+    "metal": {
+     "v": "Metal 4",
+     "src": "s30",
+     "quote": "Metal 4 is compatible with M1 (and later) and A14 Bionic (and later) Apple chips.",
+     "how": "stated",
+     "official": true,
+     "note": "WWDC25 session 205 'Discover Metal 4' (2025): states support by 'M1 (and later)' and 'A14 Bionic (and later)'; a family-level statement, no per-chip list. Covers every M1 to M4 row by name; M5, M5 Pro/Max/Ultra and M6 only through 'and later'. The per-chip table is a PDF (blocked)."
+    }
+   }
+  },
+  {
+   "id": "apple-m5",
+   "vendor": "apple",
+   "name": {
+    "v": "M5",
+    "src": "s19",
+    "quote": "Apple M5 chip",
+    "how": "stated",
+    "official": true
+   },
+   "launch": {
+    "v": "2025-10-15",
+    "src": "s16",
+    "quote": "PRESS RELEASE October 15, 2025",
+    "how": "stated",
+    "official": true,
+    "note": "date of Apple's newsroom press release (announcement), not the on-sale date"
+   },
+   "cores": {
+    "v": {
+     "super": 4,
+     "efficient": 6
+    },
+    "src": "s19",
+    "quote": "10-core CPU with 4 super cores and 6 efficiency cores",
+    "how": "stated",
+    "official": true,
+    "note": "page's tier names: 'super cores', 'performance cores' (M5 and later; 'performance' here is the second tier, not the M1-M4 meaning), 'efficiency cores' (key 'efficient'); M5 Pro/Max have no efficiency tier on the page"
+   },
+   "gpu_cores": {
+    "v": [
+     10
+    ],
+    "src": "s19",
+    "quote": "10-core GPU",
+    "how": "stated",
+    "official": true
+   },
+   "memory": {
+    "type": {
+     "v": null,
+     "why": "Apple pages say only 'unified memory'; no page of Apple's read names the DRAM type"
+    },
+    "sizes_gb": {
+     "v": [
+      16,
+      24,
+      32
+     ],
+     "src": "s19",
+     "quote": "16GB, 24GB, or 32GB unified memory",
+     "how": "stated",
+     "official": true
+    },
+    "bandwidth_gbps": {
+     "v": 153,
+     "src": "s19",
+     "quote": "153GB/s memory bandwidth",
+     "how": "stated",
+     "official": true,
+     "note": "unit GB/s; newsroom s16 also says 153GB/s"
+    }
+   },
+   "isa": {
+    "v": null,
+    "why": "Apple's sysctl instruction-set page is script-only; no Apple page read ties instruction set extensions to this chip"
+   },
+   "formats": {
+    "matrix.name": {
+     "v": "Neural Accelerators",
+     "src": "s19",
+     "quote": "10-core GPU Neural Accelerators",
+     "how": "stated",
+     "official": true,
+     "note": "listed in the GPU line of the Chip section; the page names no number formats"
+    },
+    "fp16": {
+     "v": true,
+     "src": "s31",
+     "quote": "The operator core contains both a 16-bit and a 32-bit ALU so it can perform math at different precisions to reduce power usage and increase performance.",
+     "how": "stated",
+     "official": true,
+     "note": "Statement about the Apple GPU family, not a per-chip table. Source: WWDC20 session 10632 'Optimize Metal Performance for Apple silicon Macs' (2020), about the Apple shader core of Apple's GPUs; the session predates M2 to M6 and names no chip for the 16-bit ALU (it also says 'Apple GPUs are optimized for 16-bit data types.'). Read as: family-level, applies to every row only by that generality."
+    }
+   },
+   "api": {
+    "metal": {
+     "v": "Metal 4",
+     "src": "s30",
+     "quote": "Metal 4 is compatible with M1 (and later) and A14 Bionic (and later) Apple chips.",
+     "how": "stated",
+     "official": true,
+     "note": "WWDC25 session 205 'Discover Metal 4' (2025): states support by 'M1 (and later)' and 'A14 Bionic (and later)'; a family-level statement, no per-chip list. Covers every M1 to M4 row by name; M5, M5 Pro/Max/Ultra and M6 only through 'and later'. The per-chip table is a PDF (blocked)."
+    }
+   }
+  },
+  {
+   "id": "apple-m5-pro",
+   "vendor": "apple",
+   "name": {
+    "v": "M5 Pro",
+    "src": "s20",
+    "quote": "Apple M5 Pro chip",
+    "how": "stated",
+    "official": true
+   },
+   "launch": {
+    "v": "2026-03-03",
+    "src": "s17",
+    "quote": "PRESS RELEASE March 3, 2026",
+    "how": "stated",
+    "official": true,
+    "note": "date of Apple's newsroom press release (announcement), not the on-sale date"
+   },
+   "cores": {
+    "v": [
+     {
+      "super": 5,
+      "performance": 10
+     },
+     {
+      "super": 6,
+      "performance": 12
+     }
+    ],
+    "src": "s20",
+    "quote": "15-core CPU with 5 super cores and 10 performance cores, 18-core CPU with 6 super cores and 12 performance cores",
+    "how": "stated",
+    "official": true,
+    "note": "list of two CPU variants (15-core with 16-core GPU, 18-core with 20-core GPU); page tier names: 'super cores' and 'performance cores'; no efficiency cores listed"
+   },
+   "gpu_cores": {
+    "v": [
+     16,
+     20
+    ],
+    "src": "s20",
+    "quote": "16-core GPU, 20-core GPU",
+    "how": "stated",
+    "official": true
+   },
+   "memory": {
+    "type": {
+     "v": null,
+     "why": "Apple pages say only 'unified memory'; no page of Apple's read names the DRAM type"
+    },
+    "sizes_gb": {
+     "v": [
+      24,
+      48,
+      64
+     ],
+     "src": "s20",
+     "quote": "Apple M5 Pro chip 24GB unified memory Configurable to: 36GB (M5 Max with 32-core GPU) or 48GB (M5 Pro or M5 Max with 40-core GPU) or 64GB (M5 Pro with 20-core GPU or M5 Max with 40-core GPU)",
+     "how": "stated",
+     "official": true
+    },
+    "bandwidth_gbps": {
+     "v": 307,
+     "src": "s20",
+     "quote": "307GB/s memory bandwidth",
+     "how": "stated",
+     "official": true,
+     "note": "unit GB/s; printed for the 15-core CPU / 16-core GPU entry; the 20-core GPU variant has no separate figure; newsroom s17 'unified memory bandwidth up to 307GB/s' is chip-level"
+    }
+   },
+   "isa": {
+    "v": null,
+    "why": "Apple's sysctl instruction-set page is script-only; no Apple page read ties instruction set extensions to this chip"
+   },
+   "formats": {
+    "matrix.name": {
+     "v": "Neural Accelerators",
+     "src": "s20",
+     "quote": "16-core GPU, 20-core GPU Neural Accelerators",
+     "how": "stated",
+     "official": true,
+     "note": "the page names no number formats"
+    },
+    "fp16": {
+     "v": true,
+     "src": "s31",
+     "quote": "The operator core contains both a 16-bit and a 32-bit ALU so it can perform math at different precisions to reduce power usage and increase performance.",
+     "how": "stated",
+     "official": true,
+     "note": "Statement about the Apple GPU family, not a per-chip table. Source: WWDC20 session 10632 'Optimize Metal Performance for Apple silicon Macs' (2020), about the Apple shader core of Apple's GPUs; the session predates M2 to M6 and names no chip for the 16-bit ALU (it also says 'Apple GPUs are optimized for 16-bit data types.'). Read as: family-level, applies to every row only by that generality."
+    }
+   },
+   "api": {
+    "metal": {
+     "v": "Metal 4",
+     "src": "s30",
+     "quote": "Metal 4 is compatible with M1 (and later) and A14 Bionic (and later) Apple chips.",
+     "how": "stated",
+     "official": true,
+     "note": "WWDC25 session 205 'Discover Metal 4' (2025): states support by 'M1 (and later)' and 'A14 Bionic (and later)'; a family-level statement, no per-chip list. Covers every M1 to M4 row by name; M5, M5 Pro/Max/Ultra and M6 only through 'and later'. The per-chip table is a PDF (blocked)."
+    }
+   }
+  },
+  {
+   "id": "apple-m5-max-32c",
+   "vendor": "apple",
+   "name": {
+    "v": "M5 Max (32-core GPU)",
+    "src": "s20",
+    "quote": "Apple M5 Max chip 18-core CPU with 6 super cores and 12 performance cores 32-core GPU",
+    "how": "stated",
+    "official": true
+   },
+   "launch": {
+    "v": "2026-03-03",
+    "src": "s17",
+    "quote": "PRESS RELEASE March 3, 2026",
+    "how": "stated",
+    "official": true,
+    "note": "date of Apple's newsroom press release (announcement), not the on-sale date"
+   },
+   "cores": {
+    "v": {
+     "super": 6,
+     "performance": 12
+    },
+    "src": "s20",
+    "quote": "18-core CPU with 6 super cores and 12 performance cores",
+    "how": "stated",
+    "official": true,
+    "note": "page's tier names: 'super cores', 'performance cores' (M5 and later; 'performance' here is the second tier, not the M1-M4 meaning), 'efficiency cores' (key 'efficient'); M5 Pro/Max have no efficiency tier on the page"
+   },
+   "gpu_cores": {
+    "v": 32,
+    "src": "s20",
+    "quote": "18-core CPU with 6 super cores and 12 performance cores 32-core GPU",
+    "how": "stated",
+    "official": true
+   },
+   "memory": {
+    "type": {
+     "v": null,
+     "why": "Apple pages say only 'unified memory'; no page of Apple's read names the DRAM type"
+    },
+    "sizes_gb": {
+     "v": [
+      36
+     ],
+     "src": "s20",
+     "quote": "36GB (M5 Max with 32-core GPU)",
+     "how": "stated",
+     "official": true
+    },
+    "bandwidth_gbps": {
+     "v": 460,
+     "src": "s20",
+     "quote": "M5 Max with 18-core CPU and 32-core GPU (460GB/s memory bandwidth)",
+     "how": "stated",
+     "official": true
+    }
+   },
+   "isa": {
+    "v": null,
+    "why": "Apple's sysctl instruction-set page is script-only; no Apple page read ties instruction set extensions to this chip"
+   },
+   "formats": {
+    "matrix.name": {
+     "v": "Neural Accelerators",
+     "src": "s20",
+     "quote": "32-core GPU Neural Accelerators",
+     "how": "stated",
+     "official": true,
+     "note": "the page names no number formats"
+    },
+    "fp16": {
+     "v": true,
+     "src": "s31",
+     "quote": "The operator core contains both a 16-bit and a 32-bit ALU so it can perform math at different precisions to reduce power usage and increase performance.",
+     "how": "stated",
+     "official": true,
+     "note": "Statement about the Apple GPU family, not a per-chip table. Source: WWDC20 session 10632 'Optimize Metal Performance for Apple silicon Macs' (2020), about the Apple shader core of Apple's GPUs; the session predates M2 to M6 and names no chip for the 16-bit ALU (it also says 'Apple GPUs are optimized for 16-bit data types.'). Read as: family-level, applies to every row only by that generality."
+    }
+   },
+   "api": {
+    "metal": {
+     "v": "Metal 4",
+     "src": "s30",
+     "quote": "Metal 4 is compatible with M1 (and later) and A14 Bionic (and later) Apple chips.",
+     "how": "stated",
+     "official": true,
+     "note": "WWDC25 session 205 'Discover Metal 4' (2025): states support by 'M1 (and later)' and 'A14 Bionic (and later)'; a family-level statement, no per-chip list. Covers every M1 to M4 row by name; M5, M5 Pro/Max/Ultra and M6 only through 'and later'. The per-chip table is a PDF (blocked)."
+    }
+   }
+  },
+  {
+   "id": "apple-m5-max-40c",
+   "vendor": "apple",
+   "name": {
+    "v": "M5 Max (40-core GPU)",
+    "src": "s20",
+    "quote": "M5 Max with 18-core CPU and 40-core GPU (614GB/s memory bandwidth)",
+    "how": "stated",
+    "official": true
+   },
+   "launch": {
+    "v": "2026-03-03",
+    "src": "s17",
+    "quote": "PRESS RELEASE March 3, 2026",
+    "how": "stated",
+    "official": true,
+    "note": "date of Apple's newsroom press release (announcement), not the on-sale date"
+   },
+   "cores": {
+    "v": {
+     "super": 6,
+     "performance": 12
+    },
+    "src": "s20",
+    "quote": "18-core CPU with 6 super cores and 12 performance cores",
+    "how": "stated",
+    "official": true,
+    "note": "page's tier names: 'super cores', 'performance cores' (M5 and later; 'performance' here is the second tier, not the M1-M4 meaning), 'efficiency cores' (key 'efficient'); M5 Pro/Max have no efficiency tier on the page"
+   },
+   "gpu_cores": {
+    "v": 40,
+    "src": "s20",
+    "quote": "M5 Max with 18-core CPU and 40-core GPU (614GB/s memory bandwidth)",
+    "how": "stated",
+    "official": true
+   },
+   "memory": {
+    "type": {
+     "v": null,
+     "why": "Apple pages say only 'unified memory'; no page of Apple's read names the DRAM type"
+    },
+    "sizes_gb": {
+     "v": [
+      48,
+      64,
+      128
+     ],
+     "src": "s20",
+     "quote": "48GB, 64GB, or 128GB (M5 Max with 40-core GPU)",
+     "how": "stated",
+     "official": true
+    },
+    "bandwidth_gbps": {
+     "v": 614,
+     "src": "s20",
+     "quote": "M5 Max with 18-core CPU and 40-core GPU (614GB/s memory bandwidth)",
+     "how": "stated",
+     "official": true
+    }
+   },
+   "isa": {
+    "v": null,
+    "why": "Apple's sysctl instruction-set page is script-only; no Apple page read ties instruction set extensions to this chip"
+   },
+   "formats": {
+    "matrix.name": {
+     "v": "Neural Accelerators",
+     "src": "s20",
+     "quote": "32-core GPU Neural Accelerators",
+     "how": "stated",
+     "official": true,
+     "note": "listed for the M5 Max chip (32-core GPU base); the 40-core GPU is a configurable variant of the same chip; the page names no number formats"
+    },
+    "fp16": {
+     "v": true,
+     "src": "s31",
+     "quote": "The operator core contains both a 16-bit and a 32-bit ALU so it can perform math at different precisions to reduce power usage and increase performance.",
+     "how": "stated",
+     "official": true,
+     "note": "Statement about the Apple GPU family, not a per-chip table. Source: WWDC20 session 10632 'Optimize Metal Performance for Apple silicon Macs' (2020), about the Apple shader core of Apple's GPUs; the session predates M2 to M6 and names no chip for the 16-bit ALU (it also says 'Apple GPUs are optimized for 16-bit data types.'). Read as: family-level, applies to every row only by that generality."
+    }
+   },
+   "api": {
+    "metal": {
+     "v": "Metal 4",
+     "src": "s30",
+     "quote": "Metal 4 is compatible with M1 (and later) and A14 Bionic (and later) Apple chips.",
+     "how": "stated",
+     "official": true,
+     "note": "WWDC25 session 205 'Discover Metal 4' (2025): states support by 'M1 (and later)' and 'A14 Bionic (and later)'; a family-level statement, no per-chip list. Covers every M1 to M4 row by name; M5, M5 Pro/Max/Ultra and M6 only through 'and later'. The per-chip table is a PDF (blocked)."
+    }
+   }
+  },
+  {
+   "id": "apple-m5-ultra-64c",
+   "vendor": "apple",
+   "name": {
+    "v": "M5 Ultra (30-core CPU, 64-core GPU)",
+    "src": "s21",
+    "quote": "Apple M5 Ultra chip 30-core CPU with 10 super cores and 20 performance cores 64-core GPU",
+    "how": "stated",
+    "official": true
+   },
+   "launch": {
+    "v": "2026-08-25",
+    "src": "s18",
+    "quote": "PRESS RELEASE August 25, 2026",
+    "how": "stated",
+    "official": true,
+    "note": "date of Apple's newsroom press release (announcement), not the on-sale date"
+   },
+   "cores": {
+    "v": {
+     "super": 10,
+     "performance": 20
+    },
+    "src": "s21",
+    "quote": "30-core CPU with 10 super cores and 20 performance cores",
+    "how": "stated",
+    "official": true,
+    "note": "page's tier names: 'super cores', 'performance cores' (M5 and later; 'performance' here is the second tier, not the M1-M4 meaning), 'efficiency cores' (key 'efficient'); M5 Pro/Max have no efficiency tier on the page"
+   },
+   "gpu_cores": {
+    "v": 64,
+    "src": "s21",
+    "quote": "30-core CPU with 10 super cores and 20 performance cores 64-core GPU",
+    "how": "stated",
+    "official": true
+   },
+   "memory": {
+    "type": {
+     "v": null,
+     "why": "Apple pages say only 'unified memory'; no page of Apple's read names the DRAM type"
+    },
+    "sizes_gb": {
+     "v": [
+      96
+     ],
+     "src": "s21",
+     "quote": "Apple M5 Ultra chip 96GB unified memory",
+     "how": "stated",
+     "official": true,
+     "note": "the page's 'Configurable to: 256GB or 512GB' is bracketed '(M5 Ultra with 36‐core CPU and 80‐core GPU)', so no option is tied to this variant"
+    },
+    "bandwidth_gbps": {
+     "v": 1200,
+     "src": "s21",
+     "quote": "1.2TB/s memory bandwidth",
+     "how": "stated as 1.2TB/s on the page; recorded as GB/s (1.2 x 1000)",
+     "official": true,
+     "note": "the page prints 1.2TB/s (decimal); recorded as 1200 GB/s; newsroom s18 'a massive 1.2TB/s of unified memory bandwidth' for the up-to-80-core GPU chip; the 64-core entry on s21 prints 1.2TB/s itself"
+    }
+   },
+   "isa": {
+    "v": null,
+    "why": "Apple's sysctl instruction-set page is script-only; no Apple page read ties instruction set extensions to this chip"
+   },
+   "formats": {
+    "matrix.name": {
+     "v": "Neural Accelerators",
+     "src": "s21",
+     "quote": "64-core GPU Neural Accelerators",
+     "how": "stated",
+     "official": true,
+     "note": "the page names no number formats"
+    },
+    "fp16": {
+     "v": true,
+     "src": "s31",
+     "quote": "The operator core contains both a 16-bit and a 32-bit ALU so it can perform math at different precisions to reduce power usage and increase performance.",
+     "how": "stated",
+     "official": true,
+     "note": "Statement about the Apple GPU family, not a per-chip table. Source: WWDC20 session 10632 'Optimize Metal Performance for Apple silicon Macs' (2020), about the Apple shader core of Apple's GPUs; the session predates M2 to M6 and names no chip for the 16-bit ALU (it also says 'Apple GPUs are optimized for 16-bit data types.'). Read as: family-level, applies to every row only by that generality."
+    }
+   },
+   "api": {
+    "metal": {
+     "v": "Metal 4",
+     "src": "s30",
+     "quote": "Metal 4 is compatible with M1 (and later) and A14 Bionic (and later) Apple chips.",
+     "how": "stated",
+     "official": true,
+     "note": "WWDC25 session 205 'Discover Metal 4' (2025): states support by 'M1 (and later)' and 'A14 Bionic (and later)'; a family-level statement, no per-chip list. Covers every M1 to M4 row by name; M5, M5 Pro/Max/Ultra and M6 only through 'and later'. The per-chip table is a PDF (blocked)."
+    }
+   }
+  },
+  {
+   "id": "apple-m5-ultra-80c",
+   "vendor": "apple",
+   "name": {
+    "v": "M5 Ultra (36-core CPU, 80-core GPU)",
+    "src": "s21",
+    "quote": "M5 Ultra with 36-core CPU, 80-core GPU, and 32-core Neural Engine (1.2TB/s memory bandwidth)",
+    "how": "stated",
+    "official": true
+   },
+   "launch": {
+    "v": "2026-08-25",
+    "src": "s18",
+    "quote": "PRESS RELEASE August 25, 2026",
+    "how": "stated",
+    "official": true,
+    "note": "date of Apple's newsroom press release (announcement), not the on-sale date"
+   },
+   "cores": {
+    "v": {
+     "super": 12,
+     "performance": 24
+    },
+    "src": "s18",
+    "quote": "M5 Ultra also features a large up-to-36-core CPU consisting of 12 super cores and 24 performance cores,",
+    "how": "stated",
+    "official": true,
+    "note": "newsroom s18 says 'up-to-36-core CPU'; the support page s21 gives the 36-core CPU with the 80-core GPU; page tier names: super / performance"
+   },
+   "gpu_cores": {
+    "v": 80,
+    "src": "s21",
+    "quote": "M5 Ultra with 36-core CPU, 80-core GPU, and 32-core Neural Engine (1.2TB/s memory bandwidth)",
+    "how": "stated",
+    "official": true
+   },
+   "memory": {
+    "type": {
+     "v": null,
+     "why": "Apple pages say only 'unified memory'; no page of Apple's read names the DRAM type"
+    },
+    "sizes_gb": {
+     "v": [
+      256,
+      512
+     ],
+     "src": "s21",
+     "quote": "256GB or 512GB (M5 Ultra with 36‐core CPU and 80‐core GPU)",
+     "how": "stated",
+     "official": true,
+     "note": "the 96GB base is listed for the M5 Ultra chip without naming a variant"
+    },
+    "bandwidth_gbps": {
+     "v": 1200,
+     "src": "s21",
+     "quote": "M5 Ultra with 36-core CPU, 80-core GPU, and 32-core Neural Engine (1.2TB/s memory bandwidth)",
+     "how": "stated as 1.2TB/s on the page; recorded as GB/s (1.2 x 1000)",
+     "official": true,
+     "note": "the page prints 1.2TB/s (decimal); recorded as 1200 GB/s; newsroom s18 'a massive 1.2TB/s of unified memory bandwidth' for the up-to-80-core GPU chip"
+    }
+   },
+   "isa": {
+    "v": null,
+    "why": "Apple's sysctl instruction-set page is script-only; no Apple page read ties instruction set extensions to this chip"
+   },
+   "formats": {
+    "matrix.name": {
+     "v": "Neural Accelerators",
+     "src": "s21",
+     "quote": "64-core GPU Neural Accelerators",
+     "how": "stated",
+     "official": true,
+     "note": "listed for the M5 Ultra chip (64-core GPU base); the page names no number formats"
+    },
+    "fp16": {
+     "v": true,
+     "src": "s31",
+     "quote": "The operator core contains both a 16-bit and a 32-bit ALU so it can perform math at different precisions to reduce power usage and increase performance.",
+     "how": "stated",
+     "official": true,
+     "note": "Statement about the Apple GPU family, not a per-chip table. Source: WWDC20 session 10632 'Optimize Metal Performance for Apple silicon Macs' (2020), about the Apple shader core of Apple's GPUs; the session predates M2 to M6 and names no chip for the 16-bit ALU (it also says 'Apple GPUs are optimized for 16-bit data types.'). Read as: family-level, applies to every row only by that generality."
+    }
+   },
+   "api": {
+    "metal": {
+     "v": "Metal 4",
+     "src": "s30",
+     "quote": "Metal 4 is compatible with M1 (and later) and A14 Bionic (and later) Apple chips.",
+     "how": "stated",
+     "official": true,
+     "note": "WWDC25 session 205 'Discover Metal 4' (2025): states support by 'M1 (and later)' and 'A14 Bionic (and later)'; a family-level statement, no per-chip list. Covers every M1 to M4 row by name; M5, M5 Pro/Max/Ultra and M6 only through 'and later'. The per-chip table is a PDF (blocked)."
+    }
+   }
+  },
+  {
+   "id": "apple-m6-16gb",
+   "vendor": "apple",
+   "name": {
+    "v": "M6",
+    "src": "s22",
+    "quote": "Apple M6 chip",
+    "how": "stated",
+    "official": true
+   },
+   "launch": {
+    "v": "2026-08-25",
+    "src": "s18",
+    "quote": "PRESS RELEASE August 25, 2026",
+    "how": "stated",
+    "official": true,
+    "note": "date of Apple's newsroom press release (announcement), not the on-sale date"
+   },
+   "cores": {
+    "v": {
+     "super": 2,
+     "performance": 4,
+     "efficient": 6
+    },
+    "src": "s22",
+    "quote": "with 2 super cores, 4 performance cores, and 6 efficiency cores",
+    "how": "stated",
+    "official": true,
+    "note": "page's tier names: 'super cores', 'performance cores' (M5 and later; 'performance' here is the second tier, not the M1-M4 meaning), 'efficiency cores' (key 'efficient'); M5 Pro/Max have no efficiency tier on the page"
+   },
+   "gpu_cores": {
+    "v": 12,
+    "src": "s22",
+    "quote": "12-core GPU",
+    "how": "stated",
+    "official": true
+   },
+   "memory": {
+    "type": {
+     "v": null,
+     "why": "Apple pages say only 'unified memory'; no page of Apple's read names the DRAM type"
+    },
+    "sizes_gb": {
+     "v": [
+      16
+     ],
+     "src": "s22",
+     "quote": "Apple M6 chip 16GB unified memory",
+     "how": "stated",
+     "official": true,
+     "note": "16GB base only; the page's 24GB or 32GB options (170GB/s) are on the other M6 row"
+    },
+    "bandwidth_gbps": {
+     "v": 153,
+     "src": "s34",
+     "quote": "Dual 16-core Neural Engine 153GB/s memory bandwidth",
+     "how": "stated; tied to the 16GB models by the page's column order (Model 1 and Model 2 show 153GB/s and 16GB; Model 3 shows 170GB/s and 24GB)",
+     "official": true,
+     "note": "apple.com Mac mini specs page: chip row Models 1, 2, 3 = M6 with 153GB/s, 153GB/s, 170GB/s; memory row = 16GB, 16GB, 24GB (Model 3 base 24GB configurable to 32GB). The tie rests on column order, not on a bracket; the support page s22 lists '153GB/s memory bandwidth, 170GB/s memory bandwidth' for the chip and brackets 170GB/s to the 24GB or 32GB options only. A 16GB model configured up to 24GB or 32GB gets 170GB/s (s22/s34 bracket).",
+     "also": [
+      "s22"
+     ]
+    }
+   },
+   "isa": {
+    "v": null,
+    "why": "Apple's sysctl instruction-set page is script-only; no Apple page read ties instruction set extensions to this chip"
+   },
+   "formats": {
+    "matrix.name": {
+     "v": "Neural Accelerators",
+     "src": "s22",
+     "quote": "12-core GPU Neural Accelerators",
+     "how": "stated",
+     "official": true,
+     "note": "the page names no number formats"
+    },
+    "fp16": {
+     "v": true,
+     "src": "s31",
+     "quote": "The operator core contains both a 16-bit and a 32-bit ALU so it can perform math at different precisions to reduce power usage and increase performance.",
+     "how": "stated",
+     "official": true,
+     "note": "Statement about the Apple GPU family, not a per-chip table. Source: WWDC20 session 10632 'Optimize Metal Performance for Apple silicon Macs' (2020), about the Apple shader core of Apple's GPUs; the session predates M2 to M6 and names no chip for the 16-bit ALU (it also says 'Apple GPUs are optimized for 16-bit data types.'). Read as: family-level, applies to every row only by that generality."
+    }
+   },
+   "api": {
+    "metal": {
+     "v": "Metal 4",
+     "src": "s30",
+     "quote": "Metal 4 is compatible with M1 (and later) and A14 Bionic (and later) Apple chips.",
+     "how": "stated",
+     "official": true,
+     "note": "WWDC25 session 205 'Discover Metal 4' (2025): states support by 'M1 (and later)' and 'A14 Bionic (and later)'; a family-level statement, no per-chip list. Covers every M1 to M4 row by name; M5, M5 Pro/Max/Ultra and M6 only through 'and later'. The per-chip table is a PDF (blocked)."
+    }
+   }
+  },
+  {
+   "id": "apple-m6-24-32gb",
+   "vendor": "apple",
+   "name": {
+    "v": "M6",
+    "src": "s22",
+    "quote": "Apple M6 chip",
+    "how": "stated",
+    "official": true
+   },
+   "launch": {
+    "v": "2026-08-25",
+    "src": "s18",
+    "quote": "PRESS RELEASE August 25, 2026",
+    "how": "stated",
+    "official": true,
+    "note": "date of Apple's newsroom press release (announcement), not the on-sale date"
+   },
+   "cores": {
+    "v": {
+     "super": 2,
+     "performance": 4,
+     "efficient": 6
+    },
+    "src": "s22",
+    "quote": "with 2 super cores, 4 performance cores, and 6 efficiency cores",
+    "how": "stated",
+    "official": true,
+    "note": "page's tier names: 'super cores', 'performance cores' (M5 and later; 'performance' here is the second tier, not the M1-M4 meaning), 'efficiency cores' (key 'efficient'); M5 Pro/Max have no efficiency tier on the page"
+   },
+   "gpu_cores": {
+    "v": 12,
+    "src": "s22",
+    "quote": "12-core GPU",
+    "how": "stated",
+    "official": true
+   },
+   "memory": {
+    "type": {
+     "v": null,
+     "why": "Apple pages say only 'unified memory'; no page of Apple's read names the DRAM type"
+    },
+    "sizes_gb": {
+     "v": [
+      24,
+      32
+     ],
+     "src": "s22",
+     "quote": "Configurable to: 24GB or 32GB (170GB/s memory bandwidth)",
+     "how": "stated",
+     "official": true
+    },
+    "bandwidth_gbps": {
+     "v": 170,
+     "src": "s22",
+     "quote": "Configurable to: 24GB or 32GB (170GB/s memory bandwidth)",
+     "how": "stated",
+     "official": true,
+     "note": "unit GB/s; bracketed to the 24GB or 32GB options on s22 and s34; newsroom s18 says 'up to 170GB/s'"
+    }
+   },
+   "isa": {
+    "v": null,
+    "why": "Apple's sysctl instruction-set page is script-only; no Apple page read ties instruction set extensions to this chip"
+   },
+   "formats": {
+    "matrix.name": {
+     "v": "Neural Accelerators",
+     "src": "s22",
+     "quote": "12-core GPU Neural Accelerators",
+     "how": "stated",
+     "official": true,
+     "note": "the page names no number formats"
+    },
+    "fp16": {
+     "v": true,
+     "src": "s31",
+     "quote": "The operator core contains both a 16-bit and a 32-bit ALU so it can perform math at different precisions to reduce power usage and increase performance.",
+     "how": "stated",
+     "official": true,
+     "note": "Statement about the Apple GPU family, not a per-chip table. Source: WWDC20 session 10632 'Optimize Metal Performance for Apple silicon Macs' (2020), about the Apple shader core of Apple's GPUs; the session predates M2 to M6 and names no chip for the 16-bit ALU (it also says 'Apple GPUs are optimized for 16-bit data types.'). Read as: family-level, applies to every row only by that generality."
+    }
+   },
+   "api": {
+    "metal": {
+     "v": "Metal 4",
+     "src": "s30",
+     "quote": "Metal 4 is compatible with M1 (and later) and A14 Bionic (and later) Apple chips.",
+     "how": "stated",
+     "official": true,
+     "note": "WWDC25 session 205 'Discover Metal 4' (2025): states support by 'M1 (and later)' and 'A14 Bionic (and later)'; a family-level statement, no per-chip list. Covers every M1 to M4 row by name; M5, M5 Pro/Max/Ultra and M6 only through 'and later'. The per-chip table is a PDF (blocked)."
+    }
+   }
+  }
+ ],
+ "gaps": [
+  {
+   "what": "corrected apple-m3-ultra-60c launch",
+   "why": "was 2025-03-12 (Wikipedia, which gave the availability date), the newsroom page says PRESS RELEASE March 5, 2025"
+  },
+  {
+   "what": "corrected apple-m3-ultra-80c launch",
+   "why": "was 2025-03-12, the newsroom page says March 5, 2025"
+  },
+  {
+   "what": "corrected apple-m4-pro launch",
+   "why": "was 2024-10-29, the newsroom page s28 says October 30, 2024"
+  },
+  {
+   "what": "corrected apple-m5, apple-m5-pro, apple-m5-max-32c, apple-m5-max-40c launch",
+   "why": "were year-month only (2025-10, 2026-03) and not found on the cited page; now the newsroom dates 2025-10-15 and 2026-03-03"
+  },
+  {
+   "what": "corrected all other launch cells (18 from Wikipedia)",
+   "why": "each now carries the newsroom page's own 'PRESS RELEASE <date>' (values unchanged except as listed above)"
+  },
+  {
+   "what": "corrected apple-m1-ultra gpu_cores",
+   "why": "was [48], s12 'Configurable to: M1 Ultra with 20-core CPU, 64-core GPU' makes it [48,64]"
+  },
+  {
+   "what": "corrected apple-m2-ultra gpu_cores",
+   "why": "was [60], s13 'Configurable to: M2 Ultra with 24-core CPU, 76-core GPU' makes it [60,76]"
+  },
+  {
+   "what": "corrected apple-m4-pro memory.sizes_gb",
+   "why": "was [24,48], the Mac mini 2024 page s29 says 'Configurable to: 48GB or 64GB', now [24,48,64]"
+  },
+  {
+   "what": "corrected apple-m3-ultra-80c memory.sizes_gb",
+   "why": "was [96,256]; emptied: support page s14 says 96GB configurable to 256GB only, newsroom s27 says up to 512GB; no Apple page read ties 512GB to a variant (rule 5)"
+  },
+  {
+   "what": "M3 Ultra 512GB option",
+   "why": "apple-m3-ultra-60c keeps [96,256] from s14; the 512GB in newsroom s27 ('Starting at 96GB, it can be configured up to 512GB') is on no support or specs page read",
+   "next": "find an archived apple.com/mac-studio/specs from March 2025 (web.archive.org) with the configure-to-order list"
+  },
+  {
+   "what": "corrected apple-m6-16gb memory.bandwidth_gbps",
+   "why": "was 153 (inferred by elimination); the page lists both 153GB/s and 170GB/s for the chip and ties only 170GB/s to the 24GB/32GB options, so the cell is emptied"
+  },
+  {
+   "what": "corrected apple-m3-ultra-80c cores",
+   "why": "was empty; newsroom s27 states 24 performance and eight efficiency cores for the up-to-32-core CPU"
+  },
+  {
+   "what": "corrected apple-m4-max-40c cores",
+   "why": "was empty; newsroom s28 states 16-core CPU, 12 performance cores and four efficiency cores"
+  },
+  {
+   "what": "corrected apple-m1 cores and others marked not found in wave 1",
+   "why": "values were right; quotes now copied as the page prints them (soft hyphen in s11, U+2010 hyphens in s14/s21/s22, 'Configurable to:' wording in s5)"
+  },
+  {
+   "what": "memory.type for every chip",
+   "why": "Apple states only 'unified memory' on every page read",
+   "next": "none from Apple; a third-party figure would need official:false (not taken)"
+  },
+  {
+   "what": "isa for every chip",
+   "why": "developer.apple.com sysctl page (s33) is script-only; no Apple page read lists SME, I8MM, DotProd or BF16 per chip",
+   "next": "a page that renders without scripts, or on-device sysctl output (not a vendor page)"
+  },
+  {
+   "what": "formats.matrix.name for M1 to M4",
+   "why": "no Apple page read names GPU matrix units for these chips",
+   "next": "Metal Feature Set Tables PDF (blocked)"
+  },
+  {
+   "what": "M1 memory.bandwidth_gbps",
+   "why": "no Apple page read states a number for M1",
+   "next": "apple.com M1 Mac mini or iMac archived spec page (web.archive.org)"
+  },
+  {
+   "what": "formats.fp16 and api.metal are not per-chip tables",
+   "why": "WWDC sessions s30 and s31 state fp16 ALUs for the Apple silicon GPU and Metal 4 for M1 and later; the per-chip Metal feature table is a PDF"
+  },
+  {
+   "what": "M5 Neural Accelerators number formats",
+   "why": "Tech Specs pages name 'Neural Accelerators' but no formats; MPP guide is a PDF",
+   "next": "WWDC25 session 262 transcript does not mention Neural Accelerators; look at Metal 4 tensor docs when readable"
+  },
+  {
+   "what": "chips newer than 2026-08-25",
+   "why": "not searched in wave 2",
+   "next": "check the newsroom archive for releases after August 25, 2026"
+  },
+  {
+   "what": "other Macs per chip",
+   "why": "one or two Tech Specs pages per chip read; other product lines (iMac, iPad, Mac Pro) may sell other memory sizes",
+   "next": "merge memory options across product lines"
+  },
+  {
+   "what": "corrected apple-m6-16gb memory.bandwidth_gbps",
+   "why": "was empty (v null); the apple.com Mac mini specs page s34 shows 153GB/s for the 16GB models (Models 1 and 2) and 170GB/s for the 24GB model (Model 3), by column order; value 153 now set with that caveat in note"
+  },
+  {
+   "what": "wave 3 verification",
+   "why": "bandwidth re-read on every support page and newsroom page: all 24 non-empty numbers match their quotes and units (1.2TB/s recorded as 1200); no value changed except M6 16GB; launch dates re-read on all 13 newsroom pages (match, they are announcement dates); cores and memory.sizes_gb re-read on every support page (match)"
+  },
+  {
+   "what": "formats.fp16 and api.metal kept",
+   "why": "notes now state they are family-level statements (WWDC20 session 10632; WWDC25 session 205 'M1 (and later)'); the fp16 session does not name any chip and predates M2 to M6"
+  },
+  {
+   "what": "M1 memory.bandwidth_gbps",
+   "why": "searched again in wave 3 (M1 newsroom, MacBook Air M1, Mac mini M1, MacBook Pro 13 M1 support pages; archive blocked 429); Apple gives no number; stays empty"
+  },
+  {
+   "what": "M3 Ultra 80c memory.sizes_gb",
+   "why": "archive copies answered 429; stays empty (rule 5)",
+   "next": "retry web.archive.org later for apple.com/mac-studio/specs, March 2025"
+  }
+ ],
+ "blocked": [
+  {
+   "url": "https://developer.apple.com/metal/Metal-Feature-Set-Tables.pdf",
+   "status": "PDF (pdftotext not permitted here; page.py raised PermissionError)",
+   "wanted": "chip to GPU family, Metal version, 16-bit float support, tensor types"
+  },
+  {
+   "url": "https://developer.apple.com/download/files/Metal-Performance-Primitives-Programming-Guide.pdf",
+   "status": "PDF, not attempted",
+   "wanted": "matmul2d data types and which chips have Neural Accelerators"
+  },
+  {
+   "url": "https://developer.apple.com/documentation/kernel/1387446-sysctlbyname/determining_instruction_set_characteristics",
+   "status": "script-only (page.py reads 294 characters)",
+   "wanted": "hw.optional.arm.FEAT_* names and chip support"
+  },
+  {
+   "url": "https://developer.apple.com/documentation/metal/mtlgpufamily/apple9",
+   "status": "script-only (page.py reads 270 characters)",
+   "wanted": "chips in Apple GPU family 9"
+  },
+  {
+   "url": "https://developer.apple.com/library/archive/documentation/Miscellaneous/Conceptual/MetalProgrammingGuide/MetalFeatureSetTables/MetalFeatureSetTables.html",
+   "status": "reads 1311 characters, no table content",
+   "wanted": "per-chip Metal feature sets"
+  },
+  {
+   "url": "https://web.archive.org/web/20250315000000/https://www.apple.com/mac-studio/specs/",
+   "status": "429",
+   "wanted": "M3 Ultra memory options per GPU-core variant (March 2025 copy)"
+  },
+  {
+   "url": "https://web.archive.org/web/20250401000000/https://support.apple.com/en-us/122211",
+   "status": "429",
+   "wanted": "Mac Studio 2025 support page as of April 2025 (memory list)"
+  },
+  {
+   "url": "https://web.archive.org/web/2025/https://www.apple.com/mac-studio/specs/",
+   "status": "429",
+   "wanted": "M3 Ultra memory options per variant"
+  }
+ ],
+ "coverage": {
+  "target": [
+   "M1",
+   "M1 Pro",
+   "M1 Max",
+   "M1 Ultra",
+   "M2",
+   "M2 Pro",
+   "M2 Max",
+   "M2 Ultra",
+   "M3",
+   "M3 Pro",
+   "M3 Max (30-core GPU)",
+   "M3 Max (40-core GPU)",
+   "M3 Ultra",
+   "M4",
+   "M4 Pro",
+   "M4 Max (32-core GPU)",
+   "M4 Max (40-core GPU)",
+   "M5",
+   "M5 Pro",
+   "M5 Max (32-core GPU)",
+   "M5 Max (40-core GPU)",
+   "M5 Ultra",
+   "M6"
+  ],
+  "done": [
+   "M1",
+   "M1 Pro",
+   "M1 Max",
+   "M1 Ultra",
+   "M2",
+   "M2 Pro",
+   "M2 Max",
+   "M2 Ultra",
+   "M3",
+   "M3 Pro",
+   "M3 Max (30-core GPU)",
+   "M3 Max (40-core GPU)",
+   "M3 Ultra (60c and 80c rows)",
+   "M4",
+   "M4 Pro",
+   "M4 Max (32-core GPU)",
+   "M4 Max (40-core GPU)",
+   "M5",
+   "M5 Pro",
+   "M5 Max (32-core GPU)",
+   "M5 Max (40-core GPU)",
+   "M5 Ultra (64c and 80c rows)",
+   "M6 (two rows by memory option)"
+  ],
+  "left": [
+   "isa and memory.type (all rows, Apple publishes neither on a readable page)",
+   "formats.matrix.name for M1 to M4",
+   "memory.bandwidth_gbps for M1 and M6 16GB",
+   "memory.sizes_gb for M3 Ultra 80c",
+   "chips released after 2026-08-25 (not searched)"
+  ]
+ }
+}

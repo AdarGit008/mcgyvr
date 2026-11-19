@@ -1,0 +1,482 @@
+{
+ "nvidia-rtx-5090": {
+  "tpu_name": "GeForce RTX 5090",
+  "url": "https://www.techpowerup.com/gpu-specs/geforce-rtx-5090.c4216"
+ },
+ "nvidia-rtx-5080": {
+  "tpu_name": "GeForce RTX 5080",
+  "url": "https://www.techpowerup.com/gpu-specs/geforce-rtx-5080.c4217"
+ },
+ "nvidia-rtx-5070-ti": {
+  "tpu_name": "GeForce RTX 5070 Ti",
+  "url": "https://www.techpowerup.com/gpu-specs/geforce-rtx-5070-ti.c4243"
+ },
+ "nvidia-rtx-5070": {
+  "tpu_name": "GeForce RTX 5070",
+  "url": "https://www.techpowerup.com/gpu-specs/geforce-rtx-5070.c4218"
+ },
+ "nvidia-rtx-5060-ti-16gb": {
+  "tpu_name": "GeForce RTX 5060 Ti 16 GB",
+  "url": "https://www.techpowerup.com/gpu-specs/geforce-rtx-5060-ti-16-gb.c4292"
+ },
+ "nvidia-rtx-5060-ti-8gb": {
+  "tpu_name": "GeForce RTX 5060 Ti 8 GB",
+  "url": "https://www.techpowerup.com/gpu-specs/geforce-rtx-5060-ti-8-gb.c4246"
+ },
+ "nvidia-rtx-5060": {
+  "tpu_name": "GeForce RTX 5060",
+  "url": "https://www.techpowerup.com/gpu-specs/geforce-rtx-5060.c4219"
+ },
+ "nvidia-rtx-4090": {
+  "tpu_name": "GeForce RTX 4090",
+  "url": "https://www.techpowerup.com/gpu-specs/geforce-rtx-4090.c3889"
+ },
+ "nvidia-rtx-4080-super": {
+  "tpu_name": "GeForce RTX 4080 SUPER",
+  "url": "https://www.techpowerup.com/gpu-specs/geforce-rtx-4080-super.c4182"
+ },
+ "nvidia-rtx-4080": {
+  "tpu_name": "GeForce RTX 4080",
+  "url": "https://www.techpowerup.com/gpu-specs/geforce-rtx-4080.c3888"
+ },
+ "nvidia-rtx-4070-ti-super": {
+  "tpu_name": "GeForce RTX 4070 Ti SUPER",
+  "url": "https://www.techpowerup.com/gpu-specs/geforce-rtx-4070-ti-super.c4187"
+ },
+ "nvidia-rtx-4070-ti": {
+  "tpu_name": "GeForce RTX 4070 Ti",
+  "url": "https://www.techpowerup.com/gpu-specs/geforce-rtx-4070-ti.c3950"
+ },
+ "nvidia-rtx-4070-super": {
+  "tpu_name": "GeForce RTX 4070 SUPER",
+  "url": "https://www.techpowerup.com/gpu-specs/geforce-rtx-4070-super.c4186"
+ },
+ "nvidia-rtx-4070-gddr6": {
+  "tpu_name": "GeForce RTX 4070 GDDR6",
+  "url": "https://www.techpowerup.com/gpu-specs/geforce-rtx-4070-gddr6.c4228"
+ },
+ "nvidia-rtx-4070-gddr6x": {
+  "tpu_name": "GeForce RTX 4070",
+  "url": "https://www.techpowerup.com/gpu-specs/geforce-rtx-4070.c3924"
+ },
+ "nvidia-rtx-4060-ti-8gb": {
+  "tpu_name": "GeForce RTX 4060 Ti 8 GB",
+  "url": "https://www.techpowerup.com/gpu-specs/geforce-rtx-4060-ti-8-gb.c3890"
+ },
+ "nvidia-rtx-4060-ti-16gb": {
+  "tpu_name": "GeForce RTX 4060 Ti 16 GB",
+  "url": "https://www.techpowerup.com/gpu-specs/geforce-rtx-4060-ti-16-gb.c4155"
+ },
+ "nvidia-rtx-4060": {
+  "tpu_name": "GeForce RTX 4060",
+  "url": "https://www.techpowerup.com/gpu-specs/geforce-rtx-4060.c4107"
+ },
+ "nvidia-rtx-3090-ti": {
+  "tpu_name": "GeForce RTX 3090 Ti",
+  "url": "https://www.techpowerup.com/gpu-specs/geforce-rtx-3090-ti.c3829"
+ },
+ "nvidia-rtx-3090": {
+  "tpu_name": "GeForce RTX 3090",
+  "url": "https://www.techpowerup.com/gpu-specs/geforce-rtx-3090.c3622"
+ },
+ "nvidia-rtx-3080-ti": {
+  "tpu_name": "GeForce RTX 3080 Ti",
+  "url": "https://www.techpowerup.com/gpu-specs/geforce-rtx-3080-ti.c3735"
+ },
+ "nvidia-rtx-3080-10gb": {
+  "tpu_name": "GeForce RTX 3080",
+  "url": "https://www.techpowerup.com/gpu-specs/geforce-rtx-3080.c3621"
+ },
+ "nvidia-rtx-3080-12gb": {
+  "tpu_name": "GeForce RTX 3080 12 GB",
+  "url": "https://www.techpowerup.com/gpu-specs/geforce-rtx-3080-12-gb.c3834"
+ },
+ "nvidia-rtx-3070-ti": {
+  "tpu_name": "GeForce RTX 3070 Ti",
+  "url": "https://www.techpowerup.com/gpu-specs/geforce-rtx-3070-ti.c3675"
+ },
+ "nvidia-rtx-3070": {
+  "tpu_name": "GeForce RTX 3070",
+  "url": "https://www.techpowerup.com/gpu-specs/geforce-rtx-3070.c3674"
+ },
+ "nvidia-rtx-3060-ti-gddr6": {
+  "tpu_name": "GeForce RTX 3060 Ti",
+  "url": "https://www.techpowerup.com/gpu-specs/geforce-rtx-3060-ti.c3681"
+ },
+ "nvidia-rtx-3060-ti-gddr6x": {
+  "tpu_name": "GeForce RTX 3060 Ti GDDR6X",
+  "url": "https://www.techpowerup.com/gpu-specs/geforce-rtx-3060-ti-gddr6x.c3935"
+ },
+ "nvidia-rtx-3060-12gb": {
+  "tpu_name": "GeForce RTX 3060 12 GB",
+  "url": "https://www.techpowerup.com/gpu-specs/geforce-rtx-3060-12-gb.c3682"
+ },
+ "nvidia-rtx-3060-8gb": {
+  "tpu_name": "GeForce RTX 3060 8 GB",
+  "url": "https://www.techpowerup.com/gpu-specs/geforce-rtx-3060-8-gb.c3937"
+ },
+ "nvidia-rtx-3050-8gb": {
+  "tpu_name": "GeForce RTX 3050 8 GB",
+  "url": "https://www.techpowerup.com/gpu-specs/geforce-rtx-3050-8-gb.c3858"
+ },
+ "nvidia-rtx-3050-6gb": {
+  "tpu_name": "GeForce RTX 3050 6 GB",
+  "url": "https://www.techpowerup.com/gpu-specs/geforce-rtx-3050-6-gb.c4188"
+ },
+ "nvidia-rtx-2080-ti": {
+  "tpu_name": "GeForce RTX 2080 Ti",
+  "url": "https://www.techpowerup.com/gpu-specs/geforce-rtx-2080-ti.c3305"
+ },
+ "nvidia-rtx-2080-super": {
+  "tpu_name": "GeForce RTX 2080 SUPER",
+  "url": "https://www.techpowerup.com/gpu-specs/geforce-rtx-2080-super.c3439"
+ },
+ "nvidia-rtx-2080": {
+  "tpu_name": "GeForce RTX 2080",
+  "url": "https://www.techpowerup.com/gpu-specs/geforce-rtx-2080.c3224"
+ },
+ "nvidia-rtx-2070-super": {
+  "tpu_name": "GeForce RTX 2070 SUPER",
+  "url": "https://www.techpowerup.com/gpu-specs/geforce-rtx-2070-super.c3440"
+ },
+ "nvidia-rtx-2070": {
+  "tpu_name": "GeForce RTX 2070",
+  "url": "https://www.techpowerup.com/gpu-specs/geforce-rtx-2070.c3252"
+ },
+ "nvidia-rtx-2060-super": {
+  "tpu_name": "GeForce RTX 2060 SUPER",
+  "url": "https://www.techpowerup.com/gpu-specs/geforce-rtx-2060-super.c3441"
+ },
+ "nvidia-rtx-2060-6gb": {
+  "tpu_name": "GeForce RTX 2060",
+  "url": "https://www.techpowerup.com/gpu-specs/geforce-rtx-2060.c3310"
+ },
+ "nvidia-rtx-2060-12gb": {
+  "tpu_name": "GeForce RTX 2060 12 GB",
+  "url": "https://www.techpowerup.com/gpu-specs/geforce-rtx-2060-12-gb.c3836"
+ },
+ "nvidia-gtx-1660-ti": {
+  "tpu_name": "GeForce GTX 1660 Ti",
+  "url": "https://www.techpowerup.com/gpu-specs/geforce-gtx-1660-ti.c3364"
+ },
+ "nvidia-gtx-1660-super": {
+  "tpu_name": "GeForce GTX 1660 SUPER",
+  "url": "https://www.techpowerup.com/gpu-specs/geforce-gtx-1660-super.c3458"
+ },
+ "nvidia-gtx-1660": {
+  "tpu_name": "GeForce GTX 1660",
+  "url": "https://www.techpowerup.com/gpu-specs/geforce-gtx-1660.c3365"
+ },
+ "nvidia-gtx-1650-super": {
+  "tpu_name": "GeForce GTX 1650 SUPER",
+  "url": "https://www.techpowerup.com/gpu-specs/geforce-gtx-1650-super.c3411"
+ },
+ "nvidia-gtx-1650-gddr5": {
+  "tpu_name": "GeForce GTX 1650",
+  "url": "https://www.techpowerup.com/gpu-specs/geforce-gtx-1650.c3366"
+ },
+ "nvidia-gtx-1650-gddr6": {
+  "tpu_name": "GeForce GTX 1650 GDDR6",
+  "url": "https://www.techpowerup.com/gpu-specs/geforce-gtx-1650-gddr6.c3541"
+ },
+ "nvidia-gtx-1050": {
+  "tpu_name": "GeForce GTX 1050",
+  "url": "https://www.techpowerup.com/gpu-specs/geforce-gtx-1050.c2875"
+ },
+ "nvidia-gtx-1050-ti": {
+  "tpu_name": "GeForce GTX 1050 Ti",
+  "url": "https://www.techpowerup.com/gpu-specs/geforce-gtx-1050-ti.c2885"
+ },
+ "nvidia-gtx-1060-3gb": {
+  "tpu_name": "GeForce GTX 1060 3 GB",
+  "url": "https://www.techpowerup.com/gpu-specs/geforce-gtx-1060-3-gb.c2867"
+ },
+ "nvidia-gtx-1060-6gb": {
+  "tpu_name": "GeForce GTX 1060 6 GB",
+  "url": "https://www.techpowerup.com/gpu-specs/geforce-gtx-1060-6-gb.c2862"
+ },
+ "nvidia-gtx-1070": {
+  "tpu_name": "GeForce GTX 1070",
+  "url": "https://www.techpowerup.com/gpu-specs/geforce-gtx-1070.c2840"
+ },
+ "nvidia-gtx-1070-ti": {
+  "tpu_name": "GeForce GTX 1070 Ti",
+  "url": "https://www.techpowerup.com/gpu-specs/geforce-gtx-1070-ti.c3010"
+ },
+ "nvidia-gtx-1080": {
+  "tpu_name": "GeForce GTX 1080",
+  "url": "https://www.techpowerup.com/gpu-specs/geforce-gtx-1080.c2839"
+ },
+ "nvidia-gtx-1080-ti": {
+  "tpu_name": "GeForce GTX 1080 Ti",
+  "url": "https://www.techpowerup.com/gpu-specs/geforce-gtx-1080-ti.c2877"
+ },
+ "amd-rx-9070-xt": {
+  "tpu_name": "Radeon RX 9070 XT",
+  "url": "https://www.techpowerup.com/gpu-specs/radeon-rx-9070-xt.c4229"
+ },
+ "amd-rx-9070": {
+  "tpu_name": "Radeon RX 9070",
+  "url": "https://www.techpowerup.com/gpu-specs/radeon-rx-9070.c4250"
+ },
+ "amd-rx-9060-xt-16gb": {
+  "tpu_name": "Radeon RX 9060 XT 16 GB",
+  "url": "https://www.techpowerup.com/gpu-specs/radeon-rx-9060-xt-16-gb.c4293"
+ },
+ "amd-rx-9060-xt-8gb": {
+  "tpu_name": "Radeon RX 9060 XT 8 GB",
+  "url": "https://www.techpowerup.com/gpu-specs/radeon-rx-9060-xt-8-gb.c4251"
+ },
+ "amd-rx-7900-xtx": {
+  "tpu_name": "Radeon RX 7900 XTX",
+  "url": "https://www.techpowerup.com/gpu-specs/radeon-rx-7900-xtx.c3941"
+ },
+ "amd-rx-7900-xt": {
+  "tpu_name": "Radeon RX 7900 XT",
+  "url": "https://www.techpowerup.com/gpu-specs/radeon-rx-7900-xt.c3912"
+ },
+ "amd-rx-7900-gre": {
+  "tpu_name": "Radeon RX 7900 GRE",
+  "url": "https://www.techpowerup.com/gpu-specs/radeon-rx-7900-gre.c4166"
+ },
+ "amd-rx-7800-xt": {
+  "tpu_name": "Radeon RX 7800 XT",
+  "url": "https://www.techpowerup.com/gpu-specs/radeon-rx-7800-xt.c3839"
+ },
+ "amd-rx-7700-xt": {
+  "tpu_name": "Radeon RX 7700 XT",
+  "url": "https://www.techpowerup.com/gpu-specs/radeon-rx-7700-xt.c3911"
+ },
+ "amd-rx-7600-xt": {
+  "tpu_name": "Radeon RX 7600 XT",
+  "url": "https://www.techpowerup.com/gpu-specs/radeon-rx-7600-xt.c4190"
+ },
+ "amd-rx-7600": {
+  "tpu_name": "Radeon RX 7600",
+  "url": "https://www.techpowerup.com/gpu-specs/radeon-rx-7600.c4153"
+ },
+ "amd-rx-6950-xt": {
+  "tpu_name": "Radeon RX 6950 XT",
+  "url": "https://www.techpowerup.com/gpu-specs/radeon-rx-6950-xt.c3875"
+ },
+ "amd-rx-6900-xt": {
+  "tpu_name": "Radeon RX 6900 XT",
+  "url": "https://www.techpowerup.com/gpu-specs/radeon-rx-6900-xt.c3481"
+ },
+ "amd-rx-6800-xt": {
+  "tpu_name": "Radeon RX 6800 XT",
+  "url": "https://www.techpowerup.com/gpu-specs/radeon-rx-6800-xt.c3694"
+ },
+ "amd-rx-6800": {
+  "tpu_name": "Radeon RX 6800",
+  "url": "https://www.techpowerup.com/gpu-specs/radeon-rx-6800.c3713"
+ },
+ "amd-rx-6750-xt": {
+  "tpu_name": "Radeon RX 6750 XT",
+  "url": "https://www.techpowerup.com/gpu-specs/radeon-rx-6750-xt.c3879"
+ },
+ "amd-rx-6700-xt": {
+  "tpu_name": "Radeon RX 6700 XT",
+  "url": "https://www.techpowerup.com/gpu-specs/radeon-rx-6700-xt.c3695"
+ },
+ "amd-rx-6700": {
+  "tpu_name": "Radeon RX 6700",
+  "url": "https://www.techpowerup.com/gpu-specs/radeon-rx-6700.c3716"
+ },
+ "amd-rx-6650-xt": {
+  "tpu_name": "Radeon RX 6650 XT",
+  "url": "https://www.techpowerup.com/gpu-specs/radeon-rx-6650-xt.c3898"
+ },
+ "amd-rx-6600-xt": {
+  "tpu_name": "Radeon RX 6600 XT",
+  "url": "https://www.techpowerup.com/gpu-specs/radeon-rx-6600-xt.c3774"
+ },
+ "amd-rx-6600": {
+  "tpu_name": "Radeon RX 6600",
+  "url": "https://www.techpowerup.com/gpu-specs/radeon-rx-6600.c3696"
+ },
+ "amd-rx-6500-xt": {
+  "tpu_name": "Radeon RX 6500 XT",
+  "url": "https://www.techpowerup.com/gpu-specs/radeon-rx-6500-xt.c3850"
+ },
+ "amd-rx-6400": {
+  "tpu_name": "Radeon RX 6400",
+  "url": "https://www.techpowerup.com/gpu-specs/radeon-rx-6400.c3813"
+ },
+ "amd-rx-5700-xt": {
+  "tpu_name": "Radeon RX 5700 XT",
+  "url": "https://www.techpowerup.com/gpu-specs/radeon-rx-5700-xt.c3339"
+ },
+ "amd-rx-5700": {
+  "tpu_name": "Radeon RX 5700",
+  "url": "https://www.techpowerup.com/gpu-specs/radeon-rx-5700.c3437"
+ },
+ "amd-rx-5600-xt": {
+  "tpu_name": "Radeon RX 5600 XT",
+  "url": "https://www.techpowerup.com/gpu-specs/radeon-rx-5600-xt.c3474"
+ },
+ "amd-rx-5500-xt": {
+  "tpu_name": "Radeon RX 5500 XT",
+  "url": "https://www.techpowerup.com/gpu-specs/radeon-rx-5500-xt.c3468"
+ },
+ "amd-radeon-vii": {
+  "tpu_name": "Radeon VII",
+  "url": "https://www.techpowerup.com/gpu-specs/radeon-vii.c3358"
+ },
+ "amd-rx-vega-64": {
+  "tpu_name": "Radeon RX Vega 64",
+  "url": "https://www.techpowerup.com/gpu-specs/radeon-rx-vega-64.c2871"
+ },
+ "amd-rx-vega-56": {
+  "tpu_name": "Radeon RX Vega 56",
+  "url": "https://www.techpowerup.com/gpu-specs/radeon-rx-vega-56.c2993"
+ },
+ "amd-rx-590": {
+  "tpu_name": "Radeon RX 590",
+  "url": "https://www.techpowerup.com/gpu-specs/radeon-rx-590.c3322"
+ },
+ "amd-rx-580-8gb": {
+  "tpu_name": "Radeon RX 580",
+  "url": "https://www.techpowerup.com/gpu-specs/radeon-rx-580.c2938"
+ },
+ "amd-rx-570": {
+  "tpu_name": "Radeon RX 570",
+  "url": "https://www.techpowerup.com/gpu-specs/radeon-rx-570.c2939"
+ },
+ "amd-rx-560": {
+  "tpu_name": "Radeon RX 560",
+  "url": "https://www.techpowerup.com/gpu-specs/radeon-rx-560.c2940"
+ },
+ "amd-rx-550": {
+  "tpu_name": "Radeon RX 550",
+  "url": "https://www.techpowerup.com/gpu-specs/radeon-rx-550.c2947"
+ },
+ "amd-rx-480-8gb": {
+  "tpu_name": "Radeon RX 480",
+  "url": "https://www.techpowerup.com/gpu-specs/radeon-rx-480.c2848"
+ },
+ "amd-rx-480-4gb": {
+  "tpu_name": "Radeon RX 480",
+  "url": "https://www.techpowerup.com/gpu-specs/radeon-rx-480.c2848"
+ },
+ "amd-rx-470": {
+  "tpu_name": "Radeon RX 470",
+  "url": "https://www.techpowerup.com/gpu-specs/radeon-rx-470.c2861"
+ },
+ "amd-rx-460": {
+  "tpu_name": "Radeon RX 460",
+  "url": "https://www.techpowerup.com/gpu-specs/radeon-rx-460.c2849"
+ },
+ "intel-arc-a770-16gb": {
+  "tpu_name": "Arc A770",
+  "url": "https://www.techpowerup.com/gpu-specs/arc-a770.c3914"
+ },
+ "intel-arc-a770-8gb": {
+  "tpu_name": "Arc A770",
+  "url": "https://www.techpowerup.com/gpu-specs/arc-a770.c3914"
+ },
+ "intel-arc-a750": {
+  "tpu_name": "Arc A750",
+  "url": "https://www.techpowerup.com/gpu-specs/arc-a750.c3929"
+ },
+ "intel-arc-a580": {
+  "tpu_name": "Arc A580",
+  "url": "https://www.techpowerup.com/gpu-specs/arc-a580.c3928"
+ },
+ "intel-arc-a380": {
+  "tpu_name": "Arc A380",
+  "url": "https://www.techpowerup.com/gpu-specs/arc-a380.c3913"
+ },
+ "intel-arc-a310": {
+  "tpu_name": "Arc A310",
+  "url": "https://www.techpowerup.com/gpu-specs/arc-a310.c3930"
+ },
+ "intel-arc-b580": {
+  "tpu_name": "Arc B580",
+  "url": "https://www.techpowerup.com/gpu-specs/arc-b580.c4244"
+ },
+ "intel-arc-b570": {
+  "tpu_name": "Arc B570",
+  "url": "https://www.techpowerup.com/gpu-specs/arc-b570.c4245"
+ },
+ "intel-arc-pro-b50": {
+  "tpu_name": "Arc Pro B50",
+  "url": "https://www.techpowerup.com/gpu-specs/arc-pro-b50.c4345"
+ },
+ "intel-arc-pro-b60": {
+  "tpu_name": "Arc Pro B60",
+  "url": "https://www.techpowerup.com/gpu-specs/arc-pro-b60.c4350"
+ },
+ "intel-arc-pro-b65": {
+  "tpu_name": "Arc Pro B65",
+  "url": "https://www.techpowerup.com/gpu-specs/arc-pro-b65.c4389"
+ },
+ "intel-arc-pro-b70": {
+  "tpu_name": "Arc Pro B70",
+  "url": "https://www.techpowerup.com/gpu-specs/arc-pro-b70.c4388"
+ },
+ "intel-arc-graphics-core-ultra-series1-155h": {
+  "tpu_name": "Arc Graphics 128EU Mobile",
+  "url": "https://www.techpowerup.com/gpu-specs/arc-graphics-128eu-mobile.c4193"
+ },
+ "intel-arc-graphics-core-ultra-series1-125h": {
+  "tpu_name": "Arc Graphics 112EU Mobile",
+  "url": "https://www.techpowerup.com/gpu-specs/arc-graphics-112eu-mobile.c4196"
+ },
+ "intel-graphics-core-ultra-series1-135u": {
+  "tpu_name": "Arc Graphics 64EU Mobile",
+  "url": "https://www.techpowerup.com/gpu-specs/arc-graphics-64eu-mobile.c4194"
+ },
+ "intel-arc-140v-core-ultra-series2-258v": {
+  "tpu_name": "Arc 140V Mobile",
+  "url": "https://www.techpowerup.com/gpu-specs/arc-140v-mobile.c4314"
+ },
+ "intel-arc-130v-core-ultra-series2-226v": {
+  "tpu_name": "Arc 130V Mobile",
+  "url": "https://www.techpowerup.com/gpu-specs/arc-130v-mobile.c4315"
+ },
+ "intel-arc-140t-core-ultra-series2-285h": {
+  "tpu_name": "Arc 140T Mobile",
+  "url": "https://www.techpowerup.com/gpu-specs/arc-140t-mobile.c4268"
+ },
+ "intel-graphics-core-ultra-series2-285k": {
+  "tpu_name": "Arc Graphics 64EU",
+  "url": "https://www.techpowerup.com/gpu-specs/arc-graphics-64eu.c4299"
+ },
+ "intel-uhd-graphics-770": {
+  "tpu_name": "UHD Graphics 770",
+  "url": "https://www.techpowerup.com/gpu-specs/uhd-graphics-770.c3844"
+ },
+ "intel-uhd-graphics-730": {
+  "tpu_name": "UHD Graphics 730",
+  "url": "https://www.techpowerup.com/gpu-specs/uhd-graphics-730.c3877"
+ },
+ "intel-uhd-graphics-630": {
+  "tpu_name": "UHD Graphics 630",
+  "url": "https://www.techpowerup.com/gpu-specs/uhd-graphics-630.c3105"
+ },
+ "intel-iris-xe-graphics-1185g7": {
+  "tpu_name": "Iris Xe Graphics G7 96EU Mobile",
+  "url": "https://www.techpowerup.com/gpu-specs/iris-xe-graphics-g7-96eu-mobile.c3677"
+ },
+ "intel-iris-xe-graphics-1135g7": {
+  "tpu_name": "Iris Xe Graphics G7 80EU Mobile",
+  "url": "https://www.techpowerup.com/gpu-specs/iris-xe-graphics-g7-80eu-mobile.c3678"
+ },
+ "intel-iris-xe-graphics-12th-mobile-96eu-1260p": {
+  "tpu_name": "Iris Xe Graphics 96EU Mobile",
+  "url": "https://www.techpowerup.com/gpu-specs/iris-xe-graphics-96eu-mobile.c3881"
+ },
+ "intel-iris-xe-graphics-12th-mobile-80eu-1235u": {
+  "tpu_name": "Iris Xe Graphics 80EU Mobile",
+  "url": "https://www.techpowerup.com/gpu-specs/iris-xe-graphics-80eu-mobile.c3882"
+ },
+ "intel-iris-xe-graphics-13th-mobile-96eu-1360p": {
+  "tpu_name": "Iris Xe Graphics 96EU Mobile",
+  "url": "https://www.techpowerup.com/gpu-specs/iris-xe-graphics-96eu-mobile.c4145"
+ },
+ "intel-iris-xe-graphics-13th-mobile-80eu-1335u": {
+  "tpu_name": "Iris Xe Graphics 80EU Mobile",
+  "url": "https://www.techpowerup.com/gpu-specs/iris-xe-graphics-80eu-mobile.c4059"
+ }
+}
