@@ -96,7 +96,7 @@ def _scan(args: argparse.Namespace) -> int:
     is ``Exit.ERROR``.
     """
     if args.rig is not None:
-        return _scan_rig(args.rig, as_json=args.json)
+        return _scan_rig(args.rig, as_json=args.json, hardware=args.hardware)
     from mcgyvr.serving import rigfile
 
     reading = scan_module.reading(
@@ -124,7 +124,7 @@ def _scan(args: argparse.Namespace) -> int:
         # reads a command's stdout throws it away for any non-zero status: the
         # measurement goes to stdout alone and the drift report to stderr, so a
         # rig that lost a card still delivers its scan and exits 0.
-        sys.stdout.write(measured.to_json())
+        sys.stdout.write(measured.to_json(hardware=args.hardware))
         _report_moved(saved.before, changes, sys.stderr)
         return Exit.OK
 
@@ -180,6 +180,9 @@ def _scan(args: argparse.Namespace) -> int:
             f"  Model    {model.name}{quant} "
             f"({model.size_bytes / 1024 / 1024 / 1024:.1f} GiB)"
         )
+    if args.hardware:
+        for line in _hardware_lines(measured):
+            print(line)
     for note in measured.notes:
         print(f"  - {note}")
     if saved.kept:
@@ -194,7 +197,56 @@ def _scan(args: argparse.Namespace) -> int:
     return Exit.MISMATCH if drift else Exit.OK
 
 
-def _scan_rig(rig: str, *, as_json: bool) -> int:
+def _hardware_lines(measured: scan_module.Scan) -> list[str]:
+    """What ``--hardware`` adds to the report: every card the reading found,
+    with its PCI ids, memory, compute capability and source, and the CPU's
+    instruction-set flags and clock. A reading that carries none of them (an
+    older reader) says so, and a figure the reading left unread is named so."""
+    lines = []
+    if measured.devices is None:
+        lines.append("  Devices  not in this reading (an older reader)")
+    elif not measured.devices:
+        lines.append("  Devices  none found")
+    for device in measured.devices or ():
+        memory = (
+            "memory unread" if device.total_mib is None else f"{device.total_mib} MiB"
+        )
+        pci = f"PCI {device.pci_vendor or '?'}:{device.pci_device or '?'}"
+        if device.pci_bus:
+            pci += f" at {device.pci_bus}"
+        nodes = " ".join(n for n in (device.drm_card, device.drm_render) if n)
+        if nodes:
+            pci += f", {nodes}"
+        compute = f", compute {device.compute_cap}" if device.compute_cap else ""
+        source = f" ({device.read_from})" if device.read_from else ""
+        lines.append(
+            f"  Device   {device.id}  {device.vendor} {device.index}, "
+            f"{device.name or 'name unread'}, {memory}, {pci}{compute}{source}"
+        )
+    detail = measured.cpu_detail
+    if detail is None:
+        lines.append("  CPU ISA  not in this reading (an older reader)")
+        return lines
+    has = " ".join(flag for flag, yes in detail.flags if yes)
+    lacks = " ".join(flag for flag, yes in detail.flags if not yes)
+    source = f" ({detail.flags_from})" if detail.flags_from else ""
+    if detail.flags:
+        lines.append(
+            f"  CPU ISA  has {has or 'none of these'}"
+            + (f"; lacks {lacks}" if lacks else "")
+            + source
+        )
+    else:
+        lines.append("  CPU ISA  flags unread")
+    lines.append(
+        "  CPU MHz  max clock unread"
+        if detail.max_mhz is None
+        else f"  CPU MHz  {detail.max_mhz} max ({detail.max_mhz_from or 'unnamed'})"
+    )
+    return lines
+
+
+def _scan_rig(rig: str, *, as_json: bool, hardware: bool = False) -> int:
     """Scan ``rig`` over the user's own ssh, save its rig file, report movement.
 
     The ssh runs in BatchMode, so it uses that user's config and keys and never
@@ -277,6 +329,9 @@ def _scan_rig(rig: str, *, as_json: bool) -> int:
         print(f"  Address {now.private_ipv4} ({now.private_ipv4_how})", file=out)
     else:
         print(f"  Address no private IPv4 recorded: {now.private_ipv4_how}", file=out)
+    if hardware:
+        for line in _hardware_lines(now.scan):
+            print(line, file=out)
     for note in now.notes:
         print(f"  - {note}", file=out)
     if before is not None:
@@ -388,6 +443,16 @@ def add_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None
             "scan RIG instead, over your own ssh (read-only), and save it as the "
             f"serving door's rig file RIG.json in {RIGS_SHOWN}, which a door run "
             "from an install holds the rig to; says what moved since the last"
+        ),
+    )
+    sca.add_argument(
+        "--hardware",
+        action="store_true",
+        help=(
+            "also report every card the reading found, whatever its vendor, with "
+            "its PCI ids, memory and compute capability, and the CPU's "
+            "instruction-set flags and clock (with --json: as devices and "
+            "cpu_detail)"
         ),
     )
     sca.add_argument(

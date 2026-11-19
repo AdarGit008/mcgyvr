@@ -846,7 +846,11 @@ class HostShape:
     ``card_tool`` says where nvidia-smi.exe is (:data:`CARD_TOOL_PLACES`) and
     ``other_adapters`` names display adapters that are not PCI cards.
     ``memory_modules`` False models a Windows machine (a virtual one) that lists
-    no memory modules. A shape that contradicts itself is refused by name.
+    no memory modules. ``cpu_flags`` are the CPU flags it has, named as the
+    reader names them (:data:`mcgyvr.serving.rigscan.X86_FLAGS` and the keys of
+    ``ARM_FLAGS``), and ``cpu_max_mhz`` the clock its system states (None: none);
+    ``arm`` makes a Linux or Windows machine an ARM one (a Mac is one by its
+    ``chip``). A shape that contradicts itself is refused by name.
     """
 
     label: str
@@ -870,6 +874,9 @@ class HostShape:
     #: The DDR generation of its memory modules, as Windows reports each
     #: module's SMBIOS type (None: a type the reader does not name).
     ddr: int | None = None
+    cpu_flags: tuple[str, ...] = ()
+    cpu_max_mhz: int | None = None
+    arm: bool = False
 
     def __post_init__(self) -> None:
         where = f"host shape {self.label!r}"
@@ -889,6 +896,8 @@ class HostShape:
             raise ValueError(f"{where}: a DDR generation is read on Windows alone")
         if any(c.total_mib is None for c in self.cards if c.vendor == "vendor-a"):
             raise ValueError(f"{where}: a card of unreadable size is not modelled")
+        if self.arm and self.system == "darwin":
+            raise ValueError(f"{where}: a Mac is ARM by its chip, not by arm")
 
     @property
     def unified_mib(self) -> int | None:
@@ -964,7 +973,8 @@ def _cim(machine: HostShape) -> str:
             "name": machine.cpu_model,
             "cores": machine.cores,
             "threads": machine.threads,
-            "architecture": 9,
+            "architecture": 12 if machine.arm else 9,
+            **({} if machine.cpu_max_mhz is None else {"mhz": machine.cpu_max_mhz}),
         },
         "system": {
             "version": machine.version,
@@ -993,6 +1003,16 @@ def host_tools(machine: HostShape, /) -> dict[tuple[str, ...], tuple[str, int]]:
         for asked in (rigscan.SNAPSHOT_QUERY, rigscan.SNAPSHOT_QUERY_OLD):
             unasked = f"--query-gpu={asked}"
             tools[("nvidia-smi", unasked, "--format=csv,noheader,nounits")] = ("", 2)
+        # The whole scan's PCI id of each card: the device id over the vendor's.
+        ids = f"--query-gpu={rigscan.PCI_ID_QUERY}"
+        tools[("nvidia-smi", ids, "--format=csv,noheader,nounits")] = (
+            "".join(
+                f"{card.index}, 0x{device_id(card.name).upper()}"
+                f"{PCI_VENDOR_IDS[card.vendor]}\n"
+                for card in machine.tool_cards
+            ),
+            0,
+        )
     if machine.system == "linux":
         tools[("lscpu",)] = (
             f"CPU(s):              {machine.threads}\n"
@@ -1014,6 +1034,14 @@ def host_tools(machine: HostShape, /) -> dict[tuple[str, ...], tuple[str, int]]:
         sysctl(rigscan.SYSCTL_BRAND, machine.chip or machine.cpu_model)
         sysctl(rigscan.SYSCTL_ARM64, 1 if machine.chip else None)
         sysctl(rigscan.SYSCTL_WIRED_LIMIT, machine.wired_limit_mib)
+        # A flag name the kernel knows answers 1 or 0; Apple silicon's kernel has
+        # no SVE name, and no highest clock.
+        names = rigscan.SYSCTL_ARM_FLAGS if machine.chip else rigscan.SYSCTL_X86_FLAGS
+        for flag, name in names.items():
+            known = not (machine.chip and flag in ("sve", "sve2"))
+            sysctl(name, int(flag in machine.cpu_flags) if known else None)
+        hz = None if machine.cpu_max_mhz is None else machine.cpu_max_mhz * 1000000
+        sysctl(rigscan.SYSCTL_MAX_HZ, None if machine.chip else hz)
         tools[(rigscan.VM_STAT,)] = (_vm_stat(machine), 0)
         display: dict[str, Any] = {"sppci_model": machine.chip or "Example Display"}
         if machine.gpu_cores is not None:
@@ -1050,7 +1078,26 @@ def host_files(machine: HostShape, /) -> dict[str, str]:
             f"MemAvailable:   {machine.available_mib * 1024} kB\n"
         )
         files["/proc/cpuinfo"] = f"processor\t: 0\nmodel name\t: {machine.cpu_model}\n"
+        if machine.cpu_flags:
+            files["/proc/cpuinfo"] += _cpuinfo_flags(machine)
+        if machine.cpu_max_mhz is not None:
+            files["/sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq"] = (
+                f"{machine.cpu_max_mhz * 1000}\n"
+            )
     return files
+
+
+def _cpuinfo_flags(machine: HostShape) -> str:
+    """The flags line Linux prints for this CPU: an x86 one's ``flags``, an ARM
+    one's ``Features``, each led by flags every such CPU has."""
+    from mcgyvr.serving import rigscan
+
+    if not machine.arm:
+        return f"flags\t\t: fpu sse sse2 {' '.join(machine.cpu_flags)}\n"
+    printed = [
+        word for flag in machine.cpu_flags for word in rigscan.ARM_FLAGS.get(flag, ())
+    ]
+    return f"Features\t: fp asimd {' '.join(printed)}\n"
 
 
 def _host_run(machine: HostShape) -> Any:
@@ -1103,9 +1150,18 @@ def _host_tools(machine: HostShape) -> Iterator[None]:
     from mcgyvr.serving import rigscan
 
     found = _CARD_TOOL_PATHS.get(machine.card_tool) if machine.tool_cards else None
+    names = rigscan.WINDOWS_ARM_FLAGS if machine.arm else rigscan.WINDOWS_X86_FLAGS
+    present = {names[flag] for flag in machine.cpu_flags if flag in names}
+
+    def feature(number: int) -> bool | None:
+        # Windows answers zero for a flag it cannot detect, read as unknown.
+        return True if number in present else None
+
     with (
         mock.patch.object(rigscan, "_run", _host_run(machine)),
         mock.patch.object(rigscan, "_windows_nvidia_smi", lambda: found),
+        mock.patch.object(rigscan, "_processor_feature", feature),
+        mock.patch("platform.machine", lambda: "aarch64" if machine.arm else "x86_64"),
     ):
         yield
 

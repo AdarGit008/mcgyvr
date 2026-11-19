@@ -50,6 +50,8 @@ DOCUMENT_KEYS = {
     "network",
     "home",
     "snapshot",
+    "devices",
+    "cpu_detail",
     "notes",
     "facts",
 }

@@ -14,6 +14,7 @@ machine they describe.
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import platform
 import subprocess
@@ -232,6 +233,142 @@ class Gpu:
 
 
 @dataclass(frozen=True)
+class Device:
+    """One card the reading found, whatever its vendor, as the whole scan lists
+    it beside ``gpus`` (which holds the cards a fit is sized on today).
+
+    ``vendor`` and ``index`` place it as the reading's card list does
+    (``nvidia``, ``amd``, ``intel``, ``apple``, ``pci-0x....``), each vendor
+    counting from zero. ``id`` places it among every vendor's cards: ``pci:``
+    and its PCI address where one was read, else ``vendor:index``.
+    ``pci_vendor`` and ``pci_device`` are the PCI ids a source printed
+    (``0x10de``), ``pci_bus`` its PCI address (``0000:01:00.0``), ``drm_card``
+    and ``drm_render`` its DRM nodes on Linux (``card0``, ``renderD128``), the
+    memory figures are in MiB, ``compute_cap`` is an NVIDIA card's CUDA compute
+    capability (``8.6``) and ``read_from`` the source its entry came from. Every
+    field but the ones that place it is None when the reading did not give it:
+    unknown, never "none" and never a zero.
+    """
+
+    vendor: str
+    index: int
+    id: str = ""
+    name: str | None = None
+    pci_vendor: str | None = None
+    pci_device: str | None = None
+    pci_bus: str | None = None
+    drm_card: str | None = None
+    drm_render: str | None = None
+    total_mib: int | None = None
+    used_mib: int | None = None
+    free_mib: int | None = None
+    kind: str | None = None
+    backend: str | None = None
+    figure: str | None = None
+    compute_cap: str | None = None
+    read_from: str | None = None
+
+
+@dataclass(frozen=True)
+class CpuDetail:
+    """What the whole scan reads of the CPU beyond :class:`Cpu`.
+
+    ``flags`` pairs each instruction-set flag the system answered for with
+    whether the CPU has it; a flag it holds no pair for is unknown, never
+    absent (:meth:`has`). ``max_mhz`` is the highest clock the system states.
+    ``flags_from`` and ``max_mhz_from`` name the sources; both figures are None
+    when unread.
+    """
+
+    flags: tuple[tuple[str, bool], ...] = ()
+    flags_from: str | None = None
+    max_mhz: int | None = None
+    max_mhz_from: str | None = None
+
+    def has(self, flag: str) -> bool | None:
+        """True or False as the system answered for ``flag``; None: unknown."""
+        return dict(self.flags).get(flag)
+
+
+def _text_or_none(value: Any) -> str | None:
+    return value if isinstance(value, str) and value else None
+
+
+def _count_or_none(value: Any) -> int | None:
+    return value if isinstance(value, int) and not isinstance(value, bool) else None
+
+
+def _devices_of(raw: Any) -> tuple[Device, ...] | None:
+    """The reading's ``devices`` list, or None when it carries none (a reading
+    from an older reader) or carries something that is not a list. An entry
+    that does not place its card (a vendor and an index) is left out; any other
+    field of the wrong type reads as unknown."""
+    if not isinstance(raw, list):
+        return None
+    found = []
+    for entry in raw:
+        if not isinstance(entry, dict):
+            continue
+        vendor, index = _text_or_none(entry.get("vendor")), entry.get("index")
+        number = _count_or_none(index)
+        if vendor is None or number is None:
+            continue
+        texts = {
+            key: _text_or_none(entry.get(key))
+            for key in (
+                "name",
+                "pci_vendor",
+                "pci_device",
+                "pci_bus",
+                "drm_card",
+                "drm_render",
+                "kind",
+                "backend",
+                "figure",
+                "compute_cap",
+                "read_from",
+            )
+        }
+        fields: dict[str, Any] = {
+            **texts,
+            **{
+                key: _count_or_none(entry.get(key))
+                for key in ("total_mib", "used_mib", "free_mib")
+            },
+        }
+        # A reading that names no id is placed by its vendor and index, which
+        # never meet another vendor's.
+        placed = _text_or_none(entry.get("id")) or f"{vendor}:{number}"
+        found.append(Device(vendor=vendor, index=number, id=placed, **fields))
+    return tuple(found)
+
+
+def _cpu_detail_of(raw: Any) -> CpuDetail | None:
+    """The reading's ``cpu_detail``, or None when it carries none. A flag whose
+    answer is not true or false is left out, so it reads as unknown."""
+    if not isinstance(raw, dict):
+        return None
+    flags = raw.get("flags")
+    pairs = (
+        tuple(
+            sorted(
+                (str(name), answer)
+                for name, answer in flags.items()
+                if isinstance(answer, bool)
+            )
+        )
+        if isinstance(flags, dict)
+        else ()
+    )
+    return CpuDetail(
+        flags=pairs,
+        flags_from=_text_or_none(raw.get("flags_from")),
+        max_mhz=_count_or_none(raw.get("max_mhz")),
+        max_mhz_from=_text_or_none(raw.get("max_mhz_from")),
+    )
+
+
+@dataclass(frozen=True)
 class Host:
     """The system a reading was taken on: ``os`` (linux, darwin, windows), ``arch``
     (x86_64, arm64; None when the reader names none) and ``version`` (the kernel
@@ -307,6 +444,14 @@ class Scan:
     #: The system the reading was taken on; None for a reading from an older
     #: scanner.
     host: Host | None = None
+    #: Every card the reading found, whatever its vendor; None for a reading
+    #: that carries no device list (an older reader, or a stated scan). Like
+    #: cpu_detail, it is not part of a scan's equality, nor of its default json,
+    #: so two scans compare as they did before these were read.
+    devices: tuple[Device, ...] | None = dataclasses.field(default=None, compare=False)
+    #: The CPU's instruction-set flags and clock; None for a reading that
+    #: carries none.
+    cpu_detail: CpuDetail | None = dataclasses.field(default=None, compare=False)
 
     @property
     def gpus_determined(self) -> bool:
@@ -382,7 +527,10 @@ class Scan:
             facts=tuple(facts),
         )
 
-    def to_json(self) -> str:
+    def to_json(self, *, hardware: bool = False) -> str:
+        """The scan as json. ``hardware`` adds ``devices`` and ``cpu_detail``
+        (null when the reading carried none); without it the document holds
+        exactly the keys it held before they were read."""
         payload: dict[str, Any] = {
             "machine": {
                 "id": self.machine.id,
@@ -475,6 +623,22 @@ class Scan:
             "notes": list(self.notes),
             "facts": [{"field": f.field, "how": f.how} for f in self.facts],
         }
+        if hardware:
+            payload["devices"] = (
+                None
+                if self.devices is None
+                else [dataclasses.asdict(device) for device in self.devices]
+            )
+            payload["cpu_detail"] = (
+                None
+                if self.cpu_detail is None
+                else {
+                    "flags": dict(self.cpu_detail.flags),
+                    "flags_from": self.cpu_detail.flags_from,
+                    "max_mhz": self.cpu_detail.max_mhz,
+                    "max_mhz_from": self.cpu_detail.max_mhz_from,
+                }
+            )
         return json.dumps(payload, indent=2) + "\n"
 
     @classmethod
@@ -608,6 +772,8 @@ class Scan:
             ),
             home=Path(str(raw["home"])) if raw.get("home") else None,
             host=Host.from_reading(raw.get("host")),
+            devices=_devices_of(raw.get("devices")),
+            cpu_detail=_cpu_detail_of(raw.get("cpu_detail")),
         )
 
 
