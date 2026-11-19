@@ -571,13 +571,15 @@ def _why_not_one(card: Card) -> str:
             f"wrote, and emit if it has not been emitted"
         )
     listed = ", ".join(path.name for path in card.specs)
+    template = door_line("serve", "DIRECTION", "--host", card.host, "--compose", "FILE")
     return (
         f"{card.host}: this config holds {len(card.specs)} launch specs for "
         f"that card — {listed} — and only one of them is ever up. Which one is "
         f"current is not a question the config answers, so mcgyvr will not "
-        f"guess: name the file to `{door_line('serve')}` yourself. If "
-        f"one of these is an older cut of the rig, `mcgyvr emit --check` says "
-        f"which, and deleting it leaves one"
+        f"guess: run the door on the current one yourself, as `{template}`, "
+        f"with DIRECTION one of up, down, sleep and wake and FILE the current "
+        f"one's path in {card.specs[0].parent}. If one of these is an older cut "
+        f"of the rig, `mcgyvr emit --check` says which, and deleting it leaves one"
     )
 
 

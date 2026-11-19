@@ -13,7 +13,9 @@ command mcgyvr tells a person to run starts with `sys.executable`, joined by
 Each line is split back by the rule it was joined with (`shlex` on POSIX,
 PowerShell's single quotes on Windows): its first word is the running
 interpreter, the next two are `-m` and the door's module, and the door's own
-parser takes the rest.
+parser takes the rest. The several-specs line is a template, with DIRECTION
+and FILE named as such in the same sentence; the parser takes it once they are
+filled in as that sentence says.
 """
 
 from __future__ import annotations
@@ -31,15 +33,22 @@ from mcgyvr.serving.gatelib import DOOR_MODULE, door_line
 
 #: A command in a printed line: the text between backticks.
 QUOTED = re.compile(r"`([^`]*)`")
-#: A word of a PowerShell line: single-quoted with '' for a quote, or bare.
-POWERSHELL_WORD = re.compile(r"'((?:[^']|'')*)'|(\S+)")
+#: What PowerShell reads as a single quote: ' and U+2018, U+2019, U+201A, U+201B.
+SINGLE = "'\u2018\u2019\u201a\u201b"
+#: A word of a PowerShell line: in single quotes, a quote in it written twice,
+#: or bare.
+POWERSHELL_WORD = re.compile(
+    f"[{SINGLE}]((?:[^{SINGLE}]|[{SINGLE}]{{2}})*)[{SINGLE}]" + r"|(\S+)"
+)
 
 
 @pytest.fixture
 def interpreter(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> str:
-    """An interpreter whose path needs quoting and is not named `python`."""
+    """An interpreter whose path needs quoting and is not named `python`, on a
+    POSIX machine, so the lines are shlex's on a Windows runner too."""
     path = str(tmp_path / "a tool env" / "bin" / "python3.12")
     monkeypatch.setattr(sys, "executable", path)
+    monkeypatch.setattr(sys, "platform", "linux")
     return path
 
 
@@ -52,7 +61,7 @@ def door_words(text: str) -> list[list[str]]:
 def powershell_split(line: str) -> list[str]:
     assert line.startswith("& "), line
     return [
-        word[1].replace("''", "'") if word[1] is not None else word[2]
+        re.sub(f"([{SINGLE}])\\1", r"\1", word[1]) if word[1] is not None else word[2]
         for word in POWERSHELL_WORD.finditer(line[2:])
     ]
 
@@ -105,24 +114,35 @@ def test_the_several_specs_refusal_names_the_running_interpreter(
     from mcgyvr.wake import _why_not_one
 
     specs = (tmp_path / "compose.box1.a.yml", tmp_path / "compose.box1.b.yml")
-    (words,) = door_words(_why_not_one(Card("box1", None, specs=specs)))
+    said = _why_not_one(Card("box1", None, specs=specs))
+    (words,) = door_words(said)
 
-    # The line is the door's `serve` verb, for the person to give a file to.
-    assert words[3:] == ["serve"]
-    for spec in specs:
-        given = [*words, "wake", "--host", "box1", "--compose", str(spec)]
-        assert_runs(given, interpreter)
+    # A template: the sentence names what DIRECTION and FILE are, and where.
+    assert words[3:] == ["serve", "DIRECTION", "--host", "box1", "--compose", "FILE"]
+    assert "DIRECTION one of up, down, sleep and wake" in said, said
+    assert f"FILE the current one's path in {tmp_path}." in said, said
+    for direction in ("up", "down", "sleep", "wake"):
+        for spec in specs:
+            assert spec.name in said, said
+            filled = [
+                {"DIRECTION": direction, "FILE": str(tmp_path / spec.name)}.get(w, w)
+                for w in words
+            ]
+            assert_runs(filled, interpreter)
 
 
 def test_a_windows_line_is_powershells(monkeypatch: pytest.MonkeyPatch) -> None:
-    folder = PureWindowsPath("C:/", "Program Files", "it's mcgyvr", "Scripts")
+    # Every character PowerShell reads as a single quote, in the user's folder.
+    user = "it's \u2018a\u2019 \u201ab\u201b"
+    folder = PureWindowsPath("C:/", "Users", user, "Scripts")
     path = str(folder / "python.exe")
     monkeypatch.setattr(sys, "executable", path)
     args = ("serve", "up", "--host", "box1", "--compose", "compose.box 1.yml")
 
     line = door_line(*args, windows=True)
 
-    assert line.startswith(f"& '{path.replace(chr(39), chr(39) * 2)}' -m "), line
+    doubled = "".join(mark * 2 if mark in SINGLE else mark for mark in path)
+    assert line.startswith(f"& '{doubled}' -m "), line
     assert powershell_split(line) == [path, "-m", DOOR_MODULE, *args]
     assert_runs(powershell_split(line), path)
 
