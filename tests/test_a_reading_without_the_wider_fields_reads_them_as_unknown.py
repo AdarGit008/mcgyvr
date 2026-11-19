@@ -21,7 +21,7 @@ from tests.machine_shapes import host_scan_document, host_shape
 def _older(label: str, document: dict[str, Any] | None = None) -> dict[str, Any]:
     """A reading as an older reader prints it: without the wider fields."""
     if document is None:
-        document = host_scan_document(host_shape(label))
+        document = host_scan_document(host_shape(label), wider=True)
     return {k: v for k, v in document.items() if k not in ("devices", "cpu_detail")}
 
 
@@ -37,7 +37,7 @@ def _scan(document: dict[str, Any]) -> Any:
 def test_an_older_readers_scan_parses_with_its_wider_fields_unknown(
     label: str,
 ) -> None:
-    document = host_scan_document(host_shape(label))
+    document = host_scan_document(host_shape(label), wider=True)
     scan = _scan(_older(label, document))
     assert scan.devices is None
     assert scan.cpu_detail is None

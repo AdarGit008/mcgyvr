@@ -1,6 +1,6 @@
 """Every card of every vendor reaches the scan's device list.
 
-The whole scan lists each card the reading found (``devices``), whatever its
+The scan with --hardware lists each card the reading found (``devices``), whatever its
 vendor: an NVIDIA card with its PCI device id and compute capability as its
 tool prints them, an AMD card read by its tool or from sysfs, an Intel card
 from sysfs with its memory unknown (sysfs gives none), a Windows display
@@ -98,19 +98,22 @@ def _scan(files: Mapping[str, str], installed: Sequence[str]) -> dict[str, Any]:
             ),
             mock.patch("platform.machine", lambda: "x86_64"),
         ):
-            return rigscan.scan(w, root=root, system="linux")
+            return rigscan.scan(w, root=root, system="linux", wider=True)
 
 
 def _sysfs(
     number: int, bus: str, vendor: str, device: str, **files: str
 ) -> dict[str, str]:
     """One PCI card in sysfs: its card<N> and renderD<128+N> nodes, both of the
-    device at that address."""
+    device at that address, and the device under /sys/bus/pci/devices (where a
+    node's `device` link points)."""
     where = f"/sys/class/drm/card{number}/device"
     event = f"DRIVER=example\nPCI_ID={vendor[2:]}:{device[2:]}\nPCI_SLOT_NAME={bus}\n"
     found = {
         f"{where}/vendor": f"{vendor}\n",
         f"{where}/device": f"{device}\n",
+        f"/sys/bus/pci/devices/{bus}/vendor": f"{vendor}\n",
+        f"/sys/bus/pci/devices/{bus}/device": f"{device}\n",
         f"{where}/uevent": event,
         f"/sys/class/drm/renderD{128 + number}/device/uevent": event,
     }
@@ -160,6 +163,42 @@ def test_an_amd_card_its_tool_reads_and_an_intel_card_in_sysfs_reach_the_list() 
     assert document["gpus"] == []
 
 
+def test_two_identical_amd_cards_are_each_placed_by_their_own_address() -> None:
+    from mcgyvr.serving import rigscan
+
+    card = {
+        "Card series": "Example Card R",
+        "VRAM Total Memory (B)": str(24560 * MIB),
+        "VRAM Total Used Memory (B)": str(512 * MIB),
+    }
+    tools = _tools()
+    tools["rocm-smi"] = {
+        ("rocm-smi", *rigscan.SECOND_BUS_ARGS): json.dumps(
+            # rocm-smi's own numbers, in the other order from sysfs's.
+            {"card0": {"PCI Bus": "0000:06:00.0"}, "card1": {"PCI Bus": "0000:05:00.0"}}
+        ),
+        ("rocm-smi", *rigscan.SECOND_ARGS): json.dumps({"card0": card, "card1": card}),
+    }
+    files = {
+        **_sysfs(1, "0000:05:00.0", "0x1002", "0x0d0d"),
+        **_sysfs(2, "0000:06:00.0", "0x1002", "0x0d0d"),
+    }
+    with mock.patch(f"{__name__}._tools", lambda: tools):
+        devices = _devices(_scan(files, ["lscpu", "rocm-smi"]))
+    first, second = devices["amd.0"], devices["amd.1"]
+    assert (first["id"], first["drm_card"], first["drm_render"]) == (
+        "pci:0000:06:00.0",
+        "card2",
+        "renderD130",
+    )
+    assert (second["id"], second["drm_card"], second["drm_render"]) == (
+        "pci:0000:05:00.0",
+        "card1",
+        "renderD129",
+    )
+    assert first["pci_device"] == second["pci_device"] == "0x0d0d"
+
+
 def test_an_amd_card_whose_address_rocm_smi_does_not_print_keeps_it_unknown() -> None:
     from mcgyvr.serving import rigscan
 
@@ -203,8 +242,15 @@ def test_two_vendors_card_zero_never_share_an_id() -> None:
 
 
 def test_an_nvidia_card_carries_its_device_id_and_compute_capability() -> None:
+    from mcgyvr.serving import rigscan
+
     files = {**INTEL, **_sysfs(0, "0000:01:00.0", "0x10de", "0x0a1b")}
-    document = _scan(files, ["lscpu", "nvidia-smi"])
+    tools = _tools()
+    # sysfs gives the device id at the card's address: nvidia-smi is not asked
+    # again for it (the invented tool refuses a question it was not given).
+    del tools["nvidia-smi"][("nvidia-smi", f"--query-gpu={rigscan.PCI_ID_QUERY}", CSV)]
+    with mock.patch(f"{__name__}._tools", lambda: tools):
+        document = _scan(files, ["lscpu", "nvidia-smi"])
     devices = _devices(document)
     assert set(devices) == {"nvidia.0", "intel.1"}
     nvidia = devices["nvidia.0"]
@@ -239,7 +285,7 @@ def test_an_nvidia_device_id_the_tool_does_not_give_plainly_is_unknown(
 
 
 def test_a_windows_adapter_and_a_card_its_tool_reads_reach_the_list() -> None:
-    other = _devices(host_scan_document(host_shape("windows-other-gpu")))
+    other = _devices(host_scan_document(host_shape("windows-other-gpu"), wider=True))
     (adapter,) = other.values()
     assert adapter["read_from"] == "Win32_VideoController"
     assert adapter["pci_vendor"] == "0x1002"
@@ -248,13 +294,13 @@ def test_a_windows_adapter_and_a_card_its_tool_reads_reach_the_list() -> None:
     # Windows' display adapter list gives no PCI address and no DRM node.
     assert adapter["pci_bus"] is None and adapter["drm_render"] is None
     assert adapter["id"] == "amd:0"
-    read = _devices(host_scan_document(host_shape("windows-one-card")))
+    read = _devices(host_scan_document(host_shape("windows-one-card"), wider=True))
     assert read["nvidia.0"]["read_from"] == "nvidia-smi"
     assert read["nvidia.0"]["pci_device"] == "0x" + device_id("Example Card A")
 
 
 def test_a_macs_unified_gpu_reaches_the_list_without_pci_ids() -> None:
-    document = host_scan_document(host_shape("unified-laptop"))
+    document = host_scan_document(host_shape("unified-laptop"), wider=True)
     (gpu,) = document["devices"]
     assert (gpu["vendor"], gpu["kind"], gpu["figure"]) == (
         "apple",
@@ -272,7 +318,7 @@ def test_a_macs_unified_gpu_reaches_the_list_without_pci_ids() -> None:
 def test_the_scans_gpus_are_the_ones_it_held_before(label: str) -> None:
     from mcgyvr.scan import Scan
 
-    document = host_scan_document(host_shape(label))
+    document = host_scan_document(host_shape(label), wider=True)
     older = {k: v for k, v in document.items() if k not in ("devices", "cpu_detail")}
     whole, before = (Scan.from_json(json.dumps(d)) for d in (document, older))
     assert whole.gpus == before.gpus

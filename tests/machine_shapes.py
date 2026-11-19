@@ -61,6 +61,7 @@ from __future__ import annotations
 import dataclasses
 import functools
 import json
+import os
 import tempfile
 import types
 import urllib.parse
@@ -1174,9 +1175,10 @@ def host_reading(machine: HostShape, /) -> dict[str, Any]:
         return rigscan.read_machine(root=root, system=machine.system)
 
 
-def host_scan_document(machine: HostShape, /) -> dict[str, Any]:
+def host_scan_document(machine: HostShape, /, *, wider: bool = False) -> dict[str, Any]:
     """The reader's whole scan of this machine, read in this process, without the
-    bandwidth probe and with nothing of the disk the tests run on."""
+    bandwidth probe and with nothing of the disk the tests run on; `wider` is the
+    reader's --hardware (the device list and the CPU detail)."""
     from mcgyvr.serving import rigscan
 
     with (
@@ -1185,7 +1187,36 @@ def host_scan_document(machine: HostShape, /) -> dict[str, Any]:
         mock.patch.object(rigscan, "measure_bandwidth", lambda spare_mib=None: None),
         tempfile.TemporaryDirectory() as weights,
     ):
-        return rigscan.scan(weights, root=root, system=machine.system)
+        return rigscan.scan(weights, root=root, system=machine.system, wider=wider)
+
+
+def host_reader_stdout(machine: HostShape, /, *arguments: str) -> tuple[int, str]:
+    """What the reader's own entry point (``rigscan.main``) prints for this
+    machine with `arguments`, run in this process as on the rig, without the
+    bandwidth probe: its exit status and its stdout."""
+    import contextlib
+    import io
+
+    from mcgyvr.serving import rigscan
+
+    out = io.StringIO()
+    with (
+        _host_root(machine) as root,
+        _host_tools(machine),
+        mock.patch.object(rigscan, "measure_bandwidth", lambda spare_mib=None: None),
+        tempfile.TemporaryDirectory() as weights,
+        mock.patch.dict(
+            os.environ,
+            {
+                rigscan.ROOT_VARIABLE: root,
+                rigscan.SYSTEM_VARIABLE: machine.system,
+                "MCGYVR_WEIGHTS": weights,
+            },
+        ),
+        contextlib.redirect_stdout(out),
+    ):
+        code = rigscan.main(list(arguments))
+    return code, out.getvalue()
 
 
 def host_detection(machine: HostShape, /) -> Detection:

@@ -275,9 +275,13 @@ class CpuDetail:
 
     ``flags`` pairs each instruction-set flag the system answered for with
     whether the CPU has it; a flag it holds no pair for is unknown, never
-    absent (:meth:`has`). ``max_mhz`` is the highest clock the system states.
-    ``flags_from`` and ``max_mhz_from`` name the sources; both figures are None
-    when unread.
+    absent (:meth:`has`). On Linux False means the kernel's flags line has no
+    such word, and a kernel older than a flag's name cannot print it: the
+    kernel release is the reading's ``machine.kernel``. ``max_mhz`` is the
+    clock each system calls the CPU's maximum, and the systems need not mean
+    one figure by it (Linux's cpufreq maximum, Windows' MaxClockSpeed, an
+    Intel Mac's hw.cpufrequency_max), so ``max_mhz_from`` names which it is.
+    ``flags_from`` names the flags' source; both figures are None when unread.
     """
 
     flags: tuple[tuple[str, bool], ...] = ()
@@ -850,19 +854,24 @@ def scan(weights_dir: Path | None = None, model_stores: Sequence[Path] = ()) -> 
 
 
 def reading(
-    weights_dir: Path | None = None, model_stores: Sequence[Path] = ()
+    weights_dir: Path | None = None,
+    model_stores: Sequence[Path] = (),
+    *,
+    hardware: bool = False,
 ) -> dict[str, Any]:
     """This machine's raw reading, as the document a rig file keeps whole.
 
     ``weights_dir`` is where models are looked for and probed for free disk;
     rigscan defaults it to ``default_weights_dir()`` when None. ``model_stores``
-    are searched for model files in addition to that directory.
+    are searched for model files in addition to that directory. ``hardware``
+    adds the device list and the CPU detail (``scan --hardware``).
     """
     from mcgyvr.serving import rigscan
 
     return rigscan.scan(
         weights_dir=None if weights_dir is None else str(weights_dir),
         model_stores=tuple(str(store) for store in model_stores),
+        wider=hardware,
     )
 
 
@@ -873,7 +882,7 @@ def local_machine_id() -> str:
     return rigscan.machine_id()
 
 
-def _remote_scan_command() -> str:
+def _remote_scan_command(*, hardware: bool = False) -> str:
     """The command a remote host is asked to run.
 
     It is the shipped reader itself, base64'd from this installation and piped
@@ -882,7 +891,7 @@ def _remote_scan_command() -> str:
     # Nothing has to exist on the host: the reader travels inside the command.
     from mcgyvr.serving import gatelib
 
-    return gatelib.scan_read_command()
+    return gatelib.scan_read_command(hardware=hardware)
 
 
 #: The rigs this process has found to be Windows on first contact, before a
@@ -918,22 +927,23 @@ def _answers_powershell(host: str) -> bool:
         return False
 
 
-def _read_text(host: str) -> str:
+def _read_text(host: str, *, hardware: bool = False) -> str:
     """What the shipped reader on ``host`` printed, shipped the way its shell
     takes it.
 
     A rig with no rig file is sent the POSIX line first, as every rig was; one
     that cannot run it and answers PowerShell is a Windows rig, sent the
     Windows shipment (and remembered for this process: ``mcgyvr scan --rig``
-    files the reading, whose ``host.os`` says so from then on).
+    files the reading, whose ``host.os`` says so from then on). ``hardware``
+    asks the reader for its device list and CPU detail as well.
     """
     from mcgyvr.serving import gatelib
 
     if shipping_os(host) == gatelib.WINDOWS:
-        sent = gatelib.scan_read(gatelib.WINDOWS)
+        sent = gatelib.scan_read(gatelib.WINDOWS, hardware=hardware)
         return _ssh(host, sent.command, sent.stdin)
     try:
-        return _ssh(host, _remote_scan_command())
+        return _ssh(host, _remote_scan_command(hardware=hardware))
     except ScannerMissing as failed:
         # 255 is ssh failing to reach or log in, which no shell answered.
         if (
@@ -943,21 +953,22 @@ def _read_text(host: str) -> str:
         ):
             raise
     _WINDOWS_FOUND.add(host)
-    sent = gatelib.scan_read(gatelib.WINDOWS)
+    sent = gatelib.scan_read(gatelib.WINDOWS, hardware=hardware)
     return _ssh(host, sent.command, sent.stdin)
 
 
-def read_over(reach: Reach) -> dict[str, Any]:
+def read_over(reach: Reach, *, hardware: bool = False) -> dict[str, Any]:
     """Read one machine's raw reading over ``reach``.
 
     A local reach calls rigscan here and opens no connection; a host reach runs
     the shipped reader there (:func:`_read_text`) and parses what it printed.
     The ssh itself raises ``Unreachable`` or ``ScannerMissing``, and output
-    that is not json or not a json object raises ``ScanFailed``.
+    that is not json or not a json object raises ``ScanFailed``. ``hardware``
+    adds the device list and the CPU detail.
     """
     if reach.host is None:
-        return reading()
-    text = _read_text(reach.host)
+        return reading(hardware=hardware)
+    text = _read_text(reach.host, hardware=hardware)
     try:
         document = json.loads(text)
     except ValueError:

@@ -25,7 +25,7 @@ from tests.machine_shapes import host_scan_document, host_shape
 
 def _detail(label: str, **changes: Any) -> dict[str, Any]:
     machine = dataclasses.replace(host_shape(label), **changes)
-    detail = host_scan_document(machine)["cpu_detail"]
+    detail = host_scan_document(machine, wider=True)["cpu_detail"]
     assert isinstance(detail, dict)
     return detail
 
@@ -85,7 +85,7 @@ def test_half_of_the_fp16_pair_on_linux_arm_is_no_fp16() -> None:
 def test_a_linux_cpu_with_no_flags_line_has_its_flags_unknown() -> None:
     from mcgyvr.scan import Scan
 
-    document = host_scan_document(host_shape("linux-one-card"))
+    document = host_scan_document(host_shape("linux-one-card"), wider=True)
     assert document["cpu_detail"]["flags"] == {}
     assert document["cpu_detail"]["flags_from"] is None
     assert document["cpu_detail"]["max_mhz"] is None
@@ -141,7 +141,8 @@ def test_a_windows_arm_cpu_is_asked_its_arm_flags() -> None:
 
 
 def test_windows_with_no_flag_present_and_no_clock_has_both_unknown() -> None:
-    detail = host_scan_document(host_shape("windows-one-card"))["cpu_detail"]
+    document = host_scan_document(host_shape("windows-one-card"), wider=True)
+    detail = document["cpu_detail"]
     assert detail == {
         "flags": {},
         "flags_from": None,

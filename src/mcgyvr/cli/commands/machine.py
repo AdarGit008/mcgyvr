@@ -100,7 +100,8 @@ def _scan(args: argparse.Namespace) -> int:
     from mcgyvr.serving import rigfile
 
     reading = scan_module.reading(
-        model_stores=tuple(Path(store) for store in (args.model_store or ()))
+        model_stores=tuple(Path(store) for store in (args.model_store or ())),
+        hardware=args.hardware,
     )
     # `save` writes this machine's rig file from the reading, and keeps the
     # record it replaces when that one knew its cards and this read did not.
@@ -271,7 +272,7 @@ def _scan_rig(rig: str, *, as_json: bool, hardware: bool = False) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return Exit.USAGE
     try:
-        reading = scan_module.read_over(scan_module.Reach.ssh(rig))
+        reading = scan_module.read_over(scan_module.Reach.ssh(rig), hardware=hardware)
     except scan_module.Unreachable:
         print(
             f"error: {rig} did not answer ssh (BatchMode: your own ssh config and "
@@ -449,10 +450,10 @@ def add_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None
         "--hardware",
         action="store_true",
         help=(
-            "also report every card the reading found, whatever its vendor, with "
-            "its PCI ids, memory and compute capability, and the CPU's "
-            "instruction-set flags and clock (with --json: as devices and "
-            "cpu_detail)"
+            "also read and report every card, whatever its vendor, with its PCI "
+            "ids, memory and compute capability, and the CPU's instruction-set "
+            "flags and clock; the rig file this scan writes keeps them (with "
+            "--json: as devices and cpu_detail)"
         ),
     )
     sca.add_argument(

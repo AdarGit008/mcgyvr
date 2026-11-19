@@ -650,6 +650,10 @@ def shipping_os(host: str) -> str:
 #: scanner, run isolated (`-I`) and without writing bytecode (`-B`) on the rig.
 _SCAN_READ_SUFFIX = " | base64 -d | python3 -I -B -"
 
+#: The scanner's one argument that asks for its device list and CPU detail as
+#: well (`rigscan.WIDER_ARG`): the only argument a scan read may carry.
+HARDWARE_ARG = "--hardware"
+
 #: The same tail for the header reader, which is followed by the path it reads.
 _HEADER_READ_MIDDLE = " | base64 -d | python3 - "
 
@@ -704,9 +708,11 @@ def _single_quote(token: str) -> str:
     return f"'{token}'"
 
 
-def scan_read_command() -> str:
-    """The read-only command that runs the shipped scanner on a POSIX rig."""
-    return f"echo {_scan_read_blob()}{_SCAN_READ_SUFFIX}"
+def scan_read_command(*, hardware: bool = False) -> str:
+    """The read-only command that runs the shipped scanner on a POSIX rig; with
+    `hardware`, asked for its device list and CPU detail as well."""
+    tail = f" {HARDWARE_ARG}" if hardware else ""
+    return f"echo {_scan_read_blob()}{_SCAN_READ_SUFFIX}{tail}"
 
 
 def cards_read_command() -> str:
@@ -895,11 +901,17 @@ def ship(
     return Shipped(f"echo {_b64(program)} | base64 -d | {python}{tail}")
 
 
-def scan_read(system: str, *, cards: bool = False) -> Shipped:
-    """The shipped scanner for a rig of `system` (asked for `--cards` alone)."""
+def scan_read(system: str, *, cards: bool = False, hardware: bool = False) -> Shipped:
+    """The shipped scanner for a rig of `system` (asked for `--cards` alone, or
+    with `hardware` for the scan with its device list and CPU detail)."""
+    if cards and hardware:
+        raise ValueError("the card read carries no device list")
     if system != WINDOWS:
-        return Shipped(cards_read_command() if cards else scan_read_command())
-    return ship(WINDOWS, _reader_program(), ("--cards",) if cards else ())
+        if cards:
+            return Shipped(cards_read_command())
+        return Shipped(scan_read_command(hardware=hardware))
+    args = ("--cards",) if cards else (HARDWARE_ARG,) if hardware else ()
+    return ship(WINDOWS, _reader_program(), args)
 
 
 def header_read(system: str, path: str) -> Shipped:
@@ -939,9 +951,9 @@ def _decoded(line: str) -> str | None:
 def _read_only_windows(command: str, stdin: str | None) -> bool:
     """Whether a Windows command (and its stdin) is a sanctioned read: the
     probe; the `*.gguf` listing of one folder; or the ship script running this
-    checkout's scanner (no argument) or header reader (one argument), with no
-    feed. Every script is a constant, compared whole; the data on stdin is
-    checked, and none of it is ever part of a script."""
+    checkout's scanner (no argument, or HARDWARE_ARG) or header reader (one
+    argument), with no feed. Every script is a constant, compared whole; the
+    data on stdin is checked, and none of it is ever part of a script."""
     if command == PROBE_WINDOWS:
         return stdin is None
     if stdin is None or not stdin.endswith("\n"):
@@ -958,6 +970,8 @@ def _read_only_windows(command: str, stdin: str | None) -> bool:
     if not arguments:
         # The `--cards` read goes under the door (`ssh`), as on POSIX.
         return sent == _b64(_reader_program())
+    if arguments == HARDWARE_ARG and sent == _b64(_reader_program()):
+        return True
     one = windows_split(arguments)
     return (
         len(one) == 1
@@ -971,8 +985,8 @@ def _read_only_command(command: str, stdin: str | None = None) -> bool:
     """Whether `command` (with `stdin`) is one of the read-only lines this
     module builds.
 
-    POSIX shapes: the shipped scanner's run, the `find` that discovers `*.gguf`
-    files one level down a quoted directory, the shipped header read with one
+    POSIX shapes: the shipped scanner's run (bare, or with HARDWARE_ARG), the
+    `find` that discovers `*.gguf` files one level down a quoted directory, the shipped header read with one
     quoted path, none with a stdin. Windows shapes:
     :func:`_read_only_windows`. Each blob is compared against the one this
     checkout builds, so anything else — a hand-edited line included — is not
@@ -982,9 +996,10 @@ def _read_only_command(command: str, stdin: str | None = None) -> bool:
         return _read_only_windows(command, stdin)
     if stdin is not None:
         return False
-    if command.startswith("echo ") and command.endswith(_SCAN_READ_SUFFIX):
-        blob = command[len("echo ") : -len(_SCAN_READ_SUFFIX)]
-        return blob == _scan_read_blob()
+    for suffix in (_SCAN_READ_SUFFIX, f"{_SCAN_READ_SUFFIX} {HARDWARE_ARG}"):
+        if command.startswith("echo ") and command.endswith(suffix):
+            blob = command[len("echo ") : -len(suffix)]
+            return blob == _scan_read_blob()
 
     prefix = "find "
     suffix = " -maxdepth 1 -name '*.gguf' -print"
