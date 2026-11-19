@@ -49,13 +49,13 @@ from mcgyvr.serving import DEFAULT_ENGINE, Card, cards, host_of, port_of
 
 # The door: one process per card, run as `python -m mcgyvr.serving.run serve
 # <up|down|sleep|wake> --host H --compose <spec> [--suffix S] [--unit C ...]`.
-# DOOR_MODULE is the module spawned below and the one the "name the file
-# yourself" message tells a person to run; NO_SLEEP_ROUTE is the exit code a
-# `sleep` run answers with when a unit on the card has no sleep route, which
-# means the card can only be stopped. Both names are taken from here so this
+# DOOR_MODULE is the module spawned below, and `door_line` the line the "name
+# the file yourself" message tells a person to run; NO_SLEEP_ROUTE is the exit
+# code a `sleep` run answers with when a unit on the card has no sleep route,
+# which means the card can only be stopped. The names are taken from here so this
 # file never spells the door's module again, and so the exit code the fallback
 # in `put_down` depends on is the one the gate scripts themselves return.
-from mcgyvr.serving.gatelib import DOOR_MODULE, NO_SLEEP_ROUTE
+from mcgyvr.serving.gatelib import DOOR_MODULE, NO_SLEEP_ROUTE, door_line
 from mcgyvr.userdir import owned_outright, user_tempdir
 
 #: The answer of whatever is being sent through `Waker.dispatching`: a draw or a
@@ -575,7 +575,7 @@ def _why_not_one(card: Card) -> str:
         f"{card.host}: this config holds {len(card.specs)} launch specs for "
         f"that card — {listed} — and only one of them is ever up. Which one is "
         f"current is not a question the config answers, so mcgyvr will not "
-        f"guess: name the file to `python -m {DOOR_MODULE} serve` yourself. If "
+        f"guess: name the file to `{door_line('serve')}` yourself. If "
         f"one of these is an older cut of the rig, `mcgyvr emit --check` says "
         f"which, and deleting it leaves one"
     )

@@ -48,6 +48,34 @@ DOOR = "python -m mcgyvr.serving.run serve|read|link --host H ..."
 DOOR_FILE = "mcgyvr/serving/run.py"
 DOOR_MODULE = "mcgyvr.serving.run"
 
+#: A word PowerShell hands a program as it is written, with nothing to quote.
+_POWERSHELL_PLAIN = re.compile(r"[A-Za-z0-9_./:=+-]+")
+
+
+def door_line(*args: str, windows: bool | None = None) -> str:
+    """The door command, with `args`, as a person pastes it into their shell.
+
+    The interpreter is the one running (`sys.executable`): the environment that
+    holds mcgyvr, where a bare `python` on PATH need not be that environment and
+    on a uv tool install is not there at all. On POSIX the words are joined as
+    `shlex.join` joins them, the rule the other commands printed for a person
+    follow. On Windows (`windows`, by default whether this machine is one) the
+    line is PowerShell's: a word that is not plain goes in single quotes with
+    any single quote doubled, and the line starts with the call operator `&`,
+    without which PowerShell reads a quoted first word as a string.
+    """
+    words = [sys.executable or "python", "-m", DOOR_MODULE, *args]
+    if not (sys.platform == "win32" if windows is None else windows):
+        return shlex.join(words)
+    quoted = (
+        word
+        if _POWERSHELL_PLAIN.fullmatch(word)
+        else "'" + word.replace("'", "''") + "'"
+        for word in words
+    )
+    return "& " + " ".join(quoted)
+
+
 #: The door's own `ssh` and `docker`, put first on a run's PATH (the shims), and
 #: the Windows launchers beside them that a program looking a command up by
 #: PATHEXT finds (`docker` looking up `ssh` for an ssh:// daemon).

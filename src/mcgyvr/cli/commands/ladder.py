@@ -77,17 +77,16 @@ def _native_status(host: str) -> int:
     """Print one line per native unit this machine supervises, or has.
 
     Only a name of this machine (`gatelib.LOCAL_RIGS`) is read here; a macOS
-    or Windows rig's native units are read through the door
-    (`python -m mcgyvr.serving.run read --host RIG`), and any other host is
-    refused.
+    or Windows rig's native units are read through the door (its `read --host
+    RIG`, run by the interpreter running mcgyvr: `gatelib.door_line`), and any
+    other host is refused.
     """
     from mcgyvr.serving import gatelib, native
 
     if host not in gatelib.LOCAL_RIGS:
         print(
             f"error: {host} is not this machine; a rig's native units are "
-            "read through the door (`python -m mcgyvr.serving.run read --host "
-            f"{host}`)",
+            f"read through the door (`{gatelib.door_line('read', '--host', host)}`)",
             file=sys.stderr,
         )
         return Exit.REFUSED
