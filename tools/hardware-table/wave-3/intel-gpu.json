@@ -1,0 +1,4956 @@
+{
+ "schema": 1,
+ "slice": "intel-gpu",
+ "wave": 3,
+ "sources": [
+  {
+   "id": "s1",
+   "url": "https://www.intel.com/content/www/us/en/products/sku/229151/intel-arc-a770-graphics-16gb/specifications.html",
+   "title": "Intel Arc A770 Graphics (16GB) - Product Specifications",
+   "publisher": "intel.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s2",
+   "url": "https://www.intel.com/content/www/us/en/products/sku/241598/intel-arc-b580-graphics/specifications.html",
+   "title": "Intel Arc B580 Graphics - Product Specifications",
+   "publisher": "intel.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s3",
+   "url": "https://www.intel.com/content/www/us/en/products/sku/236847/intel-core-ultra-7-processor-155h-24m-cache-up-to-4-80-ghz/specifications.html",
+   "title": "Intel Core Ultra 7 Processor 155H - Product Specifications",
+   "publisher": "intel.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s4",
+   "url": "https://www.intel.com/content/www/us/en/docs/oneapi/optimization-guide-gpu/2025-2/boost-matrix-multiplication-performance-with-intel.html",
+   "title": "oneAPI GPU Optimization Guide: Boost Matrix Multiplication Performance with Intel XMX",
+   "publisher": "intel.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s5",
+   "url": "https://www.intel.com/content/www/us/en/docs/oneapi/optimization-guide-gpu/2025-0/intel-xe-gpu-architecture.html",
+   "title": "oneAPI GPU Optimization Guide: Intel Xe GPU Architecture",
+   "publisher": "intel.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s6",
+   "url": "https://raw.githubusercontent.com/openvinotoolkit/openvino/master/docs/articles_en/about-openvino/release-notes-openvino/system-requirements.rst",
+   "title": "OpenVINO system requirements (source of docs.openvino.ai page)",
+   "publisher": "github.com/openvinotoolkit",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s7",
+   "url": "https://raw.githubusercontent.com/openvinotoolkit/openvino/master/docs/articles_en/openvino-workflow/running-inference/inference-devices-and-modes/gpu-device.rst",
+   "title": "OpenVINO GPU Device page (source)",
+   "publisher": "github.com/openvinotoolkit",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s8",
+   "url": "https://raw.githubusercontent.com/intel/compute-runtime/master/README.md",
+   "title": "intel/compute-runtime README (OpenCL / Level Zero driver)",
+   "publisher": "github.com/intel",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s9",
+   "url": "https://dgpu-docs.intel.com/devices/hardware-table.html",
+   "title": "Intel dGPU docs: hardware table (PCI IDs per product)",
+   "publisher": "dgpu-docs.intel.com",
+   "official": true,
+   "fetch": "blocked"
+  },
+  {
+   "id": "s10",
+   "url": "https://www.intel.com/content/www/us/en/products/sku/227954/intel-arc-a750-graphics/specifications.html",
+   "title": "Intel Arc A750 Graphics - Product Specifications",
+   "publisher": "intel.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s11",
+   "url": "https://www.intel.com/content/www/us/en/products/sku/227959/intel-arc-a380-graphics/specifications.html",
+   "title": "Intel Arc A380 Graphics - Product Specifications",
+   "publisher": "intel.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s12",
+   "url": "https://www.intel.com/content/www/us/en/products/sku/241676/intel-arc-b570-graphics/specifications.html",
+   "title": "Intel Arc B570 Graphics - Product Specifications",
+   "publisher": "intel.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s13",
+   "url": "https://www.intel.com/content/www/us/en/products/sku/227955/intel-arc-a770-graphics-8gb/specifications.html",
+   "title": "Intel Arc A770 Graphics (8GB) - Product Specifications",
+   "publisher": "intel.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s14",
+   "url": "https://www.intel.com/content/www/us/en/products/sku/227961/intel-arc-a580-graphics/specifications.html",
+   "title": "Intel Arc A580 Graphics - Product Specifications",
+   "publisher": "intel.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s15",
+   "url": "https://www.intel.com/content/www/us/en/products/sku/227958/intel-arc-a310-graphics/specifications.html",
+   "title": "Intel Arc A310 Graphics - Product Specifications",
+   "publisher": "intel.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s16",
+   "url": "https://www.intel.com/content/www/us/en/ark/products/series/227957/intel-arc-a-series-graphics.html",
+   "title": "Intel Arc A-Series Graphics Product Specifications (series table)",
+   "publisher": "intel.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s17",
+   "url": "https://www.intel.com/content/www/us/en/ark/products/series/240391/intel-arc-b-series-graphics.html",
+   "title": "Intel Arc B-Series Graphics Product Specifications (series table: B570, B580 only)",
+   "publisher": "intel.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s18",
+   "url": "https://www.intel.com/content/www/us/en/products/sku/240957/intel-core-ultra-7-processor-258v-12m-cache-up-to-4-80-ghz/specifications.html",
+   "title": "Intel Core Ultra 7 Processor 258V - Product Specifications",
+   "publisher": "intel.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s19",
+   "url": "https://www.intel.com/content/www/us/en/products/sku/241060/intel-core-ultra-9-processor-285k-36m-cache-up-to-5-70-ghz/specifications.html",
+   "title": "Intel Core Ultra 9 Processor 285K - Product Specifications",
+   "publisher": "intel.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s20",
+   "url": "https://www.intel.com/content/www/us/en/products/sku/134599/intel-core-i912900k-processor-30m-cache-up-to-5-20-ghz/specifications.html",
+   "title": "Intel Core i9-12900K Processor - Product Specifications",
+   "publisher": "intel.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s21",
+   "url": "https://www.intel.com/content/www/us/en/products/sku/208664/intel-core-i71185g7-processor-12m-cache-up-to-4-80-ghz-with-ipu/specifications.html",
+   "title": "Intel Core i7-1185G7 Processor - Product Specifications",
+   "publisher": "intel.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s22",
+   "url": "https://www.intel.com/content/www/us/en/developer/tools/opencl/features.html",
+   "title": "Intel Tools for OpenCL Software: features (Khronos extension table, column of a row not recoverable from the text)",
+   "publisher": "intel.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s23",
+   "url": "https://www.intel.com/content/www/us/en/products/sku/186605/intel-core-i99900k-processor-16m-cache-up-to-5-00-ghz/specifications.html",
+   "title": "Intel Core i9-9900K Processor - Product Specifications",
+   "publisher": "intel.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s24",
+   "url": "https://www.intel.com/content/www/us/en/products/sku/134586/intel-core-i512400-processor-18m-cache-up-to-4-40-ghz/specifications.html",
+   "title": "Intel Core i5-12400 Processor - Product Specifications",
+   "publisher": "intel.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s25",
+   "url": "https://docs.openvino.ai/2025/about-openvino/release-notes-openvino/system-requirements.html",
+   "title": "OpenVINO system requirements (rendered docs page)",
+   "publisher": "docs.openvino.ai",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s26",
+   "url": "https://docs.openvino.ai/2025/openvino-workflow/running-inference/inference-devices-and-modes/gpu-device.html",
+   "title": "OpenVINO GPU Device (rendered docs page)",
+   "publisher": "docs.openvino.ai",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s27",
+   "url": "https://www.intel.com/content/www/us/en/developer/articles/system-requirements/intel-oneapi-dpcpp-system-requirements.html",
+   "title": "Intel oneAPI DPC++/C++ Compiler system requirements",
+   "publisher": "intel.com",
+   "official": true,
+   "fetch": "blocked"
+  },
+  {
+   "id": "s28",
+   "url": "https://www.intel.com/content/www/us/en/products/sku/243916/intel-arc-pro-b60-graphics/specifications.html",
+   "title": "Intel Arc Pro B60 Graphics - Product Specifications",
+   "publisher": "intel.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s29",
+   "url": "https://www.intel.com/content/www/us/en/products/sku/242615/intel-arc-pro-b50-graphics/specifications.html",
+   "title": "Intel Arc Pro B50 Graphics - Product Specifications",
+   "publisher": "intel.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s30",
+   "url": "https://www.intel.com/content/www/us/en/products/sku/245796/intel-arc-pro-b65-graphics/specifications.html",
+   "title": "Intel Arc Pro B65 Graphics - Product Specifications",
+   "publisher": "intel.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s31",
+   "url": "https://www.intel.com/content/www/us/en/products/sku/245797/intel-arc-pro-b70-graphics/specifications.html",
+   "title": "Intel Arc Pro B70 Graphics - Product Specifications",
+   "publisher": "intel.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s32",
+   "url": "https://www.intel.com/content/www/us/en/products/sku/236851/intel-core-ultra-7-processor-165h-24m-cache-up-to-5-00-ghz/specifications.html",
+   "title": "Intel Core Ultra 7 Processor 165H - Product Specifications",
+   "publisher": "intel.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s33",
+   "url": "https://www.intel.com/content/www/us/en/products/sku/236848/intel-core-ultra-5-processor-125h-18m-cache-up-to-4-50-ghz/specifications.html",
+   "title": "Intel Core Ultra 5 Processor 125H - Product Specifications",
+   "publisher": "intel.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s34",
+   "url": "https://www.intel.com/content/www/us/en/products/sku/237328/intel-core-ultra-5-processor-135u-12m-cache-up-to-4-40-ghz/specifications.html",
+   "title": "Intel Core Ultra 5 Processor 135U - Product Specifications",
+   "publisher": "intel.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s35",
+   "url": "https://www.intel.com/content/www/us/en/products/sku/240960/intel-core-ultra-5-processor-226v-8m-cache-up-to-4-50-ghz/specifications.html",
+   "title": "Intel Core Ultra 5 Processor 226V - Product Specifications",
+   "publisher": "intel.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s36",
+   "url": "https://www.intel.com/content/www/us/en/products/sku/241747/intel-core-ultra-9-processor-285h-24m-cache-up-to-5-40-ghz/specifications.html",
+   "title": "Intel Core Ultra 9 Processor 285H - Product Specifications",
+   "publisher": "intel.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s37",
+   "url": "https://www.intel.com/content/www/us/en/products/sku/241067/intel-core-ultra-5-processor-245k-24m-cache-up-to-5-20-ghz/specifications.html",
+   "title": "Intel Core Ultra 5 Processor 245K - Product Specifications",
+   "publisher": "intel.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s38",
+   "url": "https://www.intel.com/content/www/us/en/products/sku/226266/intel-core-i51235u-processor-12m-cache-up-to-4-40-ghz-with-ipu/specifications.html",
+   "title": "Intel Core i5-1235U Processor - Product Specifications",
+   "publisher": "intel.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s39",
+   "url": "https://www.intel.com/content/www/us/en/products/sku/226254/intel-core-i71260p-processor-18m-cache-up-to-4-70-ghz/specifications.html",
+   "title": "Intel Core i7-1260P Processor - Product Specifications",
+   "publisher": "intel.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s40",
+   "url": "https://www.intel.com/content/www/us/en/products/sku/232155/intel-core-i71360p-processor-18m-cache-up-to-5-00-ghz/specifications.html",
+   "title": "Intel Core i7-1360P Processor - Product Specifications",
+   "publisher": "intel.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s41",
+   "url": "https://www.intel.com/content/www/us/en/products/sku/208658/intel-core-i51135g7-processor-8m-cache-up-to-4-20-ghz/specifications.html",
+   "title": "Intel Core i5-1135G7 Processor - Product Specifications",
+   "publisher": "intel.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s42",
+   "url": "https://www.intel.com/content/www/us/en/products/sku/134584/intel-core-i312100-processor-12m-cache-up-to-4-30-ghz/specifications.html",
+   "title": "Intel Core i3-12100 Processor - Product Specifications",
+   "publisher": "intel.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s43",
+   "url": "https://www.intel.com/content/www/us/en/products/sku/232153/intel-core-i51335u-processor-12m-cache-up-to-4-60-ghz/specifications.html",
+   "title": "Intel Core i5-1335U Processor - Product Specifications",
+   "publisher": "intel.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s44",
+   "url": "https://www.intel.com/content/www/us/en/products/sku/134594/intel-core-i712700k-processor-25m-cache-up-to-5-00-ghz/specifications.html",
+   "title": "Intel Core i7-12700K Processor - Product Specifications",
+   "publisher": "intel.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s45",
+   "url": "https://www.intel.com/content/www/us/en/products/sku/126684/intel-core-i78700k-processor-12m-cache-up-to-4-70-ghz/specifications.html",
+   "title": "Intel Core i7-8700K Processor - Product Specifications",
+   "publisher": "intel.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s46",
+   "url": "https://www.intel.com/content/www/us/en/support/articles/000005524/graphics.html",
+   "title": "Supported APIs for Intel Graphics (table per graphics product: DirectX, OpenGL, OpenCL, Vulkan)",
+   "publisher": "intel.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s47",
+   "url": "https://raw.githubusercontent.com/intel/llvm/sycl/sycl/doc/extensions/experimental/sycl_ext_matrix/sycl_ext_oneapi_matrix.asciidoc",
+   "title": "sycl_ext_oneapi_matrix (Intel oneAPI DPC++ joint_matrix extension): XMX supported combinations per architecture",
+   "publisher": "github.com/intel/llvm",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s48",
+   "url": "https://www.intel.com/content/www/us/en/ark/products/series/242616/intel-arc-pro-b-series-graphics.html",
+   "title": "Intel Arc Pro B-Series Graphics Product Specifications (series table: B65, B70, B50, B60)",
+   "publisher": "intel.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s49",
+   "url": "https://raw.githubusercontent.com/intel/llvm/sycl/sycl/doc/extensions/experimental/sycl_ext_oneapi_device_architecture.asciidoc",
+   "title": "sycl_ext_oneapi_device_architecture (maps architecture ids to codenames)",
+   "publisher": "intel.com (github intel/llvm)",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s50",
+   "url": "https://www.intel.com/content/www/us/en/products/sku/237327/intel-core-ultra-7-processor-155u-12m-cache-up-to-4-80-ghz/specifications.html",
+   "title": "Intel Core Ultra 7 Processor 155U specifications",
+   "publisher": "intel.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s51",
+   "url": "https://www.intel.com/content/www/us/en/products/sku/232160/intel-core-i71355u-processor-12m-cache-up-to-5-00-ghz/specifications.html",
+   "title": "Intel Core i7-1355U specifications",
+   "publisher": "intel.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s52",
+   "url": "https://www.intel.com/content/www/us/en/products/sku/232127/intel-core-i51345u-processor-12m-cache-up-to-4-70-ghz/specifications.html",
+   "title": "Intel Core i5-1345U specifications",
+   "publisher": "intel.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s53",
+   "url": "https://www.intel.com/content/www/us/en/products/sku/240958/intel-core-ultra-7-processor-268v-12m-cache-up-to-5-00-ghz/specifications.html",
+   "title": "Intel Core Ultra 7 Processor 268V specifications",
+   "publisher": "intel.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s54",
+   "url": "https://www.intel.com/content/www/us/en/products/sku/240959/intel-core-ultra-5-processor-238v-8m-cache-up-to-4-70-ghz/specifications.html",
+   "title": "Intel Core Ultra 5 processor 236V specifications (URL slug says 238V; page Processor Number is 236V)",
+   "publisher": "intel.com",
+   "official": true,
+   "fetch": "ok"
+  }
+ ],
+ "source_map": [
+  {
+   "field": "name",
+   "source": "s1",
+   "note": "One page per card: intel.com/content/www/us/en/products/sku/<SKU>/<slug>/specifications.html (a plain request reads it). The page text writes superscripts inside the word: 'Intel® ArcTM A770 Graphics (16GB)'. Label and value are side by side without a colon: 'Memory Size 16 GB'. SKUs: A310 227958, A380 227959, A580 227961, A750 227954, A770 8GB 227955, A770 16GB 229151, B570 241676, B580 241598, Arc Pro B50 242615, B60 243916, B65 245796, B70 245797. Series tables: s16 (A), s17 (B: only B570, B580), s48 (Pro B: B65, B70, B50, B60). iGPUs: the host processor's page (no page of their own); label and value are separated by attribute residue, so quote them as 'label | value'."
+  },
+  {
+   "field": "segment",
+   "source": "s1",
+   "note": "'Vertical Segment Desktop' on A and B card pages. Arc Pro pages carry no Vertical Segment row (workstation is our classification from 'Product Collection Intel Arc Pro B-Series Graphics'). Processor pages: Mobile or Desktop; 'integrated' is our classification."
+  },
+  {
+   "field": "architecture",
+   "source": "s1",
+   "note": "'Code Name Products formerly Alchemist Microarchitecture Xe HPG' (A), 'Xe2' (B and Pro B). Processor pages give only the CPU code name; the oneAPI guide s5 names Xe-LP (TGL = Tiger Lake) so only the Tiger Lake Iris Xe rows get an architecture. Xe-LPG (Meteor Lake) and Xe2 for Lunar Lake are not named on any page read."
+  },
+  {
+   "field": "launch",
+   "source": "s1",
+   "note": "'Launch Date Q3'22' style on every spec page."
+  },
+  {
+   "field": "pci_device_ids",
+   "source": "s1",
+   "note": "Spec pages carry one 'Device ID' (processor pages: one or two). The fuller list is the dgpu-docs hardware table s9: it returns 0 characters of text to page.py (script-rendered), so it stays blocked."
+  },
+  {
+   "field": "memory.size_gb",
+   "source": "s1",
+   "note": "'Memory Size 16 GB' on A cards; 'Memory 12 GB GDDR6' (size and type in one row) on B and Pro B cards. iGPU: shares system memory; processor page gives 'Max Memory Size (dependent on memory type)' for the whole processor."
+  },
+  {
+   "field": "memory.type",
+   "source": "s1",
+   "note": "'Memory Type GDDR6' (A cards) or the 'Memory 12 GB GDDR6' row (B cards). iGPU: processor page 'Memory Types ...' lists system memory."
+  },
+  {
+   "field": "memory.bus_bits",
+   "source": "s1",
+   "note": "'Graphics Memory Interface 256 bit' on every card page. iGPU: none."
+  },
+  {
+   "field": "memory.speed_gbps",
+   "source": "s1",
+   "note": "'Graphics Memory Speed 17.5 Gbps'. B65 page has no speed row. iGPU: none."
+  },
+  {
+   "field": "memory.bandwidth_gbps",
+   "source": "s1",
+   "note": "'Graphics Memory Bandwidth 560 GB/s' on card pages and in the series tables. iGPU: Intel states none (only system memory MT/s and channels on the processor page)."
+  },
+  {
+   "field": "compute.units",
+   "source": "s1",
+   "note": "'Xe-cores N' and 'Xe Vector Engines N' on Arc pages and Core Ultra processor pages ('Xe-cores 8'); 'Execution Units N' on 11th-13th gen and UHD processor pages. i9-9900K and i7-8700K pages (UHD 630) have no EU row."
+  },
+  {
+   "field": "compute.clock_mhz",
+   "source": "s1",
+   "note": "'Graphics Clock 2100 MHz' on cards (boost or base not said). Pro B50 and B70 also give 'Graphics Max Dynamic Clock'. iGPU: 'Graphics Max Dynamic Frequency' differs per processor model (155H 2.25, 165H 2.3, 125H 2.2 GHz; 12900K 1.55, 12700K 1.50; 12400 1.45, 12100 1.40)."
+  },
+  {
+   "field": "compute.fp32_tflops",
+   "source": "s28",
+   "note": "Only the Arc Pro pages (s28, s29, s30, s31) state 'GPU TFLOPS (FP32)'. Arc A, Arc B and processor pages state only 'GPU Peak TOPS (Int8)'; left empty there."
+  },
+  {
+   "field": "formats.matrix.name",
+   "source": "s1",
+   "note": "Arc and Arc Pro pages: 'Intel® Xe Matrix Extensions (Intel® XMX) Engines 512'. Processor pages do not list XMX for Meteor Lake or Arrow Lake desktop; for Lunar Lake and Arrow Lake H the SYCL matrix extension doc s47 lists XMX for architecture lnl_m and arl_h."
+  },
+  {
+   "field": "formats.matrix.precisions",
+   "source": "s47",
+   "note": "s47 'Intel XMX Supported Combinations': uint8/sint8 -> sint32, fp16, bf16 for architecture bmg_g21/bmg_g31 (Battlemage), lnl_m (Lunar Lake), dg2_g10-12 and arl_h. tf32 is not on the XMX rows of those architectures. s5 gives Xe-HPG 'int8 and FP16/BF16' for Arc A."
+  },
+  {
+   "field": "formats.int8_dot",
+   "source": "s5",
+   "note": "Only s5 (Xe-LP EU table, '32 (DP4A)') is usable, for Iris Xe. s22 lists cl_khr_integer_dot_product with two circles but the column of each circle is lost in the text, so it is not used."
+  },
+  {
+   "field": "formats.fp16",
+   "source": "s5",
+   "note": "s5: Xe-LP EU FP16 (Iris Xe); XMX fp16 for Xe-HPG (s5) and Xe2 (s47). Nothing for Xe-LPG, UHD 730/770 (generation not stated on a page) or UHD 630."
+  },
+  {
+   "field": "api.oneapi",
+   "source": "s1",
+   "note": "Card pages: 'oneAPI Support Yes', 'OpenVINOTM Support Yes'. Core Ultra processor pages: 'AI Software Frameworks Supported by GPU OpenVINOTM, WindowsML, DirectML, ONNX RT, WebGPU'. UHD / Iris Xe: OpenVINO supported-hardware list on docs.openvino.ai (s25, now readable). Driver stack: s8 compute-runtime lists the platforms. The oneAPI DPC++ requirements page s27 returns 403."
+  },
+  {
+   "field": "api.vulkan",
+   "source": "s1",
+   "note": "Card pages 'Vulkan* Support 1.3' (Pro B50 1.4). For UHD, Iris Xe and UHD 630 the Intel support article s46 'Supported APIs for Intel Graphics' (table row per product). The same article lists Intel Arc Pro B-Series at 1.4 whereas B60, B65, B70 pages say 1.3. Core Ultra Arc/Intel Graphics are not in s46: no official Vulkan row found."
+  },
+  {
+   "field": "api.opencl",
+   "source": "s1",
+   "note": "'OpenCL* Support 3.0' on card pages and processor pages; s46 gives it per product (UHD 630: 2.1)."
+  }
+ ],
+ "rows": [
+  {
+   "id": "intel-arc-a770-16gb",
+   "vendor": "intel",
+   "name": {
+    "v": "Intel Arc A770 Graphics (16GB)",
+    "src": "s1",
+    "quote": "Intel® ArcTM A770 Graphics (16GB)",
+    "how": "stated",
+    "official": true
+   },
+   "segment": {
+    "v": "desktop",
+    "src": "s1",
+    "quote": "Vertical Segment Desktop",
+    "how": "stated",
+    "official": true
+   },
+   "architecture": {
+    "v": "Xe HPG (Alchemist)",
+    "src": "s1",
+    "quote": "Code Name Products formerly Alchemist Microarchitecture Xe HPG",
+    "how": "stated",
+    "official": true
+   },
+   "launch": {
+    "v": "2022-Q3",
+    "src": "s1",
+    "quote": "Launch Date Q3'22",
+    "how": "stated",
+    "official": true
+   },
+   "pci_device_ids": {
+    "v": [
+     "0x56A0"
+    ],
+    "src": "s1",
+    "quote": "Device ID 0x56A0",
+    "how": "stated",
+    "official": true,
+    "note": "same single ID on the 8GB page"
+   },
+   "memory": {
+    "size_gb": {
+     "v": 16,
+     "src": "s1",
+     "quote": "Memory Size 16 GB",
+     "how": "stated",
+     "official": true
+    },
+    "type": {
+     "v": "GDDR6",
+     "src": "s1",
+     "quote": "Memory Type GDDR6",
+     "how": "stated",
+     "official": true
+    },
+    "bus_bits": {
+     "v": 256,
+     "src": "s1",
+     "quote": "Graphics Memory Interface 256 bit",
+     "how": "stated",
+     "official": true
+    },
+    "speed_gbps": {
+     "v": 17.5,
+     "src": "s1",
+     "quote": "Graphics Memory Speed 17.5 Gbps",
+     "how": "stated",
+     "official": true
+    },
+    "bandwidth_gbps": {
+     "v": 560,
+     "src": "s1",
+     "quote": "Graphics Memory Bandwidth 560 GB/s",
+     "how": "stated",
+     "official": true
+    }
+   },
+   "compute": {
+    "units": {
+     "v": {
+      "count": 32,
+      "called": "Xe-cores"
+     },
+     "src": "s1",
+     "quote": "Xe-cores 32 | Xe Vector Engines 512",
+     "how": "stated",
+     "official": true
+    },
+    "clock_mhz": {
+     "v": 2100,
+     "src": "s1",
+     "quote": "Graphics Clock 2100 MHz",
+     "how": "stated",
+     "official": true,
+     "note": "Intel labels it 'Graphics Clock'; boost or base not said"
+    },
+    "fp32_tflops": {
+     "v": null,
+     "why": "page gives only 'GPU Peak TOPS (Int8) 262', no TFLOPS"
+    }
+   },
+   "formats": {
+    "matrix": {
+     "name": {
+      "v": "Intel Xe Matrix Extensions (XMX)",
+      "src": "s1",
+      "quote": "Intel® Xe Matrix Extensions (Intel® XMX) Engines 512",
+      "how": "stated",
+      "official": true
+     },
+     "precisions": {
+      "v": [
+       "int8",
+       "fp16",
+       "bf16"
+      ],
+      "src": "s5",
+      "quote": "It powers the Intel® Arc GPUs. | With 16 matrix engines, the Xe-core delivers 4096 int8 and 2048 FP16/BF16 operations/cycle.",
+      "how": "stated",
+      "official": true,
+      "note": "Xe-HPG generation statement; s47 lists uint8/sint8, fp16, bf16 XMX combinations for architecture dg2_g10-g12; tf32 is not documented for Xe-HPG"
+     }
+    },
+    "int8_dot": {
+     "v": null,
+     "why": "s22 lists cl_khr_integer_dot_product with two circles but the column of each circle is lost in the page text; s5's Arc table row 'FP16 DP4AS' is not decodable; no page says plainly that Arc A has an int8 dot-product instruction"
+    },
+    "fp16": {
+     "v": true,
+     "src": "s5",
+     "quote": "With 16 matrix engines, the Xe-core delivers 4096 int8 and 2048 FP16/BF16 operations/cycle.",
+     "how": "stated",
+     "official": true,
+     "note": "matrix-engine FP16; s5 gives no FP16 vector-engine rate for Xe-HPG"
+    }
+   },
+   "api": {
+    "oneapi": {
+     "v": "oneAPI yes; OpenVINO yes; IPEX yes",
+     "src": "s1",
+     "quote": "aria-label=\"oneAPI Support\"> Yes OpenVINOTM Support Yes | Intel® Extension for PyTorch* (IPEX) Support Yes",
+     "how": "stated",
+     "official": true
+    },
+    "vulkan": {
+     "v": "1.3",
+     "src": "s1",
+     "quote": "Vulkan* Support 1.3",
+     "how": "stated",
+     "official": true
+    },
+    "opencl": {
+     "v": "3.0",
+     "src": "s1",
+     "quote": "OpenCL* Support 3.0",
+     "how": "stated",
+     "official": true
+    }
+   }
+  },
+  {
+   "id": "intel-arc-a770-8gb",
+   "vendor": "intel",
+   "name": {
+    "v": "Intel Arc A770 Graphics (8GB)",
+    "src": "s13",
+    "quote": "Intel® ArcTM A770 Graphics (8GB)",
+    "how": "stated",
+    "official": true
+   },
+   "segment": {
+    "v": "desktop",
+    "src": "s13",
+    "quote": "Vertical Segment Desktop",
+    "how": "stated",
+    "official": true
+   },
+   "architecture": {
+    "v": "Xe HPG (Alchemist)",
+    "src": "s13",
+    "quote": "Code Name Products formerly Alchemist Microarchitecture Xe HPG",
+    "how": "stated",
+    "official": true
+   },
+   "launch": {
+    "v": "2022-Q3",
+    "src": "s13",
+    "quote": "Launch Date Q3'22",
+    "how": "stated",
+    "official": true
+   },
+   "pci_device_ids": {
+    "v": [
+     "0x56A0"
+    ],
+    "src": "s13",
+    "quote": "Device ID 0x56A0",
+    "how": "stated",
+    "official": true,
+    "note": "same single ID as the 16GB page"
+   },
+   "memory": {
+    "size_gb": {
+     "v": 8,
+     "src": "s13",
+     "quote": "Memory Size 8 GB",
+     "how": "stated",
+     "official": true
+    },
+    "type": {
+     "v": "GDDR6",
+     "src": "s13",
+     "quote": "Memory Type GDDR6",
+     "how": "stated",
+     "official": true
+    },
+    "bus_bits": {
+     "v": 256,
+     "src": "s13",
+     "quote": "Graphics Memory Interface 256 bit",
+     "how": "stated",
+     "official": true
+    },
+    "speed_gbps": {
+     "v": 16,
+     "src": "s13",
+     "quote": "Graphics Memory Speed 16 Gbps",
+     "how": "stated",
+     "official": true
+    },
+    "bandwidth_gbps": {
+     "v": 512,
+     "src": "s13",
+     "quote": "Graphics Memory Bandwidth 512 GB/s",
+     "how": "stated",
+     "official": true
+    }
+   },
+   "compute": {
+    "units": {
+     "v": {
+      "count": 32,
+      "called": "Xe-cores"
+     },
+     "src": "s13",
+     "quote": "Xe-cores 32 | Xe Vector Engines 512",
+     "how": "stated",
+     "official": true
+    },
+    "clock_mhz": {
+     "v": 2100,
+     "src": "s13",
+     "quote": "Graphics Clock 2100 MHz",
+     "how": "stated",
+     "official": true,
+     "note": "boost or base not said"
+    },
+    "fp32_tflops": {
+     "v": null,
+     "why": "page gives only 'GPU Peak TOPS (Int8) 262', no TFLOPS"
+    }
+   },
+   "formats": {
+    "matrix": {
+     "name": {
+      "v": "Intel Xe Matrix Extensions (XMX)",
+      "src": "s13",
+      "quote": "Intel® Xe Matrix Extensions (Intel® XMX) Engines 512",
+      "how": "stated",
+      "official": true
+     },
+     "precisions": {
+      "v": [
+       "int8",
+       "fp16",
+       "bf16"
+      ],
+      "src": "s5",
+      "quote": "It powers the Intel® Arc GPUs. | With 16 matrix engines, the Xe-core delivers 4096 int8 and 2048 FP16/BF16 operations/cycle.",
+      "how": "stated",
+      "official": true,
+      "note": "Xe-HPG generation statement"
+     }
+    },
+    "int8_dot": {
+     "v": null,
+     "why": "see intel-arc-a770-16gb: no page states it plainly"
+    },
+    "fp16": {
+     "v": true,
+     "src": "s5",
+     "quote": "With 16 matrix engines, the Xe-core delivers 4096 int8 and 2048 FP16/BF16 operations/cycle.",
+     "how": "stated",
+     "official": true,
+     "note": "matrix-engine FP16 only"
+    }
+   },
+   "api": {
+    "oneapi": {
+     "v": "oneAPI yes; OpenVINO yes",
+     "src": "s13",
+     "quote": "aria-label=\"oneAPI Support\"> Yes OpenVINOTM Support Yes",
+     "how": "stated",
+     "official": true
+    },
+    "vulkan": {
+     "v": "1.3",
+     "src": "s13",
+     "quote": "Vulkan* Support 1.3",
+     "how": "stated",
+     "official": true
+    },
+    "opencl": {
+     "v": "3.0",
+     "src": "s13",
+     "quote": "OpenCL* Support 3.0",
+     "how": "stated",
+     "official": true
+    }
+   }
+  },
+  {
+   "id": "intel-arc-a750",
+   "vendor": "intel",
+   "name": {
+    "v": "Intel Arc A750 Graphics",
+    "src": "s10",
+    "quote": "Intel® ArcTM A750 Graphics",
+    "how": "stated",
+    "official": true
+   },
+   "segment": {
+    "v": "desktop",
+    "src": "s10",
+    "quote": "Vertical Segment Desktop",
+    "how": "stated",
+    "official": true
+   },
+   "architecture": {
+    "v": "Xe HPG (Alchemist)",
+    "src": "s10",
+    "quote": "Code Name Products formerly Alchemist Microarchitecture Xe HPG",
+    "how": "stated",
+    "official": true
+   },
+   "launch": {
+    "v": "2022-Q3",
+    "src": "s10",
+    "quote": "Launch Date Q3'22",
+    "how": "stated",
+    "official": true
+   },
+   "pci_device_ids": {
+    "v": [
+     "0x56A1"
+    ],
+    "src": "s10",
+    "quote": "Device ID 0x56A1",
+    "how": "stated",
+    "official": true
+   },
+   "memory": {
+    "size_gb": {
+     "v": 8,
+     "src": "s10",
+     "quote": "Memory Size 8 GB",
+     "how": "stated",
+     "official": true
+    },
+    "type": {
+     "v": "GDDR6",
+     "src": "s10",
+     "quote": "Memory Type GDDR6",
+     "how": "stated",
+     "official": true
+    },
+    "bus_bits": {
+     "v": 256,
+     "src": "s10",
+     "quote": "Graphics Memory Interface 256 bit",
+     "how": "stated",
+     "official": true
+    },
+    "speed_gbps": {
+     "v": 16,
+     "src": "s10",
+     "quote": "Graphics Memory Speed 16 Gbps",
+     "how": "stated",
+     "official": true
+    },
+    "bandwidth_gbps": {
+     "v": 512,
+     "src": "s10",
+     "quote": "Graphics Memory Bandwidth 512 GB/s",
+     "how": "stated",
+     "official": true
+    }
+   },
+   "compute": {
+    "units": {
+     "v": {
+      "count": 28,
+      "called": "Xe-cores"
+     },
+     "src": "s10",
+     "quote": "Xe-cores 28 | Xe Vector Engines 448",
+     "how": "stated",
+     "official": true
+    },
+    "clock_mhz": {
+     "v": 2050,
+     "src": "s10",
+     "quote": "Graphics Clock 2050 MHz",
+     "how": "stated",
+     "official": true,
+     "note": "boost or base not said"
+    },
+    "fp32_tflops": {
+     "v": null,
+     "why": "page gives only 'GPU Peak TOPS (Int8) 229', no TFLOPS"
+    }
+   },
+   "formats": {
+    "matrix": {
+     "name": {
+      "v": "Intel Xe Matrix Extensions (XMX)",
+      "src": "s10",
+      "quote": "Intel® Xe Matrix Extensions (Intel® XMX) Engines 448",
+      "how": "stated",
+      "official": true
+     },
+     "precisions": {
+      "v": [
+       "int8",
+       "fp16",
+       "bf16"
+      ],
+      "src": "s5",
+      "quote": "It powers the Intel® Arc GPUs. | With 16 matrix engines, the Xe-core delivers 4096 int8 and 2048 FP16/BF16 operations/cycle.",
+      "how": "stated",
+      "official": true,
+      "note": "Xe-HPG generation statement"
+     }
+    },
+    "int8_dot": {
+     "v": null,
+     "why": "see intel-arc-a770-16gb: no page states it plainly"
+    },
+    "fp16": {
+     "v": true,
+     "src": "s5",
+     "quote": "With 16 matrix engines, the Xe-core delivers 4096 int8 and 2048 FP16/BF16 operations/cycle.",
+     "how": "stated",
+     "official": true,
+     "note": "matrix-engine FP16 only"
+    }
+   },
+   "api": {
+    "oneapi": {
+     "v": "oneAPI yes; OpenVINO yes",
+     "src": "s10",
+     "quote": "aria-label=\"oneAPI Support\"> Yes OpenVINOTM Support Yes",
+     "how": "stated",
+     "official": true
+    },
+    "vulkan": {
+     "v": "1.3",
+     "src": "s10",
+     "quote": "Vulkan* Support 1.3",
+     "how": "stated",
+     "official": true
+    },
+    "opencl": {
+     "v": "3.0",
+     "src": "s10",
+     "quote": "OpenCL* Support 3.0",
+     "how": "stated",
+     "official": true
+    }
+   }
+  },
+  {
+   "id": "intel-arc-a580",
+   "vendor": "intel",
+   "name": {
+    "v": "Intel Arc A580 Graphics",
+    "src": "s14",
+    "quote": "Intel® ArcTM A580 Graphics",
+    "how": "stated",
+    "official": true
+   },
+   "segment": {
+    "v": "desktop",
+    "src": "s14",
+    "quote": "Vertical Segment Desktop",
+    "how": "stated",
+    "official": true
+   },
+   "architecture": {
+    "v": "Xe HPG (Alchemist)",
+    "src": "s14",
+    "quote": "Code Name Products formerly Alchemist Microarchitecture Xe HPG",
+    "how": "stated",
+    "official": true
+   },
+   "launch": {
+    "v": "2023-Q4",
+    "src": "s14",
+    "quote": "Launch Date Q4'23",
+    "how": "stated",
+    "official": true
+   },
+   "pci_device_ids": {
+    "v": [
+     "0x56A2"
+    ],
+    "src": "s14",
+    "quote": "Device ID 0x56A2",
+    "how": "stated",
+    "official": true
+   },
+   "memory": {
+    "size_gb": {
+     "v": 8,
+     "src": "s14",
+     "quote": "Memory Size 8 GB",
+     "how": "stated",
+     "official": true
+    },
+    "type": {
+     "v": "GDDR6",
+     "src": "s14",
+     "quote": "Memory Type GDDR6",
+     "how": "stated",
+     "official": true
+    },
+    "bus_bits": {
+     "v": 256,
+     "src": "s14",
+     "quote": "Graphics Memory Interface 256 bit",
+     "how": "stated",
+     "official": true
+    },
+    "speed_gbps": {
+     "v": 16,
+     "src": "s14",
+     "quote": "Graphics Memory Speed 16 Gbps",
+     "how": "stated",
+     "official": true
+    },
+    "bandwidth_gbps": {
+     "v": 512,
+     "src": "s14",
+     "quote": "Graphics Memory Bandwidth 512 GB/s",
+     "how": "stated",
+     "official": true
+    }
+   },
+   "compute": {
+    "units": {
+     "v": {
+      "count": 24,
+      "called": "Xe-cores"
+     },
+     "src": "s14",
+     "quote": "Xe-cores 24 | Xe Vector Engines 384",
+     "how": "stated",
+     "official": true
+    },
+    "clock_mhz": {
+     "v": 1700,
+     "src": "s14",
+     "quote": "Graphics Clock 1700 MHz",
+     "how": "stated",
+     "official": true,
+     "note": "boost or base not said"
+    },
+    "fp32_tflops": {
+     "v": null,
+     "why": "page gives only 'GPU Peak TOPS (Int8) 197', no TFLOPS"
+    }
+   },
+   "formats": {
+    "matrix": {
+     "name": {
+      "v": "Intel Xe Matrix Extensions (XMX)",
+      "src": "s14",
+      "quote": "Intel® Xe Matrix Extensions (Intel® XMX) Engines 384",
+      "how": "stated",
+      "official": true
+     },
+     "precisions": {
+      "v": [
+       "int8",
+       "fp16",
+       "bf16"
+      ],
+      "src": "s5",
+      "quote": "It powers the Intel® Arc GPUs. | With 16 matrix engines, the Xe-core delivers 4096 int8 and 2048 FP16/BF16 operations/cycle.",
+      "how": "stated",
+      "official": true,
+      "note": "Xe-HPG generation statement"
+     }
+    },
+    "int8_dot": {
+     "v": null,
+     "why": "see intel-arc-a770-16gb: no page states it plainly"
+    },
+    "fp16": {
+     "v": true,
+     "src": "s5",
+     "quote": "With 16 matrix engines, the Xe-core delivers 4096 int8 and 2048 FP16/BF16 operations/cycle.",
+     "how": "stated",
+     "official": true,
+     "note": "matrix-engine FP16 only"
+    }
+   },
+   "api": {
+    "oneapi": {
+     "v": "oneAPI yes; OpenVINO yes",
+     "src": "s14",
+     "quote": "aria-label=\"oneAPI Support\"> Yes OpenVINOTM Support Yes",
+     "how": "stated",
+     "official": true
+    },
+    "vulkan": {
+     "v": "1.3",
+     "src": "s14",
+     "quote": "Vulkan* Support 1.3",
+     "how": "stated",
+     "official": true
+    },
+    "opencl": {
+     "v": "3.0",
+     "src": "s14",
+     "quote": "OpenCL* Support 3.0",
+     "how": "stated",
+     "official": true
+    }
+   }
+  },
+  {
+   "id": "intel-arc-a380",
+   "vendor": "intel",
+   "name": {
+    "v": "Intel Arc A380 Graphics",
+    "src": "s11",
+    "quote": "Intel® ArcTM A380 Graphics",
+    "how": "stated",
+    "official": true
+   },
+   "segment": {
+    "v": "desktop",
+    "src": "s11",
+    "quote": "Vertical Segment Desktop",
+    "how": "stated",
+    "official": true
+   },
+   "architecture": {
+    "v": "Xe HPG (Alchemist)",
+    "src": "s11",
+    "quote": "Code Name Products formerly Alchemist Microarchitecture Xe HPG",
+    "how": "stated",
+    "official": true
+   },
+   "launch": {
+    "v": "2022-Q2",
+    "src": "s11",
+    "quote": "Launch Date Q2'22",
+    "how": "stated",
+    "official": true
+   },
+   "pci_device_ids": {
+    "v": [
+     "0x56A5"
+    ],
+    "src": "s11",
+    "quote": "Device ID 0x56A5",
+    "how": "stated",
+    "official": true
+   },
+   "memory": {
+    "size_gb": {
+     "v": 6,
+     "src": "s11",
+     "quote": "Memory Size 6 GB",
+     "how": "stated",
+     "official": true
+    },
+    "type": {
+     "v": "GDDR6",
+     "src": "s11",
+     "quote": "Memory Type GDDR6",
+     "how": "stated",
+     "official": true
+    },
+    "bus_bits": {
+     "v": 96,
+     "src": "s11",
+     "quote": "Graphics Memory Interface 96 bit",
+     "how": "stated",
+     "official": true
+    },
+    "speed_gbps": {
+     "v": 15.5,
+     "src": "s11",
+     "quote": "Graphics Memory Speed 15.5 Gbps",
+     "how": "stated",
+     "official": true
+    },
+    "bandwidth_gbps": {
+     "v": 186,
+     "src": "s11",
+     "quote": "Graphics Memory Bandwidth 186 GB/s",
+     "how": "stated",
+     "official": true
+    }
+   },
+   "compute": {
+    "units": {
+     "v": {
+      "count": 8,
+      "called": "Xe-cores"
+     },
+     "src": "s11",
+     "quote": "Xe-cores 8 | Xe Vector Engines 128",
+     "how": "stated",
+     "official": true
+    },
+    "clock_mhz": {
+     "v": 2000,
+     "src": "s11",
+     "quote": "Graphics Clock 2000 MHz",
+     "how": "stated",
+     "official": true,
+     "note": "boost or base not said"
+    },
+    "fp32_tflops": {
+     "v": null,
+     "why": "page gives only 'GPU Peak TOPS (Int8) 66', no TFLOPS"
+    }
+   },
+   "formats": {
+    "matrix": {
+     "name": {
+      "v": "Intel Xe Matrix Extensions (XMX)",
+      "src": "s11",
+      "quote": "Intel® Xe Matrix Extensions (Intel® XMX) Engines 128",
+      "how": "stated",
+      "official": true
+     },
+     "precisions": {
+      "v": [
+       "int8",
+       "fp16",
+       "bf16"
+      ],
+      "src": "s5",
+      "quote": "It powers the Intel® Arc GPUs. | With 16 matrix engines, the Xe-core delivers 4096 int8 and 2048 FP16/BF16 operations/cycle.",
+      "how": "stated",
+      "official": true,
+      "note": "Xe-HPG generation statement"
+     }
+    },
+    "int8_dot": {
+     "v": null,
+     "why": "see intel-arc-a770-16gb: no page states it plainly"
+    },
+    "fp16": {
+     "v": true,
+     "src": "s5",
+     "quote": "With 16 matrix engines, the Xe-core delivers 4096 int8 and 2048 FP16/BF16 operations/cycle.",
+     "how": "stated",
+     "official": true,
+     "note": "matrix-engine FP16 only"
+    }
+   },
+   "api": {
+    "oneapi": {
+     "v": "oneAPI yes; OpenVINO yes",
+     "src": "s11",
+     "quote": "aria-label=\"oneAPI Support\"> Yes OpenVINOTM Support Yes",
+     "how": "stated",
+     "official": true
+    },
+    "vulkan": {
+     "v": "1.3",
+     "src": "s11",
+     "quote": "Vulkan* Support 1.3",
+     "how": "stated",
+     "official": true
+    },
+    "opencl": {
+     "v": "3.0",
+     "src": "s11",
+     "quote": "OpenCL* Support 3.0",
+     "how": "stated",
+     "official": true
+    }
+   }
+  },
+  {
+   "id": "intel-arc-a310",
+   "vendor": "intel",
+   "name": {
+    "v": "Intel Arc A310 Graphics",
+    "src": "s15",
+    "quote": "Intel® ArcTM A310 Graphics",
+    "how": "stated",
+    "official": true
+   },
+   "segment": {
+    "v": "desktop",
+    "src": "s15",
+    "quote": "Vertical Segment Desktop",
+    "how": "stated",
+    "official": true
+   },
+   "architecture": {
+    "v": "Xe HPG (Alchemist)",
+    "src": "s15",
+    "quote": "Code Name Products formerly Alchemist Microarchitecture Xe HPG",
+    "how": "stated",
+    "official": true
+   },
+   "launch": {
+    "v": "2022-Q3",
+    "src": "s15",
+    "quote": "Launch Date Q3'22",
+    "how": "stated",
+    "official": true
+   },
+   "pci_device_ids": {
+    "v": [
+     "0x56A6"
+    ],
+    "src": "s15",
+    "quote": "Device ID 0x56A6",
+    "how": "stated",
+    "official": true
+   },
+   "memory": {
+    "size_gb": {
+     "v": 4,
+     "src": "s15",
+     "quote": "Memory Size 4 GB",
+     "how": "stated",
+     "official": true
+    },
+    "type": {
+     "v": "GDDR6",
+     "src": "s15",
+     "quote": "Memory Type GDDR6",
+     "how": "stated",
+     "official": true
+    },
+    "bus_bits": {
+     "v": 64,
+     "src": "s15",
+     "quote": "Graphics Memory Interface 64 bit",
+     "how": "stated",
+     "official": true
+    },
+    "speed_gbps": {
+     "v": 15.5,
+     "src": "s15",
+     "quote": "Graphics Memory Speed 15.5 Gbps",
+     "how": "stated",
+     "official": true
+    },
+    "bandwidth_gbps": {
+     "v": 124,
+     "src": "s15",
+     "quote": "Graphics Memory Bandwidth 124 GB/s",
+     "how": "stated",
+     "official": true
+    }
+   },
+   "compute": {
+    "units": {
+     "v": {
+      "count": 6,
+      "called": "Xe-cores"
+     },
+     "src": "s15",
+     "quote": "Xe-cores 6 | Xe Vector Engines 96",
+     "how": "stated",
+     "official": true
+    },
+    "clock_mhz": {
+     "v": 2000,
+     "src": "s15",
+     "quote": "Graphics Clock 2000 MHz",
+     "how": "stated",
+     "official": true,
+     "note": "boost or base not said; page also gives 'Graphics Clock - LP 1000 MHz' for the low-power mode"
+    },
+    "fp32_tflops": {
+     "v": null,
+     "why": "page gives only 'GPU Peak TOPS (Int8) 52', no TFLOPS"
+    }
+   },
+   "formats": {
+    "matrix": {
+     "name": {
+      "v": "Intel Xe Matrix Extensions (XMX)",
+      "src": "s15",
+      "quote": "Intel® Xe Matrix Extensions (Intel® XMX) Engines 96",
+      "how": "stated",
+      "official": true
+     },
+     "precisions": {
+      "v": [
+       "int8",
+       "fp16",
+       "bf16"
+      ],
+      "src": "s5",
+      "quote": "It powers the Intel® Arc GPUs. | With 16 matrix engines, the Xe-core delivers 4096 int8 and 2048 FP16/BF16 operations/cycle.",
+      "how": "stated",
+      "official": true,
+      "note": "Xe-HPG generation statement"
+     }
+    },
+    "int8_dot": {
+     "v": null,
+     "why": "see intel-arc-a770-16gb: no page states it plainly"
+    },
+    "fp16": {
+     "v": true,
+     "src": "s5",
+     "quote": "With 16 matrix engines, the Xe-core delivers 4096 int8 and 2048 FP16/BF16 operations/cycle.",
+     "how": "stated",
+     "official": true,
+     "note": "matrix-engine FP16 only"
+    }
+   },
+   "api": {
+    "oneapi": {
+     "v": "oneAPI yes; OpenVINO yes",
+     "src": "s15",
+     "quote": "aria-label=\"oneAPI Support\"> Yes OpenVINOTM Support Yes",
+     "how": "stated",
+     "official": true
+    },
+    "vulkan": {
+     "v": "1.3",
+     "src": "s15",
+     "quote": "Vulkan* Support 1.3",
+     "how": "stated",
+     "official": true
+    },
+    "opencl": {
+     "v": "3.0",
+     "src": "s15",
+     "quote": "OpenCL* Support 3.0",
+     "how": "stated",
+     "official": true
+    }
+   }
+  },
+  {
+   "id": "intel-arc-b580",
+   "vendor": "intel",
+   "name": {
+    "v": "Intel Arc B580 Graphics",
+    "src": "s2",
+    "quote": "Intel® ArcTM B580 Graphics",
+    "how": "stated",
+    "official": true
+   },
+   "segment": {
+    "v": "desktop",
+    "src": "s2",
+    "quote": "Vertical Segment Desktop",
+    "how": "stated",
+    "official": true
+   },
+   "architecture": {
+    "v": "Xe2 (Battlemage)",
+    "src": "s2",
+    "quote": "Code Name Products formerly Battlemage Microarchitecture Xe2",
+    "how": "stated",
+    "official": true
+   },
+   "launch": {
+    "v": "2024-Q4",
+    "src": "s2",
+    "quote": "Launch Date Q4'24",
+    "how": "stated",
+    "official": true
+   },
+   "pci_device_ids": {
+    "v": [
+     "0xE20B"
+    ],
+    "src": "s2",
+    "quote": "Device ID 0xE20B",
+    "how": "stated",
+    "official": true
+   },
+   "memory": {
+    "size_gb": {
+     "v": 12,
+     "src": "s2",
+     "quote": "Memory 12 GB GDDR6",
+     "how": "stated",
+     "official": true
+    },
+    "type": {
+     "v": "GDDR6",
+     "src": "s2",
+     "quote": "Memory 12 GB GDDR6",
+     "how": "stated",
+     "official": true
+    },
+    "bus_bits": {
+     "v": 192,
+     "src": "s2",
+     "quote": "Graphics Memory Interface 192 bit",
+     "how": "stated",
+     "official": true
+    },
+    "speed_gbps": {
+     "v": 19,
+     "src": "s2",
+     "quote": "Graphics Memory Speed 19 Gbps",
+     "how": "stated",
+     "official": true
+    },
+    "bandwidth_gbps": {
+     "v": 456,
+     "src": "s2",
+     "quote": "Graphics Memory Bandwidth 456 GB/s",
+     "how": "stated",
+     "official": true
+    }
+   },
+   "compute": {
+    "units": {
+     "v": {
+      "count": 20,
+      "called": "Xe-cores"
+     },
+     "src": "s2",
+     "quote": "Xe-cores 20 | Xe Vector Engines 160",
+     "how": "stated",
+     "official": true
+    },
+    "clock_mhz": {
+     "v": 2670,
+     "src": "s2",
+     "quote": "Graphics Clock 2670 MHz",
+     "how": "stated",
+     "official": true,
+     "note": "boost or base not said"
+    },
+    "fp32_tflops": {
+     "v": null,
+     "why": "page gives only 'GPU Peak TOPS (Int8) 233', no TFLOPS"
+    }
+   },
+   "formats": {
+    "matrix": {
+     "name": {
+      "v": "Intel Xe Matrix Extensions (XMX)",
+      "src": "s2",
+      "quote": "Intel® Xe Matrix Extensions (Intel® XMX) Engines 160",
+      "how": "stated",
+      "official": true
+     },
+     "precisions": {
+      "v": [
+       "int8",
+       "fp16",
+       "bf16"
+      ],
+      "src": "s47",
+      "quote": "Intel XMX Supported Combinations This is currently available in devices with the architecture `architecture::intel_gpu_pvc`, `architecture::intel_gpu_bmg_g21`, `architecture::intel_gpu_bmg_g31` | `matrix_type::sint8` .2+| `matrix_type::sint8` | `matrix_type::fp16` .8+| `matrix_type::fp16` | `matrix_type::bf16` .8+| `matrix_type::bf16` | intel_gpu_bmg_g21 ---- |- |Battlemage G21 Intel graphics architecture.",
+      "how": "stated",
+      "official": true,
+      "note": "Intel's SYCL matrix extension doc lists the Battlemage architecture names bmg_g21/bmg_g31 (B580 is a Battlemage card per its page); precisions from the XMX table rows that name bmg; tf32 is not among them ; s47 names architectures only; s49 maps bmg_g21/bmg_g31 to 'Battlemage', and this product's page says 'formerly Battlemage', Microarchitecture Xe2. Which of G21/G31 a card uses is not stated on a page read, but both are in every row used here",
+      "also": [
+       "s49"
+      ]
+     }
+    },
+    "int8_dot": {
+     "v": null,
+     "why": "s22 lists cl_khr_integer_dot_product with two circles but the column of each circle is lost in the page text; no other Intel page states an int8 dot-product instruction for Xe2"
+    },
+    "fp16": {
+     "v": true,
+     "src": "s47",
+     "quote": "`architecture::intel_gpu_bmg_g21`, `architecture::intel_gpu_bmg_g31` | `matrix_type::fp16` .8+| `matrix_type::fp16` .8+| `matrix_type::fp32` | intel_gpu_bmg_g21 ---- |- |Battlemage G21 Intel graphics architecture.",
+     "how": "stated",
+     "official": true,
+     "note": "XMX fp16 inputs; the doc gives no vector-engine FP16 rate ; true via XMX fp16 matrix units (s47 fp16 rows list Battlemage); no vector-engine FP16 rate stated",
+     "also": [
+      "s49"
+     ]
+    }
+   },
+   "api": {
+    "oneapi": {
+     "v": "oneAPI yes; OpenVINO yes",
+     "src": "s2",
+     "quote": "aria-label=\"oneAPI Support\"> Yes OpenVINOTM Support Yes",
+     "how": "stated",
+     "official": true
+    },
+    "vulkan": {
+     "v": "1.3",
+     "src": "s2",
+     "quote": "Vulkan* Support 1.3",
+     "how": "stated",
+     "official": true
+    },
+    "opencl": {
+     "v": "3.0",
+     "src": "s2",
+     "quote": "OpenCL* Support 3.0",
+     "how": "stated",
+     "official": true
+    }
+   }
+  },
+  {
+   "id": "intel-arc-b570",
+   "vendor": "intel",
+   "name": {
+    "v": "Intel Arc B570 Graphics",
+    "src": "s12",
+    "quote": "Intel® ArcTM B570 Graphics",
+    "how": "stated",
+    "official": true
+   },
+   "segment": {
+    "v": "desktop",
+    "src": "s12",
+    "quote": "Vertical Segment Desktop",
+    "how": "stated",
+    "official": true
+   },
+   "architecture": {
+    "v": "Xe2 (Battlemage)",
+    "src": "s12",
+    "quote": "Code Name Products formerly Battlemage Microarchitecture Xe2",
+    "how": "stated",
+    "official": true
+   },
+   "launch": {
+    "v": "2024-Q4",
+    "src": "s12",
+    "quote": "Launch Date Q4'24",
+    "how": "stated",
+    "official": true
+   },
+   "pci_device_ids": {
+    "v": [
+     "0xE20C"
+    ],
+    "src": "s12",
+    "quote": "Device ID 0xE20C",
+    "how": "stated",
+    "official": true
+   },
+   "memory": {
+    "size_gb": {
+     "v": 10,
+     "src": "s12",
+     "quote": "Memory 10 GB GDDR6",
+     "how": "stated",
+     "official": true
+    },
+    "type": {
+     "v": "GDDR6",
+     "src": "s12",
+     "quote": "Memory 10 GB GDDR6",
+     "how": "stated",
+     "official": true
+    },
+    "bus_bits": {
+     "v": 160,
+     "src": "s12",
+     "quote": "Graphics Memory Interface 160 bit",
+     "how": "stated",
+     "official": true
+    },
+    "speed_gbps": {
+     "v": 19,
+     "src": "s12",
+     "quote": "Graphics Memory Speed 19 Gbps",
+     "how": "stated",
+     "official": true
+    },
+    "bandwidth_gbps": {
+     "v": 380,
+     "src": "s12",
+     "quote": "Graphics Memory Bandwidth 380 GB/s",
+     "how": "stated",
+     "official": true
+    }
+   },
+   "compute": {
+    "units": {
+     "v": {
+      "count": 18,
+      "called": "Xe-cores"
+     },
+     "src": "s12",
+     "quote": "Xe-cores 18 | Xe Vector Engines 144",
+     "how": "stated",
+     "official": true
+    },
+    "clock_mhz": {
+     "v": 2500,
+     "src": "s12",
+     "quote": "Graphics Clock 2500 MHz",
+     "how": "stated",
+     "official": true,
+     "note": "boost or base not said"
+    },
+    "fp32_tflops": {
+     "v": null,
+     "why": "page gives only 'GPU Peak TOPS (Int8) 203', no TFLOPS"
+    }
+   },
+   "formats": {
+    "matrix": {
+     "name": {
+      "v": "Intel Xe Matrix Extensions (XMX)",
+      "src": "s12",
+      "quote": "Intel® Xe Matrix Extensions (Intel® XMX) Engines 144",
+      "how": "stated",
+      "official": true
+     },
+     "precisions": {
+      "v": [
+       "int8",
+       "fp16",
+       "bf16"
+      ],
+      "src": "s47",
+      "quote": "Intel XMX Supported Combinations This is currently available in devices with the architecture `architecture::intel_gpu_pvc`, `architecture::intel_gpu_bmg_g21`, `architecture::intel_gpu_bmg_g31` | `matrix_type::sint8` .2+| `matrix_type::sint8` | `matrix_type::fp16` .8+| `matrix_type::fp16` | `matrix_type::bf16` .8+| `matrix_type::bf16` | intel_gpu_bmg_g21 ---- |- |Battlemage G21 Intel graphics architecture.",
+      "how": "stated",
+      "official": true,
+      "note": "as B580: Battlemage architecture names in Intel's SYCL matrix extension doc ; s47 names architectures only; s49 maps bmg_g21/bmg_g31 to 'Battlemage', and this product's page says 'formerly Battlemage', Microarchitecture Xe2. Which of G21/G31 a card uses is not stated on a page read, but both are in every row used here",
+      "also": [
+       "s49"
+      ]
+     }
+    },
+    "int8_dot": {
+     "v": null,
+     "why": "see intel-arc-b580"
+    },
+    "fp16": {
+     "v": true,
+     "src": "s47",
+     "quote": "`architecture::intel_gpu_bmg_g21`, `architecture::intel_gpu_bmg_g31` | `matrix_type::fp16` .8+| `matrix_type::fp16` .8+| `matrix_type::fp32` | intel_gpu_bmg_g21 ---- |- |Battlemage G21 Intel graphics architecture.",
+     "how": "stated",
+     "official": true,
+     "note": "XMX fp16 inputs ; true via XMX fp16 matrix units (s47 fp16 rows list Battlemage); no vector-engine FP16 rate stated",
+     "also": [
+      "s49"
+     ]
+    }
+   },
+   "api": {
+    "oneapi": {
+     "v": "oneAPI yes; OpenVINO yes",
+     "src": "s12",
+     "quote": "aria-label=\"oneAPI Support\"> Yes OpenVINOTM Support Yes",
+     "how": "stated",
+     "official": true
+    },
+    "vulkan": {
+     "v": "1.3",
+     "src": "s12",
+     "quote": "Vulkan* Support 1.3",
+     "how": "stated",
+     "official": true
+    },
+    "opencl": {
+     "v": "3.0",
+     "src": "s12",
+     "quote": "OpenCL* Support 3.0",
+     "how": "stated",
+     "official": true
+    }
+   }
+  },
+  {
+   "id": "intel-arc-pro-b50",
+   "vendor": "intel",
+   "name": {
+    "v": "Intel Arc Pro B50 Graphics",
+    "src": "s29",
+    "quote": "Intel® ArcTM Pro B50 Graphics",
+    "how": "stated",
+    "official": true
+   },
+   "segment": {
+    "v": "workstation",
+    "src": "s29",
+    "quote": "Product Collection Intel® ArcTM Pro B-Series Graphics",
+    "how": "classification: Arc Pro series; the page has no Vertical Segment row",
+    "official": true
+   },
+   "architecture": {
+    "v": "Xe2 (Battlemage)",
+    "src": "s29",
+    "quote": "Code Name Products formerly Battlemage Microarchitecture Xe2",
+    "how": "stated",
+    "official": true
+   },
+   "launch": {
+    "v": "2025-Q3",
+    "src": "s29",
+    "quote": "Launch Date Q3'25",
+    "how": "stated",
+    "official": true
+   },
+   "pci_device_ids": {
+    "v": [
+     "0xE212"
+    ],
+    "src": "s29",
+    "quote": "Device ID 0xE212",
+    "how": "stated",
+    "official": true
+   },
+   "memory": {
+    "size_gb": {
+     "v": 16,
+     "src": "s29",
+     "quote": "Memory 16 GB GDDR6",
+     "how": "stated",
+     "official": true
+    },
+    "type": {
+     "v": "GDDR6",
+     "src": "s29",
+     "quote": "Memory 16 GB GDDR6",
+     "how": "stated",
+     "official": true
+    },
+    "bus_bits": {
+     "v": 128,
+     "src": "s29",
+     "quote": "Graphics Memory Interface 128 bit",
+     "how": "stated",
+     "official": true
+    },
+    "speed_gbps": {
+     "v": 14,
+     "src": "s29",
+     "quote": "Graphics Memory Speed 14 Gbps",
+     "how": "stated",
+     "official": true
+    },
+    "bandwidth_gbps": {
+     "v": 224,
+     "src": "s29",
+     "quote": "Graphics Memory Bandwidth 224 GB/s",
+     "how": "stated",
+     "official": true
+    }
+   },
+   "compute": {
+    "units": {
+     "v": {
+      "count": 16,
+      "called": "Xe-cores"
+     },
+     "src": "s29",
+     "quote": "Xe-cores 16 | Xe Vector Engines 128",
+     "how": "stated",
+     "official": true
+    },
+    "clock_mhz": {
+     "v": 1700,
+     "src": "s29",
+     "quote": "Graphics Clock 1700 MHz",
+     "how": "stated",
+     "official": true,
+     "note": "'Graphics Clock'; the page also gives 'Graphics Max Dynamic Clock 2600 MHz'"
+    },
+    "fp32_tflops": {
+     "v": 10.65,
+     "src": "s29",
+     "quote": "GPU TFLOPS (FP32) 10.65",
+     "how": "stated",
+     "official": true
+    }
+   },
+   "formats": {
+    "matrix": {
+     "name": {
+      "v": "Intel Xe Matrix Extensions (XMX)",
+      "src": "s29",
+      "quote": "Intel® Xe Matrix Extensions (Intel® XMX) Engines 128",
+      "how": "stated",
+      "official": true
+     },
+     "precisions": {
+      "v": [
+       "int8",
+       "fp16",
+       "bf16"
+      ],
+      "src": "s47",
+      "quote": "Intel XMX Supported Combinations This is currently available in devices with the architecture `architecture::intel_gpu_pvc`, `architecture::intel_gpu_bmg_g21`, `architecture::intel_gpu_bmg_g31` | `matrix_type::sint8` .2+| `matrix_type::sint8` | `matrix_type::fp16` .8+| `matrix_type::fp16` | `matrix_type::bf16` .8+| `matrix_type::bf16` | intel_gpu_bmg_g21 ---- |- |Battlemage G21 Intel graphics architecture.",
+      "how": "stated",
+      "official": true,
+      "note": "Battlemage architecture names in the SYCL matrix extension doc; Pro B50 page says 'Products formerly Battlemage' ; s47 names architectures only; s49 maps bmg_g21/bmg_g31 to 'Battlemage', and this product's page says 'formerly Battlemage', Microarchitecture Xe2. Which of G21/G31 a card uses is not stated on a page read, but both are in every row used here",
+      "also": [
+       "s49"
+      ]
+     }
+    },
+    "int8_dot": {
+     "v": null,
+     "why": "see intel-arc-b580"
+    },
+    "fp16": {
+     "v": true,
+     "src": "s47",
+     "quote": "`architecture::intel_gpu_bmg_g21`, `architecture::intel_gpu_bmg_g31` | `matrix_type::fp16` .8+| `matrix_type::fp16` .8+| `matrix_type::fp32` | intel_gpu_bmg_g21 ---- |- |Battlemage G21 Intel graphics architecture.",
+     "how": "stated",
+     "official": true,
+     "note": "XMX fp16 inputs ; true via XMX fp16 matrix units (s47 fp16 rows list Battlemage); no vector-engine FP16 rate stated",
+     "also": [
+      "s49"
+     ]
+    }
+   },
+   "api": {
+    "oneapi": {
+     "v": "oneAPI yes; OpenVINO yes",
+     "src": "s29",
+     "quote": "aria-label=\"oneAPI Support\"> Yes OpenVINOTM Support Yes",
+     "how": "stated",
+     "official": true
+    },
+    "vulkan": {
+     "v": "1.4",
+     "src": "s29",
+     "quote": "Vulkan* Support 1.4",
+     "how": "stated",
+     "official": true,
+     "note": "s46 lists Arc Pro B-Series at Vulkan 1.4 as well"
+    },
+    "opencl": {
+     "v": "3.0",
+     "src": "s29",
+     "quote": "OpenCL* Support 3.0",
+     "how": "stated",
+     "official": true
+    }
+   }
+  },
+  {
+   "id": "intel-arc-pro-b60",
+   "vendor": "intel",
+   "name": {
+    "v": "Intel Arc Pro B60 Graphics",
+    "src": "s28",
+    "quote": "Intel® ArcTM Pro B60 Graphics",
+    "how": "stated",
+    "official": true
+   },
+   "segment": {
+    "v": "workstation",
+    "src": "s28",
+    "quote": "Product Collection Intel® ArcTM Pro B-Series Graphics",
+    "how": "classification: Arc Pro series; the page has no Vertical Segment row",
+    "official": true
+   },
+   "architecture": {
+    "v": "Xe2 (Battlemage)",
+    "src": "s28",
+    "quote": "Code Name Products formerly Battlemage Microarchitecture Xe2",
+    "how": "stated",
+    "official": true
+   },
+   "launch": {
+    "v": "2025-Q2",
+    "src": "s28",
+    "quote": "Launch Date Q2'25",
+    "how": "stated",
+    "official": true
+   },
+   "pci_device_ids": {
+    "v": [
+     "0xE211"
+    ],
+    "src": "s28",
+    "quote": "Device ID 0xE211",
+    "how": "stated",
+    "official": true
+   },
+   "memory": {
+    "size_gb": {
+     "v": 24,
+     "src": "s28",
+     "quote": "Memory 24 GB GDDR6",
+     "how": "stated",
+     "official": true
+    },
+    "type": {
+     "v": "GDDR6",
+     "src": "s28",
+     "quote": "Memory 24 GB GDDR6",
+     "how": "stated",
+     "official": true
+    },
+    "bus_bits": {
+     "v": 192,
+     "src": "s28",
+     "quote": "Graphics Memory Interface 192 bit",
+     "how": "stated",
+     "official": true
+    },
+    "speed_gbps": {
+     "v": 19,
+     "src": "s28",
+     "quote": "Graphics Memory Speed 19 Gbps",
+     "how": "stated",
+     "official": true
+    },
+    "bandwidth_gbps": {
+     "v": 456,
+     "src": "s28",
+     "quote": "Graphics Memory Bandwidth 456 GB/s",
+     "how": "stated",
+     "official": true
+    }
+   },
+   "compute": {
+    "units": {
+     "v": {
+      "count": 20,
+      "called": "Xe-cores"
+     },
+     "src": "s28",
+     "quote": "Xe-cores 20 | Xe Vector Engines 160",
+     "how": "stated",
+     "official": true
+    },
+    "clock_mhz": {
+     "v": 2400,
+     "src": "s28",
+     "quote": "Graphics Clock 2400 MHz",
+     "how": "stated",
+     "official": true,
+     "note": "page also gives 'Graphics Clock - LP 2000 MHz'"
+    },
+    "fp32_tflops": {
+     "v": 12.28,
+     "src": "s28",
+     "quote": "GPU TFLOPS (FP32) 12.28",
+     "how": "stated",
+     "official": true
+    }
+   },
+   "formats": {
+    "matrix": {
+     "name": {
+      "v": "Intel Xe Matrix Extensions (XMX)",
+      "src": "s28",
+      "quote": "Intel® Xe Matrix Extensions (Intel® XMX) Engines 160",
+      "how": "stated",
+      "official": true
+     },
+     "precisions": {
+      "v": [
+       "int8",
+       "fp16",
+       "bf16"
+      ],
+      "src": "s47",
+      "quote": "Intel XMX Supported Combinations This is currently available in devices with the architecture `architecture::intel_gpu_pvc`, `architecture::intel_gpu_bmg_g21`, `architecture::intel_gpu_bmg_g31` | `matrix_type::sint8` .2+| `matrix_type::sint8` | `matrix_type::fp16` .8+| `matrix_type::fp16` | `matrix_type::bf16` .8+| `matrix_type::bf16` | intel_gpu_bmg_g21 ---- |- |Battlemage G21 Intel graphics architecture.",
+      "how": "stated",
+      "official": true,
+      "note": "Battlemage architecture names in the SYCL matrix extension doc ; s47 names architectures only; s49 maps bmg_g21/bmg_g31 to 'Battlemage', and this product's page says 'formerly Battlemage', Microarchitecture Xe2. Which of G21/G31 a card uses is not stated on a page read, but both are in every row used here",
+      "also": [
+       "s49"
+      ]
+     }
+    },
+    "int8_dot": {
+     "v": null,
+     "why": "see intel-arc-b580"
+    },
+    "fp16": {
+     "v": true,
+     "src": "s47",
+     "quote": "`architecture::intel_gpu_bmg_g21`, `architecture::intel_gpu_bmg_g31` | `matrix_type::fp16` .8+| `matrix_type::fp16` .8+| `matrix_type::fp32` | intel_gpu_bmg_g21 ---- |- |Battlemage G21 Intel graphics architecture.",
+     "how": "stated",
+     "official": true,
+     "note": "XMX fp16 inputs ; true via XMX fp16 matrix units (s47 fp16 rows list Battlemage); no vector-engine FP16 rate stated",
+     "also": [
+      "s49"
+     ]
+    }
+   },
+   "api": {
+    "oneapi": {
+     "v": "oneAPI yes; OpenVINO yes",
+     "src": "s28",
+     "quote": "aria-label=\"oneAPI Support\"> Yes OpenVINOTM Support Yes",
+     "how": "stated",
+     "official": true
+    },
+    "vulkan": {
+     "v": null,
+     "why": "Intel disagrees with itself: the B60 page says 'Vulkan* Support 1.3', the support article s46 says 'Intel® ArcTM Pro B-Series Graphics (codename Battlemage) 12 4.6 3.0 1.4'"
+    },
+    "opencl": {
+     "v": "3.0",
+     "src": "s28",
+     "quote": "OpenCL* Support 3.0",
+     "how": "stated",
+     "official": true
+    }
+   }
+  },
+  {
+   "id": "intel-arc-pro-b65",
+   "vendor": "intel",
+   "name": {
+    "v": "Intel Arc Pro B65 Graphics",
+    "src": "s30",
+    "quote": "Intel® ArcTM Pro B65 Graphics",
+    "how": "stated",
+    "official": true
+   },
+   "segment": {
+    "v": "workstation",
+    "src": "s30",
+    "quote": "Product Collection Intel® ArcTM Pro B-Series Graphics",
+    "how": "classification: Arc Pro series; the page has no Vertical Segment row",
+    "official": true
+   },
+   "architecture": {
+    "v": "Xe2 (Battlemage)",
+    "src": "s30",
+    "quote": "Code Name Products formerly Battlemage Microarchitecture Xe2",
+    "how": "stated",
+    "official": true
+   },
+   "launch": {
+    "v": "2026-Q1",
+    "src": "s30",
+    "quote": "Launch Date Q1'26",
+    "how": "stated",
+    "official": true
+   },
+   "pci_device_ids": {
+    "v": [
+     "0xE222"
+    ],
+    "src": "s30",
+    "quote": "Device ID 0xE222",
+    "how": "stated",
+    "official": true
+   },
+   "memory": {
+    "size_gb": {
+     "v": 32,
+     "src": "s30",
+     "quote": "Memory 32 GB GDDR6",
+     "how": "stated",
+     "official": true
+    },
+    "type": {
+     "v": "GDDR6",
+     "src": "s30",
+     "quote": "Memory 32 GB GDDR6",
+     "how": "stated",
+     "official": true
+    },
+    "bus_bits": {
+     "v": 256,
+     "src": "s30",
+     "quote": "Graphics Memory Interface 256 bit",
+     "how": "stated",
+     "official": true
+    },
+    "speed_gbps": {
+     "v": null,
+     "why": "the B65 page has no 'Graphics Memory Speed' row"
+    },
+    "bandwidth_gbps": {
+     "v": 608,
+     "src": "s30",
+     "quote": "Graphics Memory Bandwidth 608 GB/s",
+     "how": "stated",
+     "official": true
+    }
+   },
+   "compute": {
+    "units": {
+     "v": {
+      "count": 20,
+      "called": "Xe-cores"
+     },
+     "src": "s30",
+     "quote": "Xe-cores 20 | Xe Vector Engines 160",
+     "how": "stated",
+     "official": true
+    },
+    "clock_mhz": {
+     "v": 2400,
+     "src": "s30",
+     "quote": "Graphics Clock 2400 MHz",
+     "how": "stated",
+     "official": true
+    },
+    "fp32_tflops": {
+     "v": 12.28,
+     "src": "s30",
+     "quote": "GPU TFLOPS (FP32) 12.28",
+     "how": "stated",
+     "official": true
+    }
+   },
+   "formats": {
+    "matrix": {
+     "name": {
+      "v": "Intel Xe Matrix Extensions (XMX)",
+      "src": "s30",
+      "quote": "Intel® Xe Matrix Extensions (Intel® XMX) Engines 160",
+      "how": "stated",
+      "official": true
+     },
+     "precisions": {
+      "v": [
+       "int8",
+       "fp16",
+       "bf16"
+      ],
+      "src": "s47",
+      "quote": "Intel XMX Supported Combinations This is currently available in devices with the architecture `architecture::intel_gpu_pvc`, `architecture::intel_gpu_bmg_g21`, `architecture::intel_gpu_bmg_g31` | `matrix_type::sint8` .2+| `matrix_type::sint8` | `matrix_type::fp16` .8+| `matrix_type::fp16` | `matrix_type::bf16` .8+| `matrix_type::bf16` | intel_gpu_bmg_g21 ---- |- |Battlemage G21 Intel graphics architecture.",
+      "how": "stated",
+      "official": true,
+      "note": "Battlemage architecture names in the SYCL matrix extension doc ; s47 names architectures only; s49 maps bmg_g21/bmg_g31 to 'Battlemage', and this product's page says 'formerly Battlemage', Microarchitecture Xe2. Which of G21/G31 a card uses is not stated on a page read, but both are in every row used here",
+      "also": [
+       "s49"
+      ]
+     }
+    },
+    "int8_dot": {
+     "v": null,
+     "why": "see intel-arc-b580"
+    },
+    "fp16": {
+     "v": true,
+     "src": "s47",
+     "quote": "`architecture::intel_gpu_bmg_g21`, `architecture::intel_gpu_bmg_g31` | `matrix_type::fp16` .8+| `matrix_type::fp16` .8+| `matrix_type::fp32` | intel_gpu_bmg_g21 ---- |- |Battlemage G21 Intel graphics architecture.",
+     "how": "stated",
+     "official": true,
+     "note": "XMX fp16 inputs ; true via XMX fp16 matrix units (s47 fp16 rows list Battlemage); no vector-engine FP16 rate stated",
+     "also": [
+      "s49"
+     ]
+    }
+   },
+   "api": {
+    "oneapi": {
+     "v": "oneAPI yes; OpenVINO yes",
+     "src": "s30",
+     "quote": "aria-label=\"oneAPI Support\"> Yes OpenVINOTM Support Yes",
+     "how": "stated",
+     "official": true
+    },
+    "vulkan": {
+     "v": null,
+     "why": "Intel disagrees with itself: the B65 page says 'Vulkan* Support 1.3', the support article s46 says Arc Pro B-Series 1.4"
+    },
+    "opencl": {
+     "v": "3.0",
+     "src": "s30",
+     "quote": "OpenCL* Support 3.0",
+     "how": "stated",
+     "official": true
+    }
+   }
+  },
+  {
+   "id": "intel-arc-pro-b70",
+   "vendor": "intel",
+   "name": {
+    "v": "Intel Arc Pro B70 Graphics",
+    "src": "s31",
+    "quote": "Intel® ArcTM Pro B70 Graphics",
+    "how": "stated",
+    "official": true
+   },
+   "segment": {
+    "v": "workstation",
+    "src": "s31",
+    "quote": "Product Collection Intel® ArcTM Pro B-Series Graphics",
+    "how": "classification: Arc Pro series; the page has no Vertical Segment row",
+    "official": true
+   },
+   "architecture": {
+    "v": "Xe2 (Battlemage)",
+    "src": "s31",
+    "quote": "Code Name Products formerly Battlemage Microarchitecture Xe2",
+    "how": "stated",
+    "official": true
+   },
+   "launch": {
+    "v": "2026-Q1",
+    "src": "s31",
+    "quote": "Launch Date Q1'26",
+    "how": "stated",
+    "official": true
+   },
+   "pci_device_ids": {
+    "v": [
+     "0xE223"
+    ],
+    "src": "s31",
+    "quote": "Device ID 0xE223",
+    "how": "stated",
+    "official": true
+   },
+   "memory": {
+    "size_gb": {
+     "v": 32,
+     "src": "s31",
+     "quote": "Memory 32 GB GDDR6",
+     "how": "stated",
+     "official": true
+    },
+    "type": {
+     "v": "GDDR6",
+     "src": "s31",
+     "quote": "Memory 32 GB GDDR6",
+     "how": "stated",
+     "official": true
+    },
+    "bus_bits": {
+     "v": 256,
+     "src": "s31",
+     "quote": "Graphics Memory Interface 256 bit",
+     "how": "stated",
+     "official": true
+    },
+    "speed_gbps": {
+     "v": null,
+     "why": "the B70 page has no 'Graphics Memory Speed' row"
+    },
+    "bandwidth_gbps": {
+     "v": 608,
+     "src": "s31",
+     "quote": "Graphics Memory Bandwidth 608 GB/s",
+     "how": "stated",
+     "official": true
+    }
+   },
+   "compute": {
+    "units": {
+     "v": {
+      "count": 32,
+      "called": "Xe-cores"
+     },
+     "src": "s31",
+     "quote": "Xe-cores 32 | Xe Vector Engines 256",
+     "how": "stated",
+     "official": true
+    },
+    "clock_mhz": {
+     "v": 2280,
+     "src": "s31",
+     "quote": "Graphics Clock 2280 MHz",
+     "how": "stated",
+     "official": true,
+     "note": "'Graphics Clock'; the page also gives 'Graphics Max Dynamic Clock 2800 MHz'"
+    },
+    "fp32_tflops": {
+     "v": 22.94,
+     "src": "s31",
+     "quote": "GPU TFLOPS (FP32) 22.94",
+     "how": "stated",
+     "official": true
+    }
+   },
+   "formats": {
+    "matrix": {
+     "name": {
+      "v": "Intel Xe Matrix Extensions (XMX)",
+      "src": "s31",
+      "quote": "Intel® Xe Matrix Extensions (Intel® XMX) Engines 256",
+      "how": "stated",
+      "official": true
+     },
+     "precisions": {
+      "v": [
+       "int8",
+       "fp16",
+       "bf16"
+      ],
+      "src": "s47",
+      "quote": "Intel XMX Supported Combinations This is currently available in devices with the architecture `architecture::intel_gpu_pvc`, `architecture::intel_gpu_bmg_g21`, `architecture::intel_gpu_bmg_g31` | `matrix_type::sint8` .2+| `matrix_type::sint8` | `matrix_type::fp16` .8+| `matrix_type::fp16` | `matrix_type::bf16` .8+| `matrix_type::bf16` | intel_gpu_bmg_g21 ---- |- |Battlemage G21 Intel graphics architecture.",
+      "how": "stated",
+      "official": true,
+      "note": "Battlemage architecture names in the SYCL matrix extension doc ; s47 names architectures only; s49 maps bmg_g21/bmg_g31 to 'Battlemage', and this product's page says 'formerly Battlemage', Microarchitecture Xe2. Which of G21/G31 a card uses is not stated on a page read, but both are in every row used here",
+      "also": [
+       "s49"
+      ]
+     }
+    },
+    "int8_dot": {
+     "v": null,
+     "why": "see intel-arc-b580"
+    },
+    "fp16": {
+     "v": true,
+     "src": "s47",
+     "quote": "`architecture::intel_gpu_bmg_g21`, `architecture::intel_gpu_bmg_g31` | `matrix_type::fp16` .8+| `matrix_type::fp16` .8+| `matrix_type::fp32` | intel_gpu_bmg_g21 ---- |- |Battlemage G21 Intel graphics architecture.",
+     "how": "stated",
+     "official": true,
+     "note": "XMX fp16 inputs ; true via XMX fp16 matrix units (s47 fp16 rows list Battlemage); no vector-engine FP16 rate stated",
+     "also": [
+      "s49"
+     ]
+    }
+   },
+   "api": {
+    "oneapi": {
+     "v": "oneAPI yes; OpenVINO yes",
+     "src": "s31",
+     "quote": "aria-label=\"oneAPI Support\"> Yes OpenVINOTM Support Yes",
+     "how": "stated",
+     "official": true
+    },
+    "vulkan": {
+     "v": null,
+     "why": "Intel disagrees with itself: the B70 page says 'Vulkan* Support 1.3', the support article s46 says Arc Pro B-Series 1.4"
+    },
+    "opencl": {
+     "v": "3.0",
+     "src": "s31",
+     "quote": "OpenCL* Support 3.0",
+     "how": "stated",
+     "official": true
+    }
+   }
+  },
+  {
+   "id": "intel-arc-graphics-core-ultra-series1-155h",
+   "vendor": "intel",
+   "name": {
+    "v": "Intel Arc graphics (Core Ultra 7 155H, Series 1)",
+    "src": "s3",
+    "quote": "GPU Name | Intel® ArcTM graphics",
+    "how": "stated",
+    "official": true,
+    "note": "8 Xe-cores class; second model Core Ultra 7 165H (s32): same name, Xe-cores 8, Device ID 0x7D55, max dynamic 2.3 GHz. Core Ultra 5 125H has 7 Xe-cores: own row"
+   },
+   "segment": {
+    "v": "integrated",
+    "src": "s3",
+    "quote": "Vertical Segment Mobile",
+    "how": "classification: processor segment is Mobile",
+    "official": true
+   },
+   "architecture": {
+    "v": null,
+    "why": "processor page gives only 'Code Name Products formerly Meteor Lake'; no page read names the GPU architecture (Xe-LPG)"
+   },
+   "launch": {
+    "v": "2023-Q4",
+    "src": "s3",
+    "quote": "Launch Date Q4'23",
+    "how": "stated",
+    "official": true
+   },
+   "pci_device_ids": {
+    "v": [
+     "0x7D55"
+    ],
+    "src": "s3",
+    "quote": "Device ID 0x7D55",
+    "how": "stated",
+    "official": true,
+    "note": "same on 165H and 125H"
+   },
+   "memory": {
+    "size_gb": {
+     "v": null,
+     "why": "shares system memory; the page gives 'Max Memory Size (dependent on memory type) 96 GB' for the processor only"
+    },
+    "type": {
+     "v": "shared",
+     "src": "s3",
+     "quote": "Memory Types Up to LPDDR5/X 7467 MT/s Up to DDR5 5600 MT/s",
+     "how": "classification: integrated GPU uses the processor's system memory; quote is the processor's memory types",
+     "official": true,
+     "note": "'shared' is the schema's word for an integrated GPU, not the page's; the page lists the system memory types it supports"
+    },
+    "bus_bits": {
+     "v": null,
+     "why": "no GPU figure on the processor page"
+    },
+    "speed_gbps": {
+     "v": null,
+     "why": "only system memory MT/s on the page"
+    },
+    "bandwidth_gbps": {
+     "v": null,
+     "why": "Intel states none for the iGPU"
+    }
+   },
+   "compute": {
+    "units": {
+     "v": {
+      "count": 8,
+      "called": "Xe-cores"
+     },
+     "src": "s3",
+     "quote": "Xe-cores 8",
+     "how": "stated",
+     "official": true
+    },
+    "clock_mhz": {
+     "v": 2250,
+     "src": "s3",
+     "quote": "Graphics Max Dynamic Frequency | 2.25 GHz",
+     "how": "stated",
+     "official": true,
+     "note": "max dynamic, 155H; 165H says 2.3 GHz"
+    },
+    "fp32_tflops": {
+     "v": null,
+     "why": "page gives only 'GPU Peak TOPS (Int8) 18', no TFLOPS"
+    }
+   },
+   "formats": {
+    "matrix": {
+     "name": {
+      "v": null,
+      "why": "processor page has no XMX row (lists 'Intel® Deep Learning Boost (Intel® DL Boost) on GPU Yes'); Meteor Lake is not among the architectures in the SYCL XMX table s47"
+     },
+     "precisions": {
+      "v": null,
+      "why": "not documented for Meteor Lake graphics on any page read"
+     }
+    },
+    "int8_dot": {
+     "v": null,
+     "why": "no page states it for Meteor Lake graphics (s22 column not recoverable)"
+    },
+    "fp16": {
+     "v": null,
+     "why": "not documented on pages read"
+    }
+   },
+   "api": {
+    "oneapi": {
+     "v": "OpenVINO, WindowsML, DirectML, ONNX RT, WebGPU",
+     "src": "s3",
+     "quote": "AI Software Frameworks Supported by GPU OpenVINOTM, WindowsML, DirectML, ONNX RT, WebGPU",
+     "how": "stated",
+     "official": true,
+     "note": "no oneAPI row on the page; s8 lists Meteor Lake as a production-quality platform for OpenCL 3.0 and Level Zero 1.18"
+    },
+    "vulkan": {
+     "v": null,
+     "why": "no Vulkan row on the processor page; the Intel support article s46 does not list Core Ultra graphics"
+    },
+    "opencl": {
+     "v": "3.0",
+     "src": "s3",
+     "quote": "OpenCL* Support 3.0",
+     "how": "stated",
+     "official": true
+    }
+   }
+  },
+  {
+   "id": "intel-arc-graphics-core-ultra-series1-125h",
+   "vendor": "intel",
+   "name": {
+    "v": "Intel Arc graphics (Core Ultra 5 125H, Series 1, 7 Xe-cores)",
+    "src": "s33",
+    "quote": "GPU Name | Intel® ArcTM graphics",
+    "how": "stated",
+    "official": true,
+    "note": "differs from the 155H row in Xe-cores (7 vs 8) and clock"
+   },
+   "segment": {
+    "v": "integrated",
+    "src": "s33",
+    "quote": "Vertical Segment Mobile",
+    "how": "classification: processor segment is Mobile",
+    "official": true
+   },
+   "architecture": {
+    "v": null,
+    "why": "processor page gives only 'Code Name Products formerly Meteor Lake'"
+   },
+   "launch": {
+    "v": "2023-Q4",
+    "src": "s33",
+    "quote": "Launch Date Q4'23",
+    "how": "stated",
+    "official": true
+   },
+   "pci_device_ids": {
+    "v": [
+     "0x7D55"
+    ],
+    "src": "s33",
+    "quote": "Device ID 0x7D55",
+    "how": "stated",
+    "official": true
+   },
+   "memory": {
+    "size_gb": {
+     "v": null,
+     "why": "shares system memory; processor page 'Max Memory Size (dependent on memory type) 96 GB'"
+    },
+    "type": {
+     "v": "shared",
+     "src": "s33",
+     "quote": "Memory Types Up to LPDDR5/X 7467 MT/s Up to DDR5 5600 MT/s",
+     "how": "classification: integrated GPU uses the processor's system memory",
+     "official": true,
+     "note": "'shared' is the schema's word for an integrated GPU, not the page's; the page lists the system memory types it supports"
+    },
+    "bus_bits": {
+     "v": null,
+     "why": "no GPU figure on the processor page"
+    },
+    "speed_gbps": {
+     "v": null,
+     "why": "only system memory MT/s on the page"
+    },
+    "bandwidth_gbps": {
+     "v": null,
+     "why": "Intel states none for the iGPU"
+    }
+   },
+   "compute": {
+    "units": {
+     "v": {
+      "count": 7,
+      "called": "Xe-cores"
+     },
+     "src": "s33",
+     "quote": "Xe-cores 7",
+     "how": "stated",
+     "official": true
+    },
+    "clock_mhz": {
+     "v": 2200,
+     "src": "s33",
+     "quote": "Graphics Max Dynamic Frequency | 2.2 GHz",
+     "how": "stated",
+     "official": true,
+     "note": "max dynamic, 125H only"
+    },
+    "fp32_tflops": {
+     "v": null,
+     "why": "page gives only 'GPU Peak TOPS (Int8) 18', no TFLOPS"
+    }
+   },
+   "formats": {
+    "matrix": {
+     "name": {
+      "v": null,
+      "why": "processor page has no XMX row; Meteor Lake is not in the SYCL XMX table s47"
+     },
+     "precisions": {
+      "v": null,
+      "why": "not documented for Meteor Lake graphics"
+     }
+    },
+    "int8_dot": {
+     "v": null,
+     "why": "no page states it for Meteor Lake graphics"
+    },
+    "fp16": {
+     "v": null,
+     "why": "not documented on pages read"
+    }
+   },
+   "api": {
+    "oneapi": {
+     "v": "OpenVINO, WindowsML, DirectML, ONNX RT, WebGPU",
+     "src": "s33",
+     "quote": "AI Software Frameworks Supported by GPU OpenVINOTM, WindowsML, DirectML, ONNX RT, WebGPU",
+     "how": "stated",
+     "official": true
+    },
+    "vulkan": {
+     "v": null,
+     "why": "no Vulkan row on the processor page; not in s46"
+    },
+    "opencl": {
+     "v": "3.0",
+     "src": "s33",
+     "quote": "OpenCL* Support 3.0",
+     "how": "stated",
+     "official": true
+    }
+   }
+  },
+  {
+   "id": "intel-graphics-core-ultra-series1-135u",
+   "vendor": "intel",
+   "name": {
+    "v": "Intel Graphics (Core Ultra 5 135U, Series 1, 4 Xe-cores)",
+    "src": "s34",
+    "quote": "GPU Name | Intel® Graphics",
+    "how": "stated",
+    "official": true,
+    "note": "U-series class, non-Arc variant"
+   },
+   "segment": {
+    "v": "integrated",
+    "src": "s34",
+    "quote": "Vertical Segment Mobile",
+    "how": "classification: processor segment is Mobile",
+    "official": true
+   },
+   "architecture": {
+    "v": null,
+    "why": "processor page gives only 'Code Name Products formerly Meteor Lake'"
+   },
+   "launch": {
+    "v": "2023-Q4",
+    "src": "s34",
+    "quote": "Launch Date Q4'23",
+    "how": "stated",
+    "official": true
+   },
+   "pci_device_ids": {
+    "v": [
+     "0x7D45"
+    ],
+    "src": "s34",
+    "quote": "Device ID 0x7D45",
+    "how": "stated",
+    "official": true
+   },
+   "memory": {
+    "size_gb": {
+     "v": null,
+     "why": "shares system memory; processor page 'Max Memory Size (dependent on memory type) 96 GB'"
+    },
+    "type": {
+     "v": "shared",
+     "src": "s34",
+     "quote": "Memory Types Up to LPDDR5/X 7467 MT/s Up to DDR5 5600 MT/s",
+     "how": "classification: integrated GPU uses the processor's system memory",
+     "official": true,
+     "note": "'shared' is the schema's word for an integrated GPU, not the page's; the page lists the system memory types it supports"
+    },
+    "bus_bits": {
+     "v": null,
+     "why": "no GPU figure on the processor page"
+    },
+    "speed_gbps": {
+     "v": null,
+     "why": "only system memory MT/s on the page"
+    },
+    "bandwidth_gbps": {
+     "v": null,
+     "why": "Intel states none for the iGPU"
+    }
+   },
+   "compute": {
+    "units": {
+     "v": {
+      "count": 4,
+      "called": "Xe-cores"
+     },
+     "src": "s34",
+     "quote": "Xe-cores 4",
+     "how": "stated",
+     "official": true,
+     "also": [
+      "s50"
+     ],
+     "note": "confirmed by a second model: Core Ultra 7 155U (s50) also shows Xe-cores 4, GPU Name Intel Graphics, Device ID 0x7D45"
+    },
+    "clock_mhz": {
+     "v": 1900,
+     "src": "s34",
+     "quote": "Graphics Max Dynamic Frequency | 1.9 GHz",
+     "how": "stated",
+     "official": true,
+     "note": "max dynamic, 135U only"
+    },
+    "fp32_tflops": {
+     "v": null,
+     "why": "page gives only 'GPU Peak TOPS (Int8) 8', no TFLOPS"
+    }
+   },
+   "formats": {
+    "matrix": {
+     "name": {
+      "v": null,
+      "why": "processor page has no XMX row; Meteor Lake is not in the SYCL XMX table s47"
+     },
+     "precisions": {
+      "v": null,
+      "why": "not documented for Meteor Lake graphics"
+     }
+    },
+    "int8_dot": {
+     "v": null,
+     "why": "no page states it for Meteor Lake graphics"
+    },
+    "fp16": {
+     "v": null,
+     "why": "not documented on pages read"
+    }
+   },
+   "api": {
+    "oneapi": {
+     "v": "OpenVINO, WindowsML, DirectML, ONNX RT, WebGPU",
+     "src": "s34",
+     "quote": "AI Software Frameworks Supported by GPU OpenVINOTM, WindowsML, DirectML, ONNX RT, WebGPU",
+     "how": "stated",
+     "official": true
+    },
+    "vulkan": {
+     "v": null,
+     "why": "no Vulkan row on the processor page; not in s46"
+    },
+    "opencl": {
+     "v": "3.0",
+     "src": "s34",
+     "quote": "OpenCL* Support 3.0",
+     "how": "stated",
+     "official": true
+    }
+   }
+  },
+  {
+   "id": "intel-arc-140v-core-ultra-series2-258v",
+   "vendor": "intel",
+   "name": {
+    "v": "Intel Arc 140V GPU (Core Ultra 7 258V, Series 2)",
+    "src": "s18",
+    "quote": "GPU Name | Intel® ArcTM 140V GPU",
+    "how": "stated",
+    "official": true,
+    "note": "Lunar Lake, 8 Xe-cores; a second 140V model was not opened. Core Ultra 5 226V has the Arc 130V (7 Xe-cores): own row"
+   },
+   "segment": {
+    "v": "integrated",
+    "src": "s18",
+    "quote": "Vertical Segment Mobile",
+    "how": "classification: processor segment is Mobile",
+    "official": true
+   },
+   "architecture": {
+    "v": null,
+    "why": "page gives only 'Code Name Products formerly Lunar Lake'"
+   },
+   "launch": {
+    "v": "2024-Q3",
+    "src": "s18",
+    "quote": "Launch Date Q3'24",
+    "how": "stated",
+    "official": true
+   },
+   "pci_device_ids": {
+    "v": [
+     "0x64A0"
+    ],
+    "src": "s18",
+    "quote": "Device ID 0x64A0",
+    "how": "stated",
+    "official": true
+   },
+   "memory": {
+    "size_gb": {
+     "v": null,
+     "why": "shared; page gives 'Max Memory Size (dependent on memory type) 32 GB' for the processor"
+    },
+    "type": {
+     "v": "shared",
+     "src": "s18",
+     "quote": "Memory Types Up to LPDDR5X 8533 MT/s",
+     "how": "classification: integrated GPU uses on-package system memory",
+     "official": true,
+     "note": "'shared' is the schema's word for an integrated GPU, not the page's; the page lists the system memory types it supports"
+    },
+    "bus_bits": {
+     "v": null,
+     "why": "no GPU figure on the processor page"
+    },
+    "speed_gbps": {
+     "v": null,
+     "why": "no GPU figure"
+    },
+    "bandwidth_gbps": {
+     "v": null,
+     "why": "Intel states none"
+    }
+   },
+   "compute": {
+    "units": {
+     "v": {
+      "count": 8,
+      "called": "Xe-cores"
+     },
+     "src": "s18",
+     "quote": "Xe-cores 8",
+     "how": "stated",
+     "official": true,
+     "also": [
+      "s53"
+     ],
+     "note": "confirmed by a second model: Core Ultra 7 268V (s53) also shows Xe-cores 8, GPU Name Intel Arc 140V GPU, Device ID 0x64A0"
+    },
+    "clock_mhz": {
+     "v": 1950,
+     "src": "s18",
+     "quote": "Graphics Max Dynamic Frequency | 1.95 GHz",
+     "how": "stated",
+     "official": true,
+     "note": "max dynamic, 258V only"
+    },
+    "fp32_tflops": {
+     "v": null,
+     "why": "page gives only 'GPU Peak TOPS (Int8)', no TFLOPS"
+    }
+   },
+   "formats": {
+    "matrix": {
+     "name": {
+      "v": "Intel XMX",
+      "src": "s47",
+      "quote": "Intel XMX Supported Combinations This is currently available in devices with the architecture `architecture::intel_gpu_pvc`, `architecture::intel_gpu_bmg_g21`, `architecture::intel_gpu_bmg_g31`, `architecture::intel_gpu_lnl_m` | intel_gpu_lnl_m ---- |- |Lunar Lake Intel graphics architecture.",
+      "how": "stated",
+      "official": true,
+      "note": "Lunar Lake appears as lnl_m in Intel's SYCL doc (mapping by codename); the processor page itself has no XMX row ; s47 names architectures only; s49 maps the id to the codename, which the processor page states under Code Name (Lunar Lake / Arrow Lake). The page itself names no GPU architecture",
+      "also": [
+       "s49"
+      ]
+     },
+     "precisions": {
+      "v": [
+       "int8",
+       "fp16",
+       "bf16"
+      ],
+      "src": "s47",
+      "quote": "`architecture::intel_gpu_bmg_g31`, `architecture::intel_gpu_lnl_m` | `matrix_type::sint8` .2+| `matrix_type::sint8` | `matrix_type::fp16` .8+| `matrix_type::fp16` | `matrix_type::bf16` .8+| `matrix_type::bf16` | intel_gpu_lnl_m ---- |- |Lunar Lake Intel graphics architecture.",
+      "how": "stated",
+      "official": true,
+      "note": "architecture lnl_m in the XMX table rows for sint8, fp16 and bf16 ; s47 names architectures only; s49 maps the id to the codename, which the processor page states under Code Name (Lunar Lake / Arrow Lake). The page itself names no GPU architecture",
+      "also": [
+       "s49"
+      ]
+     }
+    },
+    "int8_dot": {
+     "v": null,
+     "why": "no page states it for Lunar Lake graphics"
+    },
+    "fp16": {
+     "v": true,
+     "src": "s47",
+     "quote": "`architecture::intel_gpu_bmg_g31`, `architecture::intel_gpu_lnl_m` | `matrix_type::fp16` .8+| `matrix_type::fp16` .8+| `matrix_type::fp32` | intel_gpu_lnl_m ---- |- |Lunar Lake Intel graphics architecture.",
+     "how": "stated",
+     "official": true,
+     "note": "XMX fp16 inputs ; true via XMX fp16 matrix units; processor page itself has no FP16 row",
+     "also": [
+      "s49"
+     ]
+    }
+   },
+   "api": {
+    "oneapi": {
+     "v": "OpenVINO, WindowsML, DirectML, ONNX RT, WebGPU, WebNN",
+     "src": "s18",
+     "quote": "AI Software Frameworks Supported by GPU OpenVINOTM, WindowsML, DirectML, ONNX RT, WebGPU, WebNN",
+     "how": "stated",
+     "official": true,
+     "note": "s8 lists Lunar Lake as a production-quality platform"
+    },
+    "vulkan": {
+     "v": null,
+     "why": "no Vulkan row on the processor page; not in s46"
+    },
+    "opencl": {
+     "v": "3.0",
+     "src": "s18",
+     "quote": "OpenCL* Support 3.0",
+     "how": "stated",
+     "official": true
+    }
+   }
+  },
+  {
+   "id": "intel-arc-130v-core-ultra-series2-226v",
+   "vendor": "intel",
+   "name": {
+    "v": "Intel Arc 130V GPU (Core Ultra 5 226V, Series 2)",
+    "src": "s35",
+    "quote": "GPU Name | Intel® ArcTM 130V GPU",
+    "how": "stated",
+    "official": true
+   },
+   "segment": {
+    "v": "integrated",
+    "src": "s35",
+    "quote": "Vertical Segment Mobile",
+    "how": "classification: processor segment is Mobile",
+    "official": true
+   },
+   "architecture": {
+    "v": null,
+    "why": "page gives only 'Code Name Products formerly Lunar Lake'"
+   },
+   "launch": {
+    "v": "2024-Q3",
+    "src": "s35",
+    "quote": "Launch Date Q3'24",
+    "how": "stated",
+    "official": true
+   },
+   "pci_device_ids": {
+    "v": [
+     "0x64A0"
+    ],
+    "src": "s35",
+    "quote": "Device ID 0x64A0",
+    "how": "stated",
+    "official": true
+   },
+   "memory": {
+    "size_gb": {
+     "v": null,
+     "why": "shared; page gives 'Max Memory Size (dependent on memory type) 16 GB' for the processor"
+    },
+    "type": {
+     "v": "shared",
+     "src": "s35",
+     "quote": "Memory Types Up to LPDDR5X 8533 MT/s",
+     "how": "classification: integrated GPU uses on-package system memory",
+     "official": true,
+     "note": "'shared' is the schema's word for an integrated GPU, not the page's; the page lists the system memory types it supports"
+    },
+    "bus_bits": {
+     "v": null,
+     "why": "no GPU figure on the processor page"
+    },
+    "speed_gbps": {
+     "v": null,
+     "why": "no GPU figure"
+    },
+    "bandwidth_gbps": {
+     "v": null,
+     "why": "Intel states none"
+    }
+   },
+   "compute": {
+    "units": {
+     "v": {
+      "count": 7,
+      "called": "Xe-cores"
+     },
+     "src": "s35",
+     "quote": "Xe-cores 7",
+     "how": "stated",
+     "official": true,
+     "also": [
+      "s54"
+     ],
+     "note": "confirmed by a second model: Core Ultra 5 236V (s54) also shows Xe-cores 7, GPU Name Intel Arc 130V GPU, Device ID 0x64A0"
+    },
+    "clock_mhz": {
+     "v": 1850,
+     "src": "s35",
+     "quote": "Graphics Max Dynamic Frequency | 1.85 GHz",
+     "how": "stated",
+     "official": true,
+     "note": "max dynamic, 226V only"
+    },
+    "fp32_tflops": {
+     "v": null,
+     "why": "page gives only 'GPU Peak TOPS (Int8) 53', no TFLOPS"
+    }
+   },
+   "formats": {
+    "matrix": {
+     "name": {
+      "v": "Intel XMX",
+      "src": "s47",
+      "quote": "Intel XMX Supported Combinations This is currently available in devices with the architecture `architecture::intel_gpu_pvc`, `architecture::intel_gpu_bmg_g21`, `architecture::intel_gpu_bmg_g31`, `architecture::intel_gpu_lnl_m` | intel_gpu_lnl_m ---- |- |Lunar Lake Intel graphics architecture.",
+      "how": "stated",
+      "official": true,
+      "note": "Lunar Lake appears as lnl_m in Intel's SYCL doc (mapping by codename) ; s47 names architectures only; s49 maps the id to the codename, which the processor page states under Code Name (Lunar Lake / Arrow Lake). The page itself names no GPU architecture",
+      "also": [
+       "s49"
+      ]
+     },
+     "precisions": {
+      "v": [
+       "int8",
+       "fp16",
+       "bf16"
+      ],
+      "src": "s47",
+      "quote": "`architecture::intel_gpu_bmg_g31`, `architecture::intel_gpu_lnl_m` | `matrix_type::sint8` .2+| `matrix_type::sint8` | `matrix_type::fp16` .8+| `matrix_type::fp16` | `matrix_type::bf16` .8+| `matrix_type::bf16` | intel_gpu_lnl_m ---- |- |Lunar Lake Intel graphics architecture.",
+      "how": "stated",
+      "official": true,
+      "note": "architecture lnl_m in the XMX table rows ; s47 names architectures only; s49 maps the id to the codename, which the processor page states under Code Name (Lunar Lake / Arrow Lake). The page itself names no GPU architecture",
+      "also": [
+       "s49"
+      ]
+     }
+    },
+    "int8_dot": {
+     "v": null,
+     "why": "no page states it for Lunar Lake graphics"
+    },
+    "fp16": {
+     "v": true,
+     "src": "s47",
+     "quote": "`architecture::intel_gpu_bmg_g31`, `architecture::intel_gpu_lnl_m` | `matrix_type::fp16` .8+| `matrix_type::fp16` .8+| `matrix_type::fp32` | intel_gpu_lnl_m ---- |- |Lunar Lake Intel graphics architecture.",
+     "how": "stated",
+     "official": true,
+     "note": "XMX fp16 inputs ; true via XMX fp16 matrix units; processor page itself has no FP16 row",
+     "also": [
+      "s49"
+     ]
+    }
+   },
+   "api": {
+    "oneapi": {
+     "v": "OpenVINO, WindowsML, DirectML, ONNX RT, WebGPU, WebNN",
+     "src": "s35",
+     "quote": "AI Software Frameworks Supported by GPU OpenVINOTM, WindowsML, DirectML, ONNX RT, WebGPU, WebNN",
+     "how": "stated",
+     "official": true
+    },
+    "vulkan": {
+     "v": null,
+     "why": "no Vulkan row on the processor page; not in s46"
+    },
+    "opencl": {
+     "v": "3.0",
+     "src": "s35",
+     "quote": "OpenCL* Support 3.0",
+     "how": "stated",
+     "official": true
+    }
+   }
+  },
+  {
+   "id": "intel-arc-140t-core-ultra-series2-285h",
+   "vendor": "intel",
+   "name": {
+    "v": "Intel Arc 140T GPU (Core Ultra 9 285H, Series 2, Arrow Lake H)",
+    "src": "s36",
+    "quote": "GPU Name | Intel® ArcTM 140T GPU",
+    "how": "stated",
+    "official": true
+   },
+   "segment": {
+    "v": "integrated",
+    "src": "s36",
+    "quote": "Vertical Segment Mobile",
+    "how": "classification: processor segment is Mobile",
+    "official": true
+   },
+   "architecture": {
+    "v": null,
+    "why": "page gives only 'Code Name Products formerly Arrow Lake'"
+   },
+   "launch": {
+    "v": "2025-Q1",
+    "src": "s36",
+    "quote": "Launch Date Q1'25",
+    "how": "stated",
+    "official": true
+   },
+   "pci_device_ids": {
+    "v": [
+     "0x7D51"
+    ],
+    "src": "s36",
+    "quote": "Device ID 0x7D51",
+    "how": "stated",
+    "official": true
+   },
+   "memory": {
+    "size_gb": {
+     "v": null,
+     "why": "shared; page gives 'Max Memory Size (dependent on memory type) 128 GB' for the processor"
+    },
+    "type": {
+     "v": "shared",
+     "src": "s36",
+     "quote": "Memory Types Up to LPDDR5/X 8400 MT/s Up to DDR5 6400 MT/s",
+     "how": "classification: integrated GPU uses the processor's system memory",
+     "official": true,
+     "note": "'shared' is the schema's word for an integrated GPU, not the page's; the page lists the system memory types it supports"
+    },
+    "bus_bits": {
+     "v": null,
+     "why": "no GPU figure on the processor page"
+    },
+    "speed_gbps": {
+     "v": null,
+     "why": "no GPU figure"
+    },
+    "bandwidth_gbps": {
+     "v": null,
+     "why": "Intel states none"
+    }
+   },
+   "compute": {
+    "units": {
+     "v": {
+      "count": 8,
+      "called": "Xe-cores"
+     },
+     "src": "s36",
+     "quote": "Xe-cores 8",
+     "how": "stated",
+     "official": true
+    },
+    "clock_mhz": {
+     "v": 2350,
+     "src": "s36",
+     "quote": "Graphics Max Dynamic Frequency | 2.35 GHz",
+     "how": "stated",
+     "official": true,
+     "note": "max dynamic, 285H only"
+    },
+    "fp32_tflops": {
+     "v": null,
+     "why": "page gives only 'GPU Peak TOPS (Int8) 77', no TFLOPS"
+    }
+   },
+   "formats": {
+    "matrix": {
+     "name": {
+      "v": "Intel XMX",
+      "src": "s47",
+      "quote": "Intel XMX Supported Combinations This is currently available in devices with the architecture `architecture::intel_gpu_pvc`, `architecture::intel_gpu_bmg_g21`, `architecture::intel_gpu_bmg_g31`, `architecture::intel_gpu_lnl_m`, `architecture::intel_gpu_dg2_g10`, `architecture::intel_gpu_dg2_g11`, `architecture::intel_gpu_dg2_g12`, `architecture::intel_gpu_arl_h` | intel_gpu_arl_h ---- |- |Arrow Lake H Intel graphics architecture.",
+      "how": "stated",
+      "official": true,
+      "note": "arl_h read as Arrow Lake H by codename; the processor page itself has no XMX row ; s47 names architectures only; s49 maps the id to the codename, which the processor page states under Code Name (Lunar Lake / Arrow Lake). The page itself names no GPU architecture",
+      "also": [
+       "s49"
+      ]
+     },
+     "precisions": {
+      "v": [
+       "int8",
+       "fp16",
+       "bf16"
+      ],
+      "src": "s47",
+      "quote": "`architecture::intel_gpu_dg2_g10, architecture::intel_gpu_dg2_g11, architecture::intel_gpu_dg2_g12`, `architecture::intel_gpu_arl_h` | `matrix_type::sint8` .2+| `matrix_type::sint8` | `matrix_type::fp16` .8+| `matrix_type::fp16` | `matrix_type::bf16` .8+| `matrix_type::bf16` | intel_gpu_arl_h ---- |- |Arrow Lake H Intel graphics architecture.",
+      "how": "stated",
+      "official": true,
+      "note": "arl_h appears in the sint8, fp16 and bf16 rows ; s47 names architectures only; s49 maps the id to the codename, which the processor page states under Code Name (Lunar Lake / Arrow Lake). The page itself names no GPU architecture",
+      "also": [
+       "s49"
+      ]
+     }
+    },
+    "int8_dot": {
+     "v": null,
+     "why": "no page states it for Arrow Lake H graphics"
+    },
+    "fp16": {
+     "v": true,
+     "src": "s47",
+     "quote": "`architecture::intel_gpu_dg2_g10, architecture::intel_gpu_dg2_g11, architecture::intel_gpu_dg2_g12`, `architecture::intel_gpu_arl_h` | `matrix_type::fp16` .8+| `matrix_type::fp16` .8+| `matrix_type::fp32` | intel_gpu_arl_h ---- |- |Arrow Lake H Intel graphics architecture.",
+     "how": "stated",
+     "official": true,
+     "note": "XMX fp16 inputs ; true via XMX fp16 matrix units; processor page itself has no FP16 row",
+     "also": [
+      "s49"
+     ]
+    }
+   },
+   "api": {
+    "oneapi": {
+     "v": "OpenVINO, WindowsML, DirectML, ONNX RT, WebGPU",
+     "src": "s36",
+     "quote": "AI Software Frameworks Supported by GPU OpenVINOTM, WindowsML, DirectML, ONNX RT, WebGPU",
+     "how": "stated",
+     "official": true
+    },
+    "vulkan": {
+     "v": null,
+     "why": "no Vulkan row on the processor page; not in s46"
+    },
+    "opencl": {
+     "v": "3.0",
+     "src": "s36",
+     "quote": "OpenCL* Support 3.0",
+     "how": "stated",
+     "official": true
+    }
+   }
+  },
+  {
+   "id": "intel-graphics-core-ultra-series2-285k",
+   "vendor": "intel",
+   "name": {
+    "v": "Intel Graphics (Core Ultra 9 285K, Series 2 desktop)",
+    "src": "s19",
+    "quote": "GPU Name | Intel® Graphics",
+    "how": "stated",
+    "official": true,
+    "note": "Arrow Lake desktop, 4 Xe-cores; second model Core Ultra 5 245K (s37): Xe-cores 4, Device ID 0x7D67, max dynamic 1.9 GHz"
+   },
+   "segment": {
+    "v": "integrated",
+    "src": "s19",
+    "quote": "Vertical Segment Desktop",
+    "how": "classification: processor segment is Desktop",
+    "official": true
+   },
+   "architecture": {
+    "v": null,
+    "why": "page gives only 'Code Name Products formerly Arrow Lake'"
+   },
+   "launch": {
+    "v": "2024-Q4",
+    "src": "s19",
+    "quote": "Launch Date Q4'24",
+    "how": "stated",
+    "official": true
+   },
+   "pci_device_ids": {
+    "v": [
+     "0x7D67"
+    ],
+    "src": "s19",
+    "quote": "Device ID 0x7D67",
+    "how": "stated",
+    "official": true
+   },
+   "memory": {
+    "size_gb": {
+     "v": null,
+     "why": "shared; page gives 'Max Memory Size (dependent on memory type) 256 GB' for the processor"
+    },
+    "type": {
+     "v": "shared",
+     "src": "s19",
+     "quote": "Memory Types Up to DDR5 6400 MT/s",
+     "how": "classification: integrated GPU uses system memory",
+     "official": true,
+     "note": "'shared' is the schema's word for an integrated GPU, not the page's; the page lists the system memory types it supports"
+    },
+    "bus_bits": {
+     "v": null,
+     "why": "no GPU figure on the processor page"
+    },
+    "speed_gbps": {
+     "v": null,
+     "why": "no GPU figure"
+    },
+    "bandwidth_gbps": {
+     "v": null,
+     "why": "Intel states none"
+    }
+   },
+   "compute": {
+    "units": {
+     "v": {
+      "count": 4,
+      "called": "Xe-cores"
+     },
+     "src": "s19",
+     "quote": "Xe-cores 4",
+     "how": "stated",
+     "official": true
+    },
+    "clock_mhz": {
+     "v": 2000,
+     "src": "s19",
+     "quote": "Graphics Max Dynamic Frequency | 2 GHz",
+     "how": "stated",
+     "official": true,
+     "note": "max dynamic, 285K; 245K says 1.9 GHz"
+    },
+    "fp32_tflops": {
+     "v": null,
+     "why": "page gives only 'GPU Peak TOPS (Int8) 8', no TFLOPS"
+    }
+   },
+   "formats": {
+    "matrix": {
+     "name": {
+      "v": null,
+      "why": "no XMX row on the processor page; Arrow Lake desktop is not named in the SYCL XMX table s47 (only arl_h)"
+     },
+     "precisions": {
+      "v": null,
+      "why": "not documented for Arrow Lake desktop graphics"
+     }
+    },
+    "int8_dot": {
+     "v": null,
+     "why": "no page states it for Arrow Lake desktop graphics"
+    },
+    "fp16": {
+     "v": null,
+     "why": "not documented on pages read"
+    }
+   },
+   "api": {
+    "oneapi": {
+     "v": "OpenVINO, WindowsML, DirectML, ONNX RT, WebGPU",
+     "src": "s19",
+     "quote": "AI Software Frameworks Supported by GPU OpenVINOTM, WindowsML, DirectML, ONNX RT, WebGPU",
+     "how": "stated",
+     "official": true
+    },
+    "vulkan": {
+     "v": null,
+     "why": "no Vulkan row on the processor page; not in s46"
+    },
+    "opencl": {
+     "v": "3",
+     "src": "s19",
+     "quote": "OpenCL* Support 3",
+     "how": "stated",
+     "official": true
+    }
+   }
+  },
+  {
+   "id": "intel-uhd-graphics-770",
+   "vendor": "intel",
+   "name": {
+    "v": "Intel UHD Graphics 770",
+    "src": "s20",
+    "quote": "GPU Name | Intel® UHD Graphics",
+    "how": "stated",
+    "official": true,
+    "note": "the i9-12900K page writes 'Intel® UHD Graphics' with no number; the i7-12700K page (s44) writes 'Intel® UHD Graphics 770'. Both have Execution Units 32 and Device ID 0x4680"
+   },
+   "segment": {
+    "v": "integrated",
+    "src": "s20",
+    "quote": "Vertical Segment Desktop",
+    "how": "classification: processor segment is Desktop",
+    "official": true
+   },
+   "architecture": {
+    "v": null,
+    "why": "page gives only 'Code Name Products formerly Alder Lake'"
+   },
+   "launch": {
+    "v": "2021-Q4",
+    "src": "s20",
+    "quote": "Launch Date Q4'21",
+    "how": "stated",
+    "official": true
+   },
+   "pci_device_ids": {
+    "v": [
+     "0x4680"
+    ],
+    "src": "s20",
+    "quote": "Device ID 0x4680",
+    "how": "stated",
+    "official": true
+   },
+   "memory": {
+    "size_gb": {
+     "v": null,
+     "why": "shared; processor page 'Max Memory Size (dependent on memory type) 128 GB'"
+    },
+    "type": {
+     "v": "shared",
+     "src": "s20",
+     "quote": "Memory Types Up to DDR5 4800 MT/s Up to DDR4 3200 MT/s",
+     "how": "classification: integrated GPU uses system memory",
+     "official": true,
+     "note": "'shared' is the schema's word for an integrated GPU, not the page's; the page lists the system memory types it supports"
+    },
+    "bus_bits": {
+     "v": null,
+     "why": "no GPU figure on the processor page"
+    },
+    "speed_gbps": {
+     "v": null,
+     "why": "no GPU figure"
+    },
+    "bandwidth_gbps": {
+     "v": null,
+     "why": "Intel states none"
+    }
+   },
+   "compute": {
+    "units": {
+     "v": {
+      "count": 32,
+      "called": "execution units"
+     },
+     "src": "s20",
+     "quote": "Execution Units 32",
+     "how": "stated",
+     "official": true
+    },
+    "clock_mhz": {
+     "v": 1550,
+     "src": "s20",
+     "quote": "Graphics Max Dynamic Frequency | 1.55 GHz",
+     "how": "stated",
+     "official": true,
+     "note": "max dynamic, 12900K; i7-12700K (s44) says 1.50 GHz"
+    },
+    "fp32_tflops": {
+     "v": null,
+     "why": "not stated"
+    }
+   },
+   "formats": {
+    "matrix": {
+     "name": {
+      "v": null,
+      "why": "no hardware matrix units documented for UHD Graphics"
+     },
+     "precisions": {
+      "v": null,
+      "why": "no matrix units documented"
+     }
+    },
+    "int8_dot": {
+     "v": null,
+     "why": "no page ties UHD Graphics 770 to a generation or states an int8 dot-product instruction (s5's DP4A table is for 'Xe-LP (TGL)')"
+    },
+    "fp16": {
+     "v": null,
+     "why": "no page ties UHD Graphics 770 to Xe-LP (s5 says FP16 for Xe-LP only)"
+    }
+   },
+   "api": {
+    "oneapi": {
+     "v": "OpenVINO GPU plugin lists Intel UHD Graphics",
+     "src": "s25",
+     "quote": "Intel® HD Graphics Intel® UHD Graphics Intel® Iris® Pro Graphics",
+     "how": "stated",
+     "official": true,
+     "note": "GPU Supported Hardware list of the OpenVINO system requirements; s8 lists Alder Lake as a production-quality compute-runtime platform"
+    },
+    "vulkan": {
+     "v": "1.3",
+     "src": "s46",
+     "quote": "Intel® UHD Graphics 770 12 4.6 3.0 1.3",
+     "how": "stated",
+     "official": true,
+     "note": "columns DirectX, OpenGL, OpenCL, Vulkan"
+    },
+    "opencl": {
+     "v": "3.0",
+     "src": "s20",
+     "quote": "OpenCL* Support 3.0",
+     "how": "stated",
+     "official": true
+    }
+   }
+  },
+  {
+   "id": "intel-uhd-graphics-730",
+   "vendor": "intel",
+   "name": {
+    "v": "Intel UHD Graphics 730",
+    "src": "s42",
+    "quote": "GPU Name | Intel® UHD Graphics 730",
+    "how": "stated",
+    "official": true,
+    "note": "i3-12100 page; the i5-12400 page (s24) writes 'Intel® UHD Graphics' without the number"
+   },
+   "segment": {
+    "v": "integrated",
+    "src": "s42",
+    "quote": "Vertical Segment Desktop",
+    "how": "classification: processor segment is Desktop",
+    "official": true
+   },
+   "architecture": {
+    "v": null,
+    "why": "page gives only 'Code Name Products formerly Alder Lake'"
+   },
+   "launch": {
+    "v": "2022-Q1",
+    "src": "s42",
+    "quote": "Launch Date Q1'22",
+    "how": "stated",
+    "official": true
+   },
+   "pci_device_ids": {
+    "v": [
+     "0x4692"
+    ],
+    "src": "s42",
+    "quote": "Device ID 0x4692",
+    "how": "stated",
+    "official": true,
+    "note": "i5-12400 page (s24): 'Device ID 0x4692 / 0x4682'"
+   },
+   "memory": {
+    "size_gb": {
+     "v": null,
+     "why": "shared; processor page 'Max Memory Size (dependent on memory type) 128 GB'"
+    },
+    "type": {
+     "v": "shared",
+     "src": "s42",
+     "quote": "Memory Types Up to DDR5 4800 MT/s Up to DDR4 3200 MT/s",
+     "how": "classification: integrated GPU uses system memory",
+     "official": true,
+     "note": "'shared' is the schema's word for an integrated GPU, not the page's; the page lists the system memory types it supports"
+    },
+    "bus_bits": {
+     "v": null,
+     "why": "no GPU figure on the processor page"
+    },
+    "speed_gbps": {
+     "v": null,
+     "why": "no GPU figure"
+    },
+    "bandwidth_gbps": {
+     "v": null,
+     "why": "Intel states none"
+    }
+   },
+   "compute": {
+    "units": {
+     "v": {
+      "count": 24,
+      "called": "execution units"
+     },
+     "src": "s24",
+     "quote": "Execution Units 24",
+     "how": "stated",
+     "official": true,
+     "note": "i5-12400; i3-12100 (s42) also lists 24 execution units (found by search summary, not quoted here)"
+    },
+    "clock_mhz": {
+     "v": 1450,
+     "src": "s24",
+     "quote": "Graphics Max Dynamic Frequency | 1.45 GHz",
+     "how": "stated",
+     "official": true,
+     "note": "max dynamic, i5-12400; i3-12100 says 1.40 GHz"
+    },
+    "fp32_tflops": {
+     "v": null,
+     "why": "not stated"
+    }
+   },
+   "formats": {
+    "matrix": {
+     "name": {
+      "v": null,
+      "why": "no hardware matrix units documented for UHD Graphics"
+     },
+     "precisions": {
+      "v": null,
+      "why": "no matrix units documented"
+     }
+    },
+    "int8_dot": {
+     "v": null,
+     "why": "no page ties UHD Graphics 730 to a generation or states an int8 dot-product instruction"
+    },
+    "fp16": {
+     "v": null,
+     "why": "no page ties UHD Graphics 730 to Xe-LP"
+    }
+   },
+   "api": {
+    "oneapi": {
+     "v": "OpenVINO GPU plugin lists Intel UHD Graphics",
+     "src": "s25",
+     "quote": "Intel® HD Graphics Intel® UHD Graphics Intel® Iris® Pro Graphics",
+     "how": "stated",
+     "official": true
+    },
+    "vulkan": {
+     "v": "1.3",
+     "src": "s46",
+     "quote": "Intel® UHD Graphics 730 12 4.6 3.0 1.3",
+     "how": "stated",
+     "official": true,
+     "note": "columns DirectX, OpenGL, OpenCL, Vulkan"
+    },
+    "opencl": {
+     "v": "3.0",
+     "src": "s42",
+     "quote": "OpenCL* Support 3.0",
+     "how": "stated",
+     "official": true
+    }
+   }
+  },
+  {
+   "id": "intel-uhd-graphics-630",
+   "vendor": "intel",
+   "name": {
+    "v": "Intel UHD Graphics 630",
+    "src": "s45",
+    "quote": "Intel® UHD Graphics 630",
+    "how": "stated",
+    "official": true,
+    "note": "i7-8700K page; the i9-9900K page (s23) writes 'Intel® UHD Graphics' without the number"
+   },
+   "segment": {
+    "v": "integrated",
+    "src": "s23",
+    "quote": "Vertical Segment Desktop",
+    "how": "classification: processor segment is Desktop",
+    "official": true
+   },
+   "architecture": {
+    "v": null,
+    "why": "page gives only 'Code Name Products formerly Coffee Lake'"
+   },
+   "launch": {
+    "v": "2018-Q4",
+    "src": "s23",
+    "quote": "Launch Date Q4'18",
+    "how": "stated",
+    "official": true,
+    "note": "9900K; i7-8700K launched Q4'17"
+   },
+   "pci_device_ids": {
+    "v": [
+     "0x3E98"
+    ],
+    "src": "s23",
+    "quote": "Device ID 0x3E98",
+    "how": "stated",
+    "official": true,
+    "note": "i9-9900K page; the i7-8700K page (s45) says 'Device ID 0x3E92', so the ID differs per processor model"
+   },
+   "memory": {
+    "size_gb": {
+     "v": null,
+     "why": "shared; processor page 'Max Memory Size (dependent on memory type) 128 GB'"
+    },
+    "type": {
+     "v": "shared",
+     "src": "s23",
+     "quote": "Memory Types DDR4-2666",
+     "how": "classification: integrated GPU uses system memory",
+     "official": true,
+     "note": "'shared' is the schema's word for an integrated GPU, not the page's; the page lists the system memory types it supports"
+    },
+    "bus_bits": {
+     "v": null,
+     "why": "no GPU figure on the processor page"
+    },
+    "speed_gbps": {
+     "v": null,
+     "why": "no GPU figure"
+    },
+    "bandwidth_gbps": {
+     "v": null,
+     "why": "Intel states none"
+    }
+   },
+   "compute": {
+    "units": {
+     "v": null,
+     "why": "neither the i9-9900K nor the i7-8700K page has an Execution Units row; Intel's HD graphics list PDFs cannot be read here"
+    },
+    "clock_mhz": {
+     "v": 1200,
+     "src": "s23",
+     "quote": "Graphics Max Dynamic Frequency | 1.20 GHz",
+     "how": "stated",
+     "official": true,
+     "note": "max dynamic, 9900K; base 350 MHz"
+    },
+    "fp32_tflops": {
+     "v": null,
+     "why": "not stated"
+    }
+   },
+   "formats": {
+    "matrix": {
+     "name": {
+      "v": null,
+      "why": "no hardware matrix units documented for UHD Graphics 630"
+     },
+     "precisions": {
+      "v": null,
+      "why": "no matrix units documented"
+     }
+    },
+    "int8_dot": {
+     "v": null,
+     "why": "no page states it for Gen9.5 graphics"
+    },
+    "fp16": {
+     "v": null,
+     "why": "no Intel page read documents FP16 for Gen9.5 graphics"
+    }
+   },
+   "api": {
+    "oneapi": {
+     "v": "OpenVINO GPU plugin lists Intel UHD Graphics",
+     "src": "s25",
+     "quote": "Intel® HD Graphics Intel® UHD Graphics Intel® Iris® Pro Graphics",
+     "how": "stated",
+     "official": true,
+     "note": "s8 says Gen8, Gen9 and Gen11 support comes in 'legacy1' packages"
+    },
+    "vulkan": {
+     "v": "1.3",
+     "src": "s46",
+     "quote": "Intel® UHD Graphics 610/620/630/P630 12 4.6 2.1 1.3",
+     "how": "stated",
+     "official": true,
+     "note": "columns DirectX, OpenGL, OpenCL, Vulkan"
+    },
+    "opencl": {
+     "v": "2.1",
+     "src": "s46",
+     "quote": "Intel® UHD Graphics 610/620/630/P630 12 4.6 2.1 1.3",
+     "how": "stated",
+     "official": true,
+     "note": "the processor pages carry no OpenCL row; the support article gives 2.1 for UHD 630"
+    }
+   }
+  },
+  {
+   "id": "intel-iris-xe-graphics-1185g7",
+   "vendor": "intel",
+   "name": {
+    "v": "Intel Iris Xe Graphics (11th gen mobile, 96 EU)",
+    "src": "s21",
+    "quote": "GPU Name | Intel® Iris® Xe Graphics",
+    "how": "stated",
+    "official": true,
+    "note": "i7-1185G7; the i5-1135G7 has 80 EU: own row"
+   },
+   "segment": {
+    "v": "integrated",
+    "src": "s21",
+    "quote": "Vertical Segment Mobile",
+    "how": "classification: processor segment is Mobile",
+    "official": true
+   },
+   "architecture": {
+    "v": "Xe-LP",
+    "src": "s5",
+    "quote": "Xe Configurations Architecture Xe-LP (TGL) | intel_gpu_tgl = intel_gpu_tgllp ---- |- |Tiger Lake Intel graphics architecture.",
+    "how": "stated: s5 names Xe-LP (TGL = Tiger Lake); this processor is 'Products formerly Tiger Lake' (code name on the processor page)",
+    "official": true,
+    "also": [
+     "s49"
+    ],
+    "note": "s5 says only 'TGL'; s49 maps intel_gpu_tgl to Tiger Lake, which this processor page states as its Code Name; the Xe-LP table (96 EU) is the architecture's, so the cell is true of the architecture, as Intel documents it"
+   },
+   "launch": {
+    "v": "2020-Q3",
+    "src": "s21",
+    "quote": "Launch Date Q3'20",
+    "how": "stated",
+    "official": true
+   },
+   "pci_device_ids": {
+    "v": [
+     "0x9A49"
+    ],
+    "src": "s21",
+    "quote": "Device ID 0x9A49",
+    "how": "stated",
+    "official": true,
+    "note": "same ID on the i5-1135G7 page"
+   },
+   "memory": {
+    "size_gb": {
+     "v": null,
+     "why": "shared; processor page 'Max Memory Size (dependent on memory type) 64 GB'"
+    },
+    "type": {
+     "v": "shared",
+     "src": "s21",
+     "quote": "Memory Types DDR4-3200",
+     "how": "classification: integrated GPU uses system memory",
+     "official": true,
+     "note": "'shared' is the schema's word for an integrated GPU, not the page's; the page lists the system memory types it supports"
+    },
+    "bus_bits": {
+     "v": null,
+     "why": "no GPU figure on the processor page"
+    },
+    "speed_gbps": {
+     "v": null,
+     "why": "no GPU figure"
+    },
+    "bandwidth_gbps": {
+     "v": null,
+     "why": "Intel states none"
+    }
+   },
+   "compute": {
+    "units": {
+     "v": {
+      "count": 96,
+      "called": "execution units"
+     },
+     "src": "s21",
+     "quote": "Execution Units 96",
+     "how": "stated",
+     "official": true
+    },
+    "clock_mhz": {
+     "v": 1350,
+     "src": "s21",
+     "quote": "Graphics Max Dynamic Frequency | 1.35 GHz",
+     "how": "stated",
+     "official": true,
+     "note": "max dynamic, 1185G7 only"
+    },
+    "fp32_tflops": {
+     "v": null,
+     "why": "not stated"
+    }
+   },
+   "formats": {
+    "matrix": {
+     "name": {
+      "v": null,
+      "why": "Xe-LP has no XMX units in the documents read"
+     },
+     "precisions": {
+      "v": null,
+      "why": "no matrix units documented"
+     }
+    },
+    "int8_dot": {
+     "v": true,
+     "src": "s5",
+     "quote": "Intel® Iris® Xe-LP GPU Compute Throughput Rates (Ops/clock/EU) FP32 FP16 INT32 INT16 INT 8 8 16 8 16 32 (DP4A) | intel_gpu_tgl = intel_gpu_tgllp ---- |- |Tiger Lake Intel graphics architecture.",
+     "how": "stated",
+     "official": true,
+     "note": "Xe-LP EU table: INT8 32 (DP4A); the guide's title calls the Xe-LP part 'Intel® Iris® Xe' ; s5 says only 'TGL'; s49 maps intel_gpu_tgl to Tiger Lake, which this processor page states as its Code Name; the Xe-LP table (96 EU) is the architecture's, so the cell is true of the architecture, as Intel documents it",
+     "also": [
+      "s49"
+     ]
+    },
+    "fp16": {
+     "v": true,
+     "src": "s5",
+     "quote": "Xe-LP EU supports diverse data types FP16, INT16 and INT8 for AI applications. | intel_gpu_tgl = intel_gpu_tgllp ---- |- |Tiger Lake Intel graphics architecture.",
+     "how": "stated",
+     "official": true,
+     "also": [
+      "s49"
+     ],
+     "note": "s5 says only 'TGL'; s49 maps intel_gpu_tgl to Tiger Lake, which this processor page states as its Code Name; the Xe-LP table (96 EU) is the architecture's, so the cell is true of the architecture, as Intel documents it"
+    }
+   },
+   "api": {
+    "oneapi": {
+     "v": "OpenVINO GPU plugin lists Intel Iris Xe Graphics",
+     "src": "s25",
+     "quote": "Intel® Iris® Pro Graphics Intel® Iris® Xe Graphics Intel® Iris® Xe Max Graphics",
+     "how": "stated",
+     "official": true,
+     "note": "s8 lists Tiger Lake as a production-quality compute-runtime platform"
+    },
+    "vulkan": {
+     "v": "1.3",
+     "src": "s46",
+     "quote": "Intel® Iris® Xe Graphics 12 4.6 3.0 1.3",
+     "how": "stated",
+     "official": true,
+     "note": "columns DirectX, OpenGL, OpenCL, Vulkan"
+    },
+    "opencl": {
+     "v": "3.0",
+     "src": "s21",
+     "quote": "OpenCL* Support 3.0",
+     "how": "stated",
+     "official": true
+    }
+   }
+  },
+  {
+   "id": "intel-iris-xe-graphics-1135g7",
+   "vendor": "intel",
+   "name": {
+    "v": "Intel Iris Xe Graphics (11th gen mobile, 80 EU)",
+    "src": "s41",
+    "quote": "GPU Name | Intel® Iris® Xe Graphics",
+    "how": "stated",
+    "official": true,
+    "note": "i5-1135G7"
+   },
+   "segment": {
+    "v": "integrated",
+    "src": "s41",
+    "quote": "Vertical Segment Mobile",
+    "how": "classification: processor segment is Mobile",
+    "official": true
+   },
+   "architecture": {
+    "v": "Xe-LP",
+    "src": "s5",
+    "quote": "Xe Configurations Architecture Xe-LP (TGL) | intel_gpu_tgl = intel_gpu_tgllp ---- |- |Tiger Lake Intel graphics architecture.",
+    "how": "stated: s5 names Xe-LP (TGL = Tiger Lake); this processor is 'Products formerly Tiger Lake'",
+    "official": true,
+    "also": [
+     "s49"
+    ],
+    "note": "s5 says only 'TGL'; s49 maps intel_gpu_tgl to Tiger Lake, which this processor page states as its Code Name; the Xe-LP table (96 EU) is the architecture's, so the cell is true of the architecture, as Intel documents it"
+   },
+   "launch": {
+    "v": "2020-Q3",
+    "src": "s41",
+    "quote": "Launch Date Q3'20",
+    "how": "stated",
+    "official": true
+   },
+   "pci_device_ids": {
+    "v": [
+     "0x9A49"
+    ],
+    "src": "s41",
+    "quote": "Device ID 0x9A49",
+    "how": "stated",
+    "official": true
+   },
+   "memory": {
+    "size_gb": {
+     "v": null,
+     "why": "shared; processor page 'Max Memory Size (dependent on memory type) 64 GB'"
+    },
+    "type": {
+     "v": "shared",
+     "src": "s41",
+     "quote": "Memory Types DDR4-3200",
+     "how": "classification: integrated GPU uses system memory",
+     "official": true,
+     "note": "'shared' is the schema's word for an integrated GPU, not the page's; the page lists the system memory types it supports"
+    },
+    "bus_bits": {
+     "v": null,
+     "why": "no GPU figure on the processor page"
+    },
+    "speed_gbps": {
+     "v": null,
+     "why": "no GPU figure"
+    },
+    "bandwidth_gbps": {
+     "v": null,
+     "why": "Intel states none"
+    }
+   },
+   "compute": {
+    "units": {
+     "v": {
+      "count": 80,
+      "called": "execution units"
+     },
+     "src": "s41",
+     "quote": "Execution Units 80",
+     "how": "stated",
+     "official": true
+    },
+    "clock_mhz": {
+     "v": 1300,
+     "src": "s41",
+     "quote": "Graphics Max Dynamic Frequency | 1.30 GHz",
+     "how": "stated",
+     "official": true,
+     "note": "max dynamic, 1135G7 only"
+    },
+    "fp32_tflops": {
+     "v": null,
+     "why": "not stated"
+    }
+   },
+   "formats": {
+    "matrix": {
+     "name": {
+      "v": null,
+      "why": "Xe-LP has no XMX units in the documents read"
+     },
+     "precisions": {
+      "v": null,
+      "why": "no matrix units documented"
+     }
+    },
+    "int8_dot": {
+     "v": true,
+     "src": "s5",
+     "quote": "Intel® Iris® Xe-LP GPU Compute Throughput Rates (Ops/clock/EU) FP32 FP16 INT32 INT16 INT 8 8 16 8 16 32 (DP4A) | intel_gpu_tgl = intel_gpu_tgllp ---- |- |Tiger Lake Intel graphics architecture.",
+     "how": "stated",
+     "official": true,
+     "note": "Xe-LP EU table: INT8 32 (DP4A) ; s5 says only 'TGL'; s49 maps intel_gpu_tgl to Tiger Lake, which this processor page states as its Code Name; the Xe-LP table (96 EU) is the architecture's, so the cell is true of the architecture, as Intel documents it",
+     "also": [
+      "s49"
+     ]
+    },
+    "fp16": {
+     "v": true,
+     "src": "s5",
+     "quote": "Xe-LP EU supports diverse data types FP16, INT16 and INT8 for AI applications. | intel_gpu_tgl = intel_gpu_tgllp ---- |- |Tiger Lake Intel graphics architecture.",
+     "how": "stated",
+     "official": true,
+     "also": [
+      "s49"
+     ],
+     "note": "s5 says only 'TGL'; s49 maps intel_gpu_tgl to Tiger Lake, which this processor page states as its Code Name; the Xe-LP table (96 EU) is the architecture's, so the cell is true of the architecture, as Intel documents it"
+    }
+   },
+   "api": {
+    "oneapi": {
+     "v": "OpenVINO GPU plugin lists Intel Iris Xe Graphics",
+     "src": "s25",
+     "quote": "Intel® Iris® Pro Graphics Intel® Iris® Xe Graphics Intel® Iris® Xe Max Graphics",
+     "how": "stated",
+     "official": true
+    },
+    "vulkan": {
+     "v": "1.3",
+     "src": "s46",
+     "quote": "Intel® Iris® Xe Graphics 12 4.6 3.0 1.3",
+     "how": "stated",
+     "official": true,
+     "note": "columns DirectX, OpenGL, OpenCL, Vulkan"
+    },
+    "opencl": {
+     "v": "3.0",
+     "src": "s41",
+     "quote": "OpenCL* Support 3.0",
+     "how": "stated",
+     "official": true
+    }
+   }
+  },
+  {
+   "id": "intel-iris-xe-graphics-12th-mobile-96eu-1260p",
+   "vendor": "intel",
+   "name": {
+    "v": "Intel Iris Xe Graphics eligible (12th gen mobile, 96 EU)",
+    "src": "s39",
+    "quote": "GPU Name | Intel® Iris® Xe Graphics eligible",
+    "how": "stated",
+    "official": true,
+    "note": "i7-1260P (Alder Lake). Intel's page says 'eligible' (Iris Xe branding depends on the memory configuration)"
+   },
+   "segment": {
+    "v": "integrated",
+    "src": "s39",
+    "quote": "Vertical Segment Mobile",
+    "how": "classification: processor segment is Mobile",
+    "official": true
+   },
+   "architecture": {
+    "v": null,
+    "why": "page gives only 'Code Name Products formerly Alder Lake'; no page read ties this part to Xe-LP"
+   },
+   "launch": {
+    "v": "2022-Q1",
+    "src": "s39",
+    "quote": "Launch Date Q1'22",
+    "how": "stated",
+    "official": true
+   },
+   "pci_device_ids": {
+    "v": [
+     "0x46A6"
+    ],
+    "src": "s39",
+    "quote": "Device ID 0x46A6",
+    "how": "stated",
+    "official": true
+   },
+   "memory": {
+    "size_gb": {
+     "v": null,
+     "why": "shared; processor page 'Max Memory Size (dependent on memory type) 64 GB'"
+    },
+    "type": {
+     "v": "shared",
+     "src": "s39",
+     "quote": "Memory Types Up to DDR5 4800 MT/s Up to DDR4 3200 MT/s Up to LPDDR5 5200 MT/s Up to LPDDR4x 4267 MT/s",
+     "how": "classification: integrated GPU uses system memory",
+     "official": true,
+     "note": "'shared' is the schema's word for an integrated GPU, not the page's; the page lists the system memory types it supports"
+    },
+    "bus_bits": {
+     "v": null,
+     "why": "no GPU figure on the processor page"
+    },
+    "speed_gbps": {
+     "v": null,
+     "why": "no GPU figure"
+    },
+    "bandwidth_gbps": {
+     "v": null,
+     "why": "Intel states none"
+    }
+   },
+   "compute": {
+    "units": {
+     "v": {
+      "count": 96,
+      "called": "execution units"
+     },
+     "src": "s39",
+     "quote": "Execution Units 96",
+     "how": "stated",
+     "official": true
+    },
+    "clock_mhz": {
+     "v": 1400,
+     "src": "s39",
+     "quote": "Graphics Max Dynamic Frequency | 1.40 GHz",
+     "how": "stated",
+     "official": true,
+     "note": "max dynamic, 1260P only"
+    },
+    "fp32_tflops": {
+     "v": null,
+     "why": "not stated"
+    }
+   },
+   "formats": {
+    "matrix": {
+     "name": {
+      "v": null,
+      "why": "no XMX units documented for Iris Xe"
+     },
+     "precisions": {
+      "v": null,
+      "why": "no matrix units documented"
+     }
+    },
+    "int8_dot": {
+     "v": null,
+     "why": "the processor page does not tie this 'Iris Xe Graphics eligible' part to the Xe-LP table in s5"
+    },
+    "fp16": {
+     "v": null,
+     "why": "same: not tied to Xe-LP on a page"
+    }
+   },
+   "api": {
+    "oneapi": {
+     "v": "OpenVINO GPU plugin lists Intel Iris Xe Graphics",
+     "src": "s25",
+     "quote": "Intel® Iris® Pro Graphics Intel® Iris® Xe Graphics Intel® Iris® Xe Max Graphics",
+     "how": "stated",
+     "official": true,
+     "note": "s8 lists Alder Lake as a production-quality compute-runtime platform"
+    },
+    "vulkan": {
+     "v": "1.3",
+     "src": "s46",
+     "quote": "Intel® Iris® Xe Graphics eligible 12 4.6 3.0 1.3",
+     "how": "stated",
+     "official": true,
+     "note": "columns DirectX, OpenGL, OpenCL, Vulkan"
+    },
+    "opencl": {
+     "v": "3.0",
+     "src": "s39",
+     "quote": "OpenCL* Support 3.0",
+     "how": "stated",
+     "official": true
+    }
+   }
+  },
+  {
+   "id": "intel-iris-xe-graphics-12th-mobile-80eu-1235u",
+   "vendor": "intel",
+   "name": {
+    "v": "Intel Iris Xe Graphics eligible (12th gen mobile, 80 EU)",
+    "src": "s38",
+    "quote": "GPU Name | Intel® Iris® Xe Graphics eligible",
+    "how": "stated",
+    "official": true,
+    "note": "i5-1235U (Alder Lake)"
+   },
+   "segment": {
+    "v": "integrated",
+    "src": "s38",
+    "quote": "Vertical Segment Mobile",
+    "how": "classification: processor segment is Mobile",
+    "official": true
+   },
+   "architecture": {
+    "v": null,
+    "why": "page gives only 'Code Name Products formerly Alder Lake'"
+   },
+   "launch": {
+    "v": "2022-Q1",
+    "src": "s38",
+    "quote": "Launch Date Q1'22",
+    "how": "stated",
+    "official": true
+   },
+   "pci_device_ids": {
+    "v": [
+     "0x46A8"
+    ],
+    "src": "s38",
+    "quote": "Device ID 0x46A8",
+    "how": "stated",
+    "official": true
+   },
+   "memory": {
+    "size_gb": {
+     "v": null,
+     "why": "shared; processor page 'Max Memory Size (dependent on memory type) 64 GB'"
+    },
+    "type": {
+     "v": "shared",
+     "src": "s38",
+     "quote": "Memory Types Up to DDR5 4800 MT/s Up to DDR4 3200 MT/s Up to LPDDR5 5200 MT/s Up to LPDDR4x 4267 MT/s",
+     "how": "classification: integrated GPU uses system memory",
+     "official": true,
+     "note": "'shared' is the schema's word for an integrated GPU, not the page's; the page lists the system memory types it supports"
+    },
+    "bus_bits": {
+     "v": null,
+     "why": "no GPU figure on the processor page"
+    },
+    "speed_gbps": {
+     "v": null,
+     "why": "no GPU figure"
+    },
+    "bandwidth_gbps": {
+     "v": null,
+     "why": "Intel states none"
+    }
+   },
+   "compute": {
+    "units": {
+     "v": {
+      "count": 80,
+      "called": "execution units"
+     },
+     "src": "s38",
+     "quote": "Execution Units 80",
+     "how": "stated",
+     "official": true
+    },
+    "clock_mhz": {
+     "v": 1200,
+     "src": "s38",
+     "quote": "Graphics Max Dynamic Frequency | 1.20 GHz",
+     "how": "stated",
+     "official": true,
+     "note": "max dynamic, 1235U only"
+    },
+    "fp32_tflops": {
+     "v": null,
+     "why": "not stated"
+    }
+   },
+   "formats": {
+    "matrix": {
+     "name": {
+      "v": null,
+      "why": "no XMX units documented for Iris Xe"
+     },
+     "precisions": {
+      "v": null,
+      "why": "no matrix units documented"
+     }
+    },
+    "int8_dot": {
+     "v": null,
+     "why": "not tied to the Xe-LP table in s5 by any page"
+    },
+    "fp16": {
+     "v": null,
+     "why": "not tied to Xe-LP by any page"
+    }
+   },
+   "api": {
+    "oneapi": {
+     "v": "OpenVINO GPU plugin lists Intel Iris Xe Graphics",
+     "src": "s25",
+     "quote": "Intel® Iris® Pro Graphics Intel® Iris® Xe Graphics Intel® Iris® Xe Max Graphics",
+     "how": "stated",
+     "official": true
+    },
+    "vulkan": {
+     "v": "1.3",
+     "src": "s46",
+     "quote": "Intel® Iris® Xe Graphics eligible 12 4.6 3.0 1.3",
+     "how": "stated",
+     "official": true,
+     "note": "columns DirectX, OpenGL, OpenCL, Vulkan"
+    },
+    "opencl": {
+     "v": "3.0",
+     "src": "s38",
+     "quote": "OpenCL* Support 3.0",
+     "how": "stated",
+     "official": true
+    }
+   }
+  },
+  {
+   "id": "intel-iris-xe-graphics-13th-mobile-96eu-1360p",
+   "vendor": "intel",
+   "name": {
+    "v": "Intel Iris Xe Graphics eligible (13th gen mobile, 96 EU)",
+    "src": "s40",
+    "quote": "GPU Name | Intel® Iris® Xe Graphics eligible",
+    "how": "stated",
+    "official": true,
+    "note": "i7-1360P (Raptor Lake); a second 96-EU 13th gen model was not opened"
+   },
+   "segment": {
+    "v": "integrated",
+    "src": "s40",
+    "quote": "Vertical Segment Mobile",
+    "how": "classification: processor segment is Mobile",
+    "official": true
+   },
+   "architecture": {
+    "v": null,
+    "why": "page gives only 'Code Name Products formerly Raptor Lake'"
+   },
+   "launch": {
+    "v": "2023-Q1",
+    "src": "s40",
+    "quote": "Launch Date Q1'23",
+    "how": "stated",
+    "official": true
+   },
+   "pci_device_ids": {
+    "v": [
+     "0xA7A0"
+    ],
+    "src": "s40",
+    "quote": "Device ID 0xA7A0",
+    "how": "stated",
+    "official": true
+   },
+   "memory": {
+    "size_gb": {
+     "v": null,
+     "why": "shared; processor page 'Max Memory Size (dependent on memory type) 96 GB'"
+    },
+    "type": {
+     "v": "shared",
+     "src": "s40",
+     "quote": "Memory Types Up to DDR5 5200 MT/s Up to DDR4 3200 MT/s Up to LPDDR5/x 6400 MT/s Up to LPDDR4x 4267 MT/s",
+     "how": "classification: integrated GPU uses system memory",
+     "official": true,
+     "note": "'shared' is the schema's word for an integrated GPU, not the page's; the page lists the system memory types it supports"
+    },
+    "bus_bits": {
+     "v": null,
+     "why": "no GPU figure on the processor page"
+    },
+    "speed_gbps": {
+     "v": null,
+     "why": "no GPU figure"
+    },
+    "bandwidth_gbps": {
+     "v": null,
+     "why": "Intel states none"
+    }
+   },
+   "compute": {
+    "units": {
+     "v": {
+      "count": 96,
+      "called": "execution units"
+     },
+     "src": "s40",
+     "quote": "Execution Units 96",
+     "how": "stated",
+     "official": true,
+     "also": [
+      "s51"
+     ],
+     "note": "confirmed by a second model: Core i7-1355U (s51) also shows Execution Units 96, GPU Name Intel Iris Xe Graphics eligible"
+    },
+    "clock_mhz": {
+     "v": 1500,
+     "src": "s40",
+     "quote": "Graphics Max Dynamic Frequency | 1.50 GHz",
+     "how": "stated",
+     "official": true,
+     "note": "max dynamic, 1360P only"
+    },
+    "fp32_tflops": {
+     "v": null,
+     "why": "not stated"
+    }
+   },
+   "formats": {
+    "matrix": {
+     "name": {
+      "v": null,
+      "why": "no XMX units documented for Iris Xe"
+     },
+     "precisions": {
+      "v": null,
+      "why": "no matrix units documented"
+     }
+    },
+    "int8_dot": {
+     "v": null,
+     "why": "not tied to the Xe-LP table in s5 by any page"
+    },
+    "fp16": {
+     "v": null,
+     "why": "not tied to Xe-LP by any page"
+    }
+   },
+   "api": {
+    "oneapi": {
+     "v": "OpenVINO GPU plugin lists Intel Iris Xe Graphics",
+     "src": "s25",
+     "quote": "Intel® Iris® Pro Graphics Intel® Iris® Xe Graphics Intel® Iris® Xe Max Graphics",
+     "how": "stated",
+     "official": true,
+     "note": "s8 lists Raptor Lake as a production-quality compute-runtime platform"
+    },
+    "vulkan": {
+     "v": "1.3",
+     "src": "s46",
+     "quote": "Intel® Iris® Xe Graphics eligible 12 4.6 3.0 1.3",
+     "how": "stated",
+     "official": true,
+     "note": "columns DirectX, OpenGL, OpenCL, Vulkan"
+    },
+    "opencl": {
+     "v": "3.0",
+     "src": "s40",
+     "quote": "OpenCL* Support 3.0",
+     "how": "stated",
+     "official": true
+    }
+   }
+  },
+  {
+   "id": "intel-iris-xe-graphics-13th-mobile-80eu-1335u",
+   "vendor": "intel",
+   "name": {
+    "v": "Intel Iris Xe Graphics eligible (13th gen mobile, 80 EU)",
+    "src": "s43",
+    "quote": "GPU Name | Intel® Iris® Xe Graphics eligible",
+    "how": "stated",
+    "official": true,
+    "note": "i5-1335U (Raptor Lake)"
+   },
+   "segment": {
+    "v": "integrated",
+    "src": "s43",
+    "quote": "Vertical Segment Mobile",
+    "how": "classification: processor segment is Mobile",
+    "official": true
+   },
+   "architecture": {
+    "v": null,
+    "why": "page gives only 'Code Name Products formerly Raptor Lake'"
+   },
+   "launch": {
+    "v": "2023-Q1",
+    "src": "s43",
+    "quote": "Launch Date Q1'23",
+    "how": "stated",
+    "official": true
+   },
+   "pci_device_ids": {
+    "v": [
+     "0xA7A1"
+    ],
+    "src": "s43",
+    "quote": "Device ID 0xA7A1",
+    "how": "stated",
+    "official": true
+   },
+   "memory": {
+    "size_gb": {
+     "v": null,
+     "why": "shared; processor page 'Max Memory Size (dependent on memory type) 96 GB'"
+    },
+    "type": {
+     "v": "shared",
+     "src": "s43",
+     "quote": "Memory Types Up to DDR5 5200 MT/s Up to DDR4 3200 MT/s Up to LPDDR5/x 6400 MT/s Up to LPDDR4x 4267 MT/s",
+     "how": "classification: integrated GPU uses system memory",
+     "official": true,
+     "note": "'shared' is the schema's word for an integrated GPU, not the page's; the page lists the system memory types it supports"
+    },
+    "bus_bits": {
+     "v": null,
+     "why": "no GPU figure on the processor page"
+    },
+    "speed_gbps": {
+     "v": null,
+     "why": "no GPU figure"
+    },
+    "bandwidth_gbps": {
+     "v": null,
+     "why": "Intel states none"
+    }
+   },
+   "compute": {
+    "units": {
+     "v": {
+      "count": 80,
+      "called": "execution units"
+     },
+     "src": "s43",
+     "quote": "Execution Units 80",
+     "how": "stated",
+     "official": true,
+     "also": [
+      "s52"
+     ],
+     "note": "confirmed by a second model: Core i5-1345U (s52) also shows Execution Units 80, GPU Name Intel Iris Xe Graphics eligible"
+    },
+    "clock_mhz": {
+     "v": 1250,
+     "src": "s43",
+     "quote": "Graphics Max Dynamic Frequency | 1.25 GHz",
+     "how": "stated",
+     "official": true,
+     "note": "max dynamic, 1335U only"
+    },
+    "fp32_tflops": {
+     "v": null,
+     "why": "not stated"
+    }
+   },
+   "formats": {
+    "matrix": {
+     "name": {
+      "v": null,
+      "why": "no XMX units documented for Iris Xe"
+     },
+     "precisions": {
+      "v": null,
+      "why": "no matrix units documented"
+     }
+    },
+    "int8_dot": {
+     "v": null,
+     "why": "not tied to the Xe-LP table in s5 by any page"
+    },
+    "fp16": {
+     "v": null,
+     "why": "not tied to Xe-LP by any page"
+    }
+   },
+   "api": {
+    "oneapi": {
+     "v": "OpenVINO GPU plugin lists Intel Iris Xe Graphics",
+     "src": "s25",
+     "quote": "Intel® Iris® Pro Graphics Intel® Iris® Xe Graphics Intel® Iris® Xe Max Graphics",
+     "how": "stated",
+     "official": true
+    },
+    "vulkan": {
+     "v": "1.3",
+     "src": "s46",
+     "quote": "Intel® Iris® Xe Graphics eligible 12 4.6 3.0 1.3",
+     "how": "stated",
+     "official": true,
+     "note": "columns DirectX, OpenGL, OpenCL, Vulkan"
+    },
+    "opencl": {
+     "v": "3.0",
+     "src": "s43",
+     "quote": "OpenCL* Support 3.0",
+     "how": "stated",
+     "official": true
+    }
+   }
+  }
+ ],
+ "gaps": [
+  {
+   "what": "corrected all rows formats.int8_dot",
+   "why": "was true (source s22, quote 'cl_khr_integer_dot_product | ⬤ | ⬤ |'), the page text shows two circles per row but the column header is lost, so the table cannot say which product has it; now null, except Iris Xe on Tiger Lake (s5 Xe-LP table, '32 (DP4A)')"
+  },
+  {
+   "what": "corrected intel-uhd-graphics-770 and intel-uhd-graphics-730 formats.fp16",
+   "why": "was true via s5 Xe-LP; no page says UHD 770/730 is Xe-LP, the mapping was ours; now null"
+  },
+  {
+   "what": "corrected intel-uhd-graphics-630 api.opencl",
+   "why": "was null (no row on the processor page); Intel's support article s46 says OpenCL 2.1 for UHD 630"
+  },
+  {
+   "what": "corrected intel-uhd-graphics-770/730/630 and Iris Xe api.vulkan",
+   "why": "was null; s46 gives 1.3 per product"
+  },
+  {
+   "what": "corrected intel-iris-xe-graphics-1185g7 architecture",
+   "why": "was 'Xe-LP (assumed from name)' with a page-title quote; s5 states 'Xe-LP (TGL)' and the processor is Tiger Lake, now Xe-LP with that quote"
+  },
+  {
+   "what": "corrected intel-arc-b580 matrix precisions, fp16 and intel-arc-b570 matrix precisions, fp16",
+   "why": "was null (no page read); Intel's SYCL matrix doc s47 lists XMX combinations for the Battlemage architectures: sint8, fp16, bf16 (no tf32)"
+  },
+  {
+   "what": "corrected intel-arc-b570 memory.size_gb quote",
+   "why": "was 'Memory Size: 10 GB'; the page says 'Memory 10 GB GDDR6' (value 10 unchanged); the same form fixes B580 memory"
+  },
+  {
+   "what": "corrected intel-arc-a380 and intel-arc-a310 memory bus quote",
+   "why": "was 'Memory Interface: 96 bit'; the page says 'Graphics Memory Interface 96 bit' (values unchanged)"
+  },
+  {
+   "what": "corrected intel-arc-b580 segment",
+   "why": "was sourced to the series table with a prose quote; the B580 page says 'Vertical Segment Desktop' (value desktop unchanged)"
+  },
+  {
+   "what": "corrected intel-arc-a580, a380, a310 api.oneapi",
+   "why": "quotes were not on the page; the page rows are 'oneAPI Support Yes', 'OpenVINOTM Support Yes' (values unchanged); the IPEX row was not seen for A580, A380, A310, A750, A770 8GB, B580, B570 and is no longer claimed"
+  },
+  {
+   "what": "corrected intel-uhd-graphics-770/730/630 name and compute.units quotes",
+   "why": "the 12900K, 12400 and 9900K pages write 'Intel® UHD Graphics' with no number in the GPU Name row; 'UHD Graphics 770' is on the 12700K page, '730' on the 12100 page, '630' on the 8700K page; the row now cites the page that has the number (values unchanged)"
+  },
+  {
+   "what": "intel-arc-graphics-core-ultra-series1-155h is one model class",
+   "why": "155H and 165H agree (8 Xe-cores, 0x7D55, 2.25 vs 2.3 GHz); 125H has 7 Xe-cores (own row); 135U has 4 Xe-cores and 'Intel Graphics' (own row); 226V has the Arc 130V with 7 Xe-cores (own row); 285H has the Arc 140T (own row)",
+   "next": "other U and H models were not opened (155U, 125U, 165U; 268V, 238V)"
+  },
+  {
+   "what": "iGPU clock differs inside a class",
+   "why": "Graphics Max Dynamic Frequency is per processor model (12900K 1.55 vs 12700K 1.50 GHz; 12400 1.45 vs 12100 1.40; 285K 2 vs 245K 1.9; 1185G7 1.35 vs 1135G7 1.30); each iGPU row's clock is the quoted model's value",
+   "next": "a calculator should take the clock from the host processor row when it needs it"
+  },
+  {
+   "what": "Arc Pro B60, B65, B70 api.vulkan",
+   "why": "pages say 'Vulkan* Support 1.3' but Intel's support article s46 says Arc Pro B-Series (Battlemage) 1.4; B50's page says 1.4; B60, B65, B70 left null",
+   "next": "re-read when Intel reconciles"
+  },
+  {
+   "what": "Arc Pro B65 and B70 memory.speed_gbps",
+   "why": "the pages have no 'Graphics Memory Speed' row (608 GB/s on a 256 bit bus is stated but no Gbps figure)",
+   "next": "datasheet PDFs: datasheet-b65-gpu.pdf, datasheet-b70-gpu.pdf (not readable here)"
+  },
+  {
+   "what": "FP32 TFLOPS for Arc A, Arc B (B570, B580) and every iGPU",
+   "why": "Intel pages state only 'GPU Peak TOPS (Int8)'; only the Arc Pro pages state 'GPU TFLOPS (FP32)' (B50 10.65, B60 12.28, B65 12.28, B70 22.94)"
+  },
+  {
+   "what": "Memory bandwidth, bus and speed for integrated GPUs",
+   "why": "Intel states none; use the host processor's memory channels and MT/s",
+   "next": "cross-link with the cpu slice"
+  },
+  {
+   "what": "Vulkan for Core Ultra graphics (Meteor Lake, Lunar Lake, Arrow Lake)",
+   "why": "no Vulkan row on the processor pages and none of these products in the support article s46; the Arc Pro built-in GPU datasheet (cdrdv2-public.intel.com/816998) is a PDF",
+   "next": "Intel graphics driver release notes (PDF) or the Windows driver page"
+  },
+  {
+   "what": "UHD Graphics 630 execution unit count",
+   "why": "the i9-9900K and i7-8700K pages have no Execution Units row",
+   "next": "Intel's HD graphics list PDFs (Intel-Core-Desktop-Boxed-Processors-HD-GFX-List.pdf), not readable here"
+  },
+  {
+   "what": "Architecture name for Meteor Lake, Lunar Lake and Arrow Lake graphics, and for Alder and Raptor Lake graphics",
+   "why": "no page read names Xe-LPG, Xe2-LPG or ties Alder/Raptor Lake graphics to Xe-LP; the SYCL doc names the architectures only as lnl_m, arl_h, bmg"
+  },
+  {
+   "what": "Intel Arc A770 8GB and 16GB share Device ID 0x56A0",
+   "why": "both pages show the same ID; the dgpu-docs table is unreadable",
+   "next": "dgpu-docs hardware table via a browser"
+  },
+  {
+   "what": "desktop Arc cards newer than B580",
+   "why": "Intel lists none: the B-Series ARK table (s17) has only B570 and B580. Intel lists four Arc Pro B-Series workstation cards (B50, B60, B65, B70), added as workstation rows"
+  },
+  {
+   "what": "Meteor Lake and Arrow Lake desktop matrix units",
+   "why": "the SYCL XMX table names no architecture for Meteor Lake or Arrow Lake desktop; matrix cells left null (Arrow Lake H arl_h and Lunar Lake lnl_m are named)"
+  },
+  {
+   "what": "verified (wave 3) architecture, matrix name/precisions, fp16 on Battlemage, Lunar Lake and Arrow Lake H rows",
+   "why": "s47 names architectures (bmg_g21, bmg_g31, lnl_m, arl_h) not products; the new source s49 (Intel's device-architecture doc) maps them: 'Battlemage G21', 'Battlemage G31', 'Lunar Lake', 'Arrow Lake H'. Each product page states the codename (Battlemage, Lunar Lake, Arrow Lake). Values hold; the quotes now name both sources. Arrow Lake desktop (285K) and Meteor Lake have no entry in the XMX table and stay null. Intel's pages never say 'Xe2' for Lunar Lake or Arrow Lake H, so those architecture cells stay null"
+  },
+  {
+   "what": "api.vulkan for Core Ultra graphics (Series 1 and 2) stays empty",
+   "why": "searched: the Core Ultra spec pages (155H, 155U) have no Vulkan row; support article 000005524 (s46) has no Core Ultra row (only UHD/Iris/Arc discrete tables); Intel's driver release-notes PDF (downloadmirror.intel.com/922583) cannot be read here; a search summary said Vulkan 1.4 but that is not a quote",
+   "next": "read the driver release notes PDF in a browser"
+  },
+  {
+   "what": "api.vulkan for Arc Pro B60, B65, B70 stays empty",
+   "why": "Intel disagrees with itself: each product page says 'Vulkan* Support 1.3' (re-read in wave 3), the Arc Pro B50 page and s46 ('Intel Arc Pro B-Series Graphics (codename Battlemage) | 12 | 4.6 | 3.0 | 1.4') say 1.4"
+  },
+  {
+   "what": "intel-uhd-graphics-630 compute.units stays empty",
+   "why": "searched: the i5-8400, i7-8700K and i9-9900K Intel pages have no Execution Units row; the Intel support article s46 has no EU counts; the HD-graphics list is a PDF. 24 EUs appears only on third-party pages, which this field may not use"
+  },
+  {
+   "what": "second-model checks (wave 3)",
+   "why": "135U confirmed by 155U (4 Xe-cores); 258V/140V by 268V (8); 226V/130V by 236V (7; the page opened under the 238V URL slug is processor 236V); 13th-gen 96 EU by i7-1355U; 13th-gen 80 EU by i5-1345U. The 125H/125U and 238V pages were not confirmed: the 125U page answered 403"
+  },
+  {
+   "what": "dgpu-docs hardware table and oneAPI DPC++ requirements page, retried",
+   "why": "dgpu-docs with --table still reads 0 characters (script-rendered); the DPC++ page still answers 403"
+  },
+  {
+   "what": "verified (wave 3) Iris Xe 11th gen (1185G7, 1135G7) architecture, int8_dot, fp16",
+   "why": "s5 writes 'TGL', not 'Tiger Lake'; the mapping is now quoted from s49. Values (Xe-LP, true, true) hold for Tiger Lake; 12th and 13th gen Iris Xe stay null as no page ties them to Xe-LP"
+  }
+ ],
+ "blocked": [
+  {
+   "url": "https://dgpu-docs.intel.com/devices/hardware-table.html",
+   "status": "page.py reads 0 characters (script-rendered)",
+   "wanted": "official PCI device ID list per Arc product"
+  },
+  {
+   "url": "https://www.intel.com/content/www/us/en/developer/articles/system-requirements/intel-oneapi-dpcpp-system-requirements.html",
+   "status": "403",
+   "wanted": "oneAPI DPC++ supported GPU list"
+  },
+  {
+   "url": "https://cdrdv2-public.intel.com/816998/Datasheet%20-%20Built-In%20Intel%C2%AE%20Arc%E2%84%A2%20Pro%20GPU%20with%20Intel%C2%AE%20Core%E2%84%A2%20Ultra%20Processors.pdf",
+   "status": "PDF, not read",
+   "wanted": "Vulkan and XMX for Core Ultra (Series 1) built-in graphics"
+  },
+  {
+   "url": "https://www.intel.com/content/dam/www/central-libraries/us/en/documents/2026-03/datasheet-b70-gpu.pdf",
+   "status": "PDF, not read",
+   "wanted": "B70 memory speed, int8 dot product, XMX formats"
+  },
+  {
+   "url": "https://www.intel.com/content/dam/support/us/en/documents/processors/core/Intel-Core-Desktop-Boxed-Processors-HD-GFX-List.pdf",
+   "status": "PDF, not read",
+   "wanted": "UHD Graphics 630 execution units"
+  },
+  {
+   "url": "https://www.intel.com/content/www/us/en/products/sku/237326/intel-core-ultra-5-processor-125u-12m-cache-up-to-4-30-ghz/specifications.html",
+   "status": "403",
+   "wanted": "Core Ultra 5 125U Xe-core count (guessed URL)"
+  },
+  {
+   "url": "https://downloadmirror.intel.com/922583/ReleaseNotes_101.8860_WHQL.pdf",
+   "status": "PDF, not read",
+   "wanted": "Vulkan version for Core Ultra graphics"
+  }
+ ],
+ "coverage": {
+  "target": [
+   "Arc A770 16GB",
+   "Arc B580",
+   "Intel Arc Graphics (Core Ultra Series 1)",
+   "Arc A310",
+   "Arc A380",
+   "Arc A580",
+   "Arc A750",
+   "Arc A770 8GB",
+   "Arc B570",
+   "newer desktop Arc cards",
+   "Intel UHD Graphics 630",
+   "Intel UHD Graphics 730",
+   "Intel UHD Graphics 770",
+   "Iris Xe Graphics (11th gen mobile)",
+   "Iris Xe Graphics (12th gen mobile)",
+   "Iris Xe Graphics (13th gen mobile)",
+   "Intel Arc Graphics (Core Ultra Series 1)",
+   "Intel Graphics (Core Ultra Series 1)",
+   "Intel Arc Graphics (Core Ultra Series 2)",
+   "Intel Graphics (Core Ultra Series 2)"
+  ],
+  "done": [
+   "Arc A770 16GB",
+   "Arc A770 8GB",
+   "Arc A750",
+   "Arc A580",
+   "Arc A380",
+   "Arc A310",
+   "Arc B580",
+   "Arc B570",
+   "Arc Pro B50, B60, B65, B70 (workstation; the only cards newer than B580 Intel lists)",
+   "Intel Arc Graphics (Core Ultra Series 1): 155H (8 Xe-cores, confirmed by 165H), 125H (7 Xe-cores)",
+   "Intel Graphics (Core Ultra Series 1): 135U (4 Xe-cores)",
+   "Intel Arc 140V and 130V (Core Ultra Series 2, Lunar Lake), Arc 140T (285H)",
+   "Intel Graphics (Core Ultra Series 2 desktop): 285K, confirmed by 245K",
+   "Intel UHD Graphics 770 (confirmed by 12700K), 730 (confirmed by 12100), 630 (EU count missing)",
+   "Iris Xe: 11th gen 96 and 80 EU, 12th gen 96 and 80 EU, 13th gen 96 and 80 EU"
+  ],
+  "left": [
+   "Core Ultra 5 125U and Core Ultra 5 238V pages not confirmed (125U 403; 236V opened instead)",
+   "UHD 630 execution units (no Intel page states it)",
+   "Vulkan for Core Ultra graphics and Arc Pro B60/B65/B70 (Intel's pages conflict or are PDF)",
+   "iGPU memory bandwidth, bus, speed: Intel states none"
+  ]
+ }
+}

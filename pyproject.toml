@@ -74,6 +74,11 @@ git_describe_command = [
 [tool.hatch.build.targets.wheel]
 packages = ["src/mcgyvr"]
 
+# tools/ builds the shipped data from the pages' own words, which stay in the
+# repository and are not published: neither the wheel nor the sdist carries them.
+[tool.hatch.build.targets.sdist]
+exclude = ["/tools"]
+
 # The shipped data files are read at runtime through `importlib.resources`, so
 # they have to be inside the package in a wheel — `data/` sits at the repo root
 # for editing, and the loaders' checkout fallback only works from a source tree.
@@ -86,6 +91,7 @@ packages = ["src/mcgyvr"]
 "data/model-catalog.json" = "mcgyvr/data/model-catalog.json"
 "data/model-geometry.json" = "mcgyvr/data/model-geometry.json"
 "data/hardware-classes.json" = "mcgyvr/data/hardware-classes.json"
+"data/hardware-capabilities.json" = "mcgyvr/data/hardware-capabilities.json"
 # SETUP.md says how a machine comes to have a setup; `mcgyvr PROMPT` and
 # `mcgyvr direct` name it when none loads, so an installed mcgyvr carries its own
 # copy (the file is generated and drift-checked by `make docs-check`, so this

@@ -15,6 +15,8 @@ What must be observably true:
   executable — and the data files and the vendored engine, so an install
   missing any of them cannot be built. A door without its shims refuses to
   start, so a wheel without them is a broken install, not a degraded one;
+* the sdist carries the shipped data but not ``tools/``, where the pages' own
+  words the hardware table is built from stay unpublished;
 * one workflow builds the distribution, on a ``v*`` tag, with every action
   pinned by commit, and publishes it to a GitHub release; no other workflow
   builds one. A wheel built twice is two products with one name;
@@ -39,6 +41,7 @@ import shutil
 import stat
 import subprocess
 import sys
+import tarfile
 import tomllib
 import zipfile
 from pathlib import Path
@@ -220,6 +223,7 @@ def _door_files() -> list[str]:
 DATA_FILES = (
     "mcgyvr/data/capability-table.json",
     "mcgyvr/data/task-catalog.json",
+    "mcgyvr/data/hardware-capabilities.json",
     "mcgyvr/gate/_engine/ghostcall/__init__.py",
     "mcgyvr/gate/_engine/ghostcall/parser.py",
     "mcgyvr/gate/_engine/ghostcall/checker.py",
@@ -244,6 +248,27 @@ def test_the_wheel_carries_the_whole_door_executable_and_the_data(
         f"in the wheel without an executable bit: {not_executable}; the door "
         "refuses a gate it cannot run"
     )
+
+
+def test_the_sdist_carries_the_data_and_not_the_tools_that_build_it(
+    tmp_path: Path,
+) -> None:
+    out = tmp_path / "dist"
+    done = subprocess.run(
+        [_uv(), "build", "--sdist", "--out-dir", str(out)],
+        cwd=REPO,
+        capture_output=True,
+        text=True,
+        timeout=600,
+        check=False,
+    )
+    assert done.returncode == 0, done.stderr[-2000:]
+    (sdist,) = sorted(out.glob("*.tar.gz"))
+    with tarfile.open(sdist) as archive:
+        names = [name.partition("/")[2] for name in archive.getnames()]
+    assert "data/hardware-capabilities.json" in names
+    tools = [name for name in names if name == "tools" or name.startswith("tools/")]
+    assert tools == [], f"in the sdist: {tools[:5]}"
 
 
 # --- the release ------------------------------------------------------------------
