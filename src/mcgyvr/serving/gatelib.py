@@ -986,8 +986,8 @@ def _read_only_command(command: str, stdin: str | None = None) -> bool:
     module builds.
 
     POSIX shapes: the shipped scanner's run (bare, or with HARDWARE_ARG), the
-    `find` that discovers `*.gguf` files one level down a quoted directory, the shipped header read with one
-    quoted path, none with a stdin. Windows shapes:
+    `find` that discovers `*.gguf` files one level down a quoted directory, the
+    shipped header read with one quoted path, none with a stdin. Windows shapes:
     :func:`_read_only_windows`. Each blob is compared against the one this
     checkout builds, so anything else — a hand-edited line included — is not
     traffic a read is allowed to make.

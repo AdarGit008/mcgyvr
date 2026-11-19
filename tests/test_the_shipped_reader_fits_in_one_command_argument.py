@@ -22,18 +22,24 @@ from tests.machinereader import READER, run, stage, stage_host
 
 #: Linux's MAX_ARG_STRLEN with 4 KiB pages.
 ONE_ARGUMENT = 4096 * 32
-#: What the line may take of it, an alarm well before the hard limit: the whole
-#: shell line (base64 of the packed reader, which carries hostos and the wire's
-#: names) is measured. It is 86339 bytes since the scan reads every card's PCI
-#: ids and nodes and the CPU's flags (77243 before), 66% of the argument; three
-#: quarters (98304) leave it 11965 bytes to grow and a quarter of it free.
+#: What a line may take of it, an alarm well before the hard limit. What is
+#: measured is each whole shell line (base64 of the packed reader, which carries
+#: hostos and the wire's names): the scan read, the same with --hardware, and
+#: the card read. When this was set they were 87243, 87254 and 87251 bytes
+#: (77243, none and 77251 before the device list and the CPU detail), 67% of the
+#: argument at most; three quarters (98304) left the longest 11050 bytes to grow
+#: and a quarter of the argument free.
 ROOM = 3 * ONE_ARGUMENT // 4
 
 
 def test_the_scan_and_the_card_read_each_fit_with_room_in_one_argument() -> None:
     from mcgyvr.serving import gatelib
 
-    for command in (gatelib.scan_read_command(), gatelib.cards_read_command()):
+    for command in (
+        gatelib.scan_read_command(),
+        gatelib.scan_read_command(hardware=True),
+        gatelib.cards_read_command(),
+    ):
         assert len(command.encode("utf-8")) < ROOM, (
             f"the shipped reader's command is {len(command)} bytes; one argument "
             f"holds {ONE_ARGUMENT}"
