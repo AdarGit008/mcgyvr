@@ -185,10 +185,11 @@ def test_a_refusal_of_the_request_or_a_catch_all_is_never_handed_over(
     )
     assert [r.field for r in result.refusals] == ["request"]
 
-    # No stop condition: the contract does not validate, a catch-all ("").
-    unstated = Prose([replace(code("listing.py"), stop_conditions=())])
+    # A scope that does not hold the target: the contract does not validate, a
+    # catch-all ("").
+    outside = Prose([replace(code("listing.py"), allow=("docs/**",))])
     result = decompose(
-        index, "document listing", propose=unstated, fix=fixer, max_reproposals=1
+        index, "document listing", propose=outside, fix=fixer, max_reproposals=1
     )
     assert [r.field for r in result.refusals] == [""]
     assert result.reproposal == Reproposal(

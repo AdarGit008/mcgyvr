@@ -60,8 +60,9 @@ def a_fix(**overrides: object) -> Proposal:
     Carries stop conditions, acceptance commands and a demonstrating command
     because ``code`` is a type a model executes and its evidence derives from
     those fields — ``failing_test_first`` from the demonstration, ``tests_pass``
-    from the acceptance. The decomposer does not invent any of them — which is
-    why they are here and not in the module.
+    from the acceptance. The decomposer invents none of them (a stop condition
+    left out gets only the generic one) — which is why they are here and not in
+    the module.
     """
     base = {
         "task_type": "code",
@@ -196,16 +197,21 @@ def test_a_code_proposal_without_commands_emits_a_gate_only_contract(
     assert built.evidence_names == ("gate",)
 
 
-def test_the_decomposer_invents_neither_stop_conditions_nor_acceptance(
+def test_the_decomposer_supplies_only_the_generic_stop_condition(
     repo: Index,
 ) -> None:
-    """Both are judgements. A module that filled them in would be fabricating."""
+    """A stated stop condition is a judgement, and the decomposer makes none: a
+    model-run proposal that states none gets the generic condition, which says
+    only to report BLOCKED rather than guess (`generic_stop_condition`)."""
     result = decompose(
         repo, "fix it", propose=RecordedProposer((a_fix(stop_conditions=()),))
     )
 
-    assert result.contracts == ()
-    assert "stop_conditions" in result.refusals[0].reason
+    assert result.refusals == ()
+    (built,) = result.contracts
+    assert built.stop_conditions == (
+        contract_module.generic_stop_condition("code", "listing.py"),
+    )
 
 
 # --- acceptance: the same prompt and repository yield the same shape --------
