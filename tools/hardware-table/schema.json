@@ -1,0 +1,66 @@
+{
+ "schema": 1,
+ "cell": {
+  "v": "the value; null when no page read gives it, false or [] when a page states it is not there",
+  "src": "the id of the source the value was read from",
+  "quote": "the page's own words that carry the value",
+  "how": "stated, or derived with the formula",
+  "official": "whether the vendor published the value",
+  "scope": "what the value is said of when not the product alone: compute-capability, architecture, series, family, driver, inferred, absence, variant",
+  "why": "why an empty cell is empty",
+  "also": "further sources the quote is taken from",
+  "note": "a remark on the value",
+  "seen": "search: the value was seen in a search result only",
+  "confirmed_by": "a third-party source that states the same value",
+  "differs": "the value, source and quote of a third-party source that states another value",
+  "was": "the value and source of the unofficial cell this one replaced"
+ },
+ "shipped": {
+  "cell": ["v", "src", "how", "official", "scope"],
+  "source": ["id", "url", "publisher", "official", "read"]
+ },
+ "kinds": {
+  "gpu": {
+   "vendors": ["nvidia", "amd", "intel"],
+   "fields": [
+    "name", "segment", "architecture", "launch", "pci_device_ids", "memory.size_gb",
+    "memory.type", "memory.bus_bits", "memory.speed_gbps", "memory.bandwidth_gbps",
+    "compute.units", "compute.clock_mhz", "compute.fp32_tflops", "formats.matrix.name",
+    "formats.matrix.precisions", "formats.int8_dot", "formats.fp16", "api.vulkan",
+    "api.opencl"
+   ],
+   "vendor_fields": {
+    "nvidia": ["api.cuda_compute_capability"],
+    "amd": ["api.rocm"],
+    "intel": ["api.oneapi"]
+   },
+   "optional": [
+    "chip", "compute.shading_units", "compute.fp16_tflops", "compute.fp64_tflops",
+    "compute.matrix_units", "compute.matrix_rates", "formats.vector"
+   ]
+  },
+  "cpu": {
+   "vendors": ["intel", "amd"],
+   "fields": [
+    "name", "models", "segment", "architecture", "launch", "socket", "cores", "isa",
+    "memory.types", "memory.max_speed_mts", "memory.channels", "memory.max_gb",
+    "memory.max_bandwidth_gbps", "igpu"
+   ],
+   "vendor_fields": {},
+   "optional": []
+  },
+  "soc": {
+   "vendors": ["apple"],
+   "fields": [
+    "name", "launch", "cores", "gpu_cores", "memory.type", "memory.sizes_gb",
+    "memory.bandwidth_gbps", "isa", "formats.matrix.name", "formats.fp16", "api.metal"
+   ],
+   "vendor_fields": {},
+   "optional": []
+  }
+ },
+ "formats": [
+  "fp64", "fp32", "tf32", "fp16", "bf16", "fp8", "fp6", "fp4", "int32", "int16", "int8",
+  "int4"
+ ]
+}

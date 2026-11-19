@@ -86,6 +86,7 @@ packages = ["src/mcgyvr"]
 "data/model-catalog.json" = "mcgyvr/data/model-catalog.json"
 "data/model-geometry.json" = "mcgyvr/data/model-geometry.json"
 "data/hardware-classes.json" = "mcgyvr/data/hardware-classes.json"
+"data/hardware-capabilities.json" = "mcgyvr/data/hardware-capabilities.json"
 # SETUP.md says how a machine comes to have a setup; `mcgyvr PROMPT` and
 # `mcgyvr direct` name it when none loads, so an installed mcgyvr carries its own
 # copy (the file is generated and drift-checked by `make docs-check`, so this

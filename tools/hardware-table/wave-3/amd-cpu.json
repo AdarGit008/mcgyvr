@@ -1,0 +1,4890 @@
+{
+ "schema": 1,
+ "slice": "amd-cpu",
+ "wave": 3,
+ "sources": [
+  {
+   "id": "s1",
+   "url": "https://www.amd.com/en/products/processors/desktops/ryzen/7000-series/amd-ryzen-9-7950x.html",
+   "title": "AMD Ryzen 9 7950X Desktop Processor",
+   "publisher": "amd.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s2",
+   "url": "https://www.amd.com/en/products/processors/desktops/ryzen/7000-series/amd-ryzen-5-7600x.html",
+   "title": "AMD Ryzen 5 7600X",
+   "publisher": "amd.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s3",
+   "url": "https://www.amd.com/en/products/processors/desktops/ryzen/7000-series/amd-ryzen-5-7600.html",
+   "title": "AMD Ryzen 5 7600",
+   "publisher": "amd.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s4",
+   "url": "https://www.amd.com/en/products/processors/desktops/ryzen/7000-series/amd-ryzen-7-7700x.html",
+   "title": "AMD Ryzen 7 7700X",
+   "publisher": "amd.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s5",
+   "url": "https://www.amd.com/en/products/processors/desktops/ryzen/9000-series/amd-ryzen-9-9950x.html",
+   "title": "AMD Ryzen 9 9950X",
+   "publisher": "amd.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s6",
+   "url": "https://www.amd.com/en/products/processors/desktops/ryzen/9000-series/amd-ryzen-5-9600x.html",
+   "title": "AMD Ryzen 5 9600X",
+   "publisher": "amd.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s7",
+   "url": "https://www.amd.com/en/products/processors/desktops/ryzen/9000-series/amd-ryzen-7-9700x.html",
+   "title": "AMD Ryzen 7 9700X",
+   "publisher": "amd.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s8",
+   "url": "https://www.amd.com/en/products/processors/desktops/ryzen/5000-series/amd-ryzen-5-5600x.html",
+   "title": "AMD Ryzen 5 5600X",
+   "publisher": "amd.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s9",
+   "url": "https://www.amd.com/en/products/processors/desktops/ryzen/5000-series/amd-ryzen-9-5950x.html",
+   "title": "AMD Ryzen 9 5950X",
+   "publisher": "amd.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s10",
+   "url": "https://www.amd.com/en/products/processors/desktops/ryzen/5000-series/amd-ryzen-7-5800x.html",
+   "title": "AMD Ryzen 7 5800X",
+   "publisher": "amd.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s11",
+   "url": "https://www.amd.com/en/support/downloads/drivers.html/processors/ryzen/ryzen-1000-series/amd-ryzen-7-1800x.html",
+   "title": "AMD Ryzen 7 1800X Drivers and Downloads (spec page)",
+   "publisher": "amd.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s12",
+   "url": "https://www.amd.com/en/support/downloads/drivers.html/processors/ryzen/ryzen-1000-series/amd-ryzen-3-1200.html",
+   "title": "AMD Ryzen 3 1200 Drivers and Downloads (spec page)",
+   "publisher": "amd.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s13",
+   "url": "https://www.amd.com/en/support/downloads/drivers.html/processors/ryzen/ryzen-2000-series/amd-ryzen-3-2300x.html",
+   "title": "AMD Ryzen 3 2300X (spec page)",
+   "publisher": "amd.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s14",
+   "url": "https://www.amd.com/en/support/downloads/drivers.html/processors/ryzen/ryzen-2000-series/amd-ryzen-7-2700x.html",
+   "title": "AMD Ryzen 7 2700X (spec page)",
+   "publisher": "amd.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s15",
+   "url": "https://www.amd.com/en/support/downloads/drivers.html/processors/ryzen/ryzen-3000-series/amd-ryzen-9-3950x.html",
+   "title": "AMD Ryzen 9 3950X (spec page)",
+   "publisher": "amd.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s16",
+   "url": "https://www.amd.com/en/support/downloads/drivers.html/processors/ryzen/ryzen-3000-series/amd-ryzen-3-3100.html",
+   "title": "AMD Ryzen 3 3100 (spec page)",
+   "publisher": "amd.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s17",
+   "url": "https://www.amd.com/en/support/downloads/drivers.html/processors/ryzen/ryzen-3000-series/amd-ryzen-7-3700x.html",
+   "title": "AMD Ryzen 7 3700X (spec page)",
+   "publisher": "amd.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s18",
+   "url": "https://www.amd.com/en/support/downloads/drivers.html/processors/ryzen-threadripper/ryzen-threadripper-3000-series/amd-ryzen-threadripper-3990x.html",
+   "title": "AMD Ryzen Threadripper 3990X (spec page)",
+   "publisher": "amd.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s19",
+   "url": "https://www.amd.com/en/support/downloads/drivers.html/processors/ryzen-threadripper/ryzen-threadripper-3000-series/amd-ryzen-threadripper-3960x.html",
+   "title": "AMD Ryzen Threadripper 3960X (spec page)",
+   "publisher": "amd.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s20",
+   "url": "https://www.amd.com/en/support/downloads/drivers.html/processors/ryzen-threadripper/ryzen-threadripper-7000-series/amd-ryzen-threadripper-7980x.html",
+   "title": "AMD Ryzen Threadripper 7980X (spec page)",
+   "publisher": "amd.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s21",
+   "url": "https://www.amd.com/en/support/downloads/drivers.html/processors/ryzen-threadripper/ryzen-threadripper-7000-series/amd-ryzen-threadripper-7960x.html",
+   "title": "AMD Ryzen Threadripper 7960X (spec page)",
+   "publisher": "amd.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s22",
+   "url": "https://www.amd.com/en/support/downloads/drivers.html/processors/ryzen-threadripper-pro/amd-ryzen-threadripper-pro-7000-wx-series/amd-ryzen-threadripper-pro-7995wx.html",
+   "title": "AMD Ryzen Threadripper PRO 7995WX (spec page)",
+   "publisher": "amd.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s23",
+   "url": "https://www.amd.com/en/support/downloads/drivers.html/processors/ryzen-threadripper-pro/amd-ryzen-threadripper-pro-7000-wx-series/amd-ryzen-threadripper-pro-7945wx.html",
+   "title": "AMD Ryzen Threadripper PRO 7945WX (spec page)",
+   "publisher": "amd.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s24",
+   "url": "https://www.amd.com/en/support/downloads/drivers.html/processors/ryzen-threadripper/ryzen-threadripper-1000-series/amd-ryzen-threadripper-1900x.html",
+   "title": "AMD Ryzen Threadripper 1900X (spec page)",
+   "publisher": "amd.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s25",
+   "url": "https://www.amd.com/en/support/downloads/drivers.html/processors/ryzen-threadripper/ryzen-threadripper-1000-series/amd-ryzen-threadripper-1950x.html",
+   "title": "AMD Ryzen Threadripper 1950X (spec page)",
+   "publisher": "amd.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s26",
+   "url": "https://www.amd.com/en/support/downloads/drivers.html/processors/ryzen-threadripper/ryzen-threadripper-2000-series/amd-ryzen-threadripper-2920x.html",
+   "title": "AMD Ryzen Threadripper 2920X (spec page)",
+   "publisher": "amd.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s27",
+   "url": "https://www.amd.com/en/support/downloads/drivers.html/processors/ryzen-threadripper/ryzen-threadripper-2000-series/amd-ryzen-threadripper-2990wx.html",
+   "title": "AMD Ryzen Threadripper 2990WX (spec page)",
+   "publisher": "amd.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s28",
+   "url": "https://www.amd.com/en/support/downloads/drivers.html/processors/ryzen-threadripper/ryzen-threadripper-9000-series/amd-ryzen-threadripper-9980x.html",
+   "title": "AMD Ryzen Threadripper 9980X (spec page)",
+   "publisher": "amd.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s29",
+   "url": "https://www.amd.com/en/support/downloads/drivers.html/processors/ryzen-threadripper/ryzen-threadripper-9000-series/amd-ryzen-threadripper-9960x.html",
+   "title": "AMD Ryzen Threadripper 9960X (spec page)",
+   "publisher": "amd.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s30",
+   "url": "https://www.amd.com/en/support/downloads/drivers.html/processors/ryzen-threadripper-pro/ryzen-threadripper-pro-9000-wx-series/amd-ryzen-threadripper-pro-9995wx.html",
+   "title": "AMD Ryzen Threadripper PRO 9995WX (spec page)",
+   "publisher": "amd.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s31",
+   "url": "https://www.amd.com/en/support/downloads/drivers.html/processors/ryzen-threadripper-pro/ryzen-threadripper-pro-9000-wx-series/amd-ryzen-threadripper-pro-9945wx.html",
+   "title": "AMD Ryzen Threadripper PRO 9945WX (spec page)",
+   "publisher": "amd.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s32",
+   "url": "https://www.amd.com/en/products/processors/desktops/ryzen/8000-series/amd-ryzen-5-8600g.html",
+   "title": "AMD Ryzen 5 8600G",
+   "publisher": "amd.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s33",
+   "url": "https://www.amd.com/en/products/processors/desktops/ryzen/8000-series/amd-ryzen-7-8700g.html",
+   "title": "AMD Ryzen 7 8700G",
+   "publisher": "amd.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s34",
+   "url": "https://www.amd.com/en/products/processors/laptop/ryzen/8000-series/amd-ryzen-7-8840u.html",
+   "title": "AMD Ryzen 7 8840U",
+   "publisher": "amd.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s35",
+   "url": "https://www.amd.com/en/products/processors/laptop/ryzen/8000-series/amd-ryzen-9-8945hs.html",
+   "title": "AMD Ryzen 9 8945HS",
+   "publisher": "amd.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s36",
+   "url": "https://www.amd.com/en/products/processors/laptop/ryzen/ai-300-series/amd-ryzen-ai-9-hx-370.html",
+   "title": "AMD Ryzen AI 9 HX 370",
+   "publisher": "amd.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s37",
+   "url": "https://shop-us-en.amd.com/amd-ryzen-9-9950x-processor/",
+   "title": "AMD shop: Ryzen 9 9950X",
+   "publisher": "shop-us-en.amd.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s38",
+   "url": "https://www.amd.com/en/newsroom/press-releases/2023-10-19-amd-introduces-new-amd-ryzen-threadripper-7000-ser.html",
+   "title": "AMD introduces Threadripper 7000 and PRO 7000 WX (press release)",
+   "publisher": "amd.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s39",
+   "url": "https://www.amd.com/en/support/downloads/drivers.html/processors/ryzen/ryzen-1000-series/amd-ryzen-5-1600.html",
+   "title": "AMD Ryzen 5 1600 (spec page)",
+   "publisher": "amd.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s40",
+   "url": "https://www.amd.com/en/support/downloads/drivers.html/processors/ryzen/ryzen-2000-series/amd-ryzen-5-2600.html",
+   "title": "AMD Ryzen 5 2600 (spec page)",
+   "publisher": "amd.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s41",
+   "url": "https://www.amd.com/en/support/downloads/drivers.html/processors/ryzen/ryzen-3000-series/amd-ryzen-5-3600.html",
+   "title": "AMD Ryzen 5 3600 (spec page)",
+   "publisher": "amd.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s42",
+   "url": "https://www.amd.com/en/support/downloads/drivers.html/processors/ryzen/ryzen-5000-series/amd-ryzen-5-5600g.html",
+   "title": "AMD Ryzen 5 5600G (spec page)",
+   "publisher": "amd.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s43",
+   "url": "https://www.amd.com/en/support/downloads/drivers.html/processors/ryzen/ryzen-5000-series/amd-ryzen-7-5700g.html",
+   "title": "AMD Ryzen 7 5700G (spec page)",
+   "publisher": "amd.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s44",
+   "url": "https://www.amd.com/en/support/downloads/drivers.html/processors/ryzen/ryzen-3000-series/amd-ryzen-5-3400g.html",
+   "title": "AMD Ryzen 5 3400G (spec page)",
+   "publisher": "amd.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s45",
+   "url": "https://www.amd.com/en/support/downloads/drivers.html/processors/ryzen/ryzen-5000-series/amd-ryzen-7-5700x.html",
+   "title": "AMD Ryzen 7 5700X (spec page)",
+   "publisher": "amd.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s46",
+   "url": "https://www.amd.com/en/support/downloads/drivers.html/processors/ryzen/ryzen-4000-series/amd-ryzen-7-4800u.html",
+   "title": "AMD Ryzen 7 4800U (spec page)",
+   "publisher": "amd.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s47",
+   "url": "https://www.amd.com/en/support/downloads/drivers.html/processors/ryzen/ryzen-4000-series/amd-ryzen-7-4800h.html",
+   "title": "AMD Ryzen 7 4800H (spec page)",
+   "publisher": "amd.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s48",
+   "url": "https://www.amd.com/en/support/downloads/drivers.html/processors/ryzen/ryzen-5000-series/amd-ryzen-7-5800u.html",
+   "title": "AMD Ryzen 7 5800U (spec page)",
+   "publisher": "amd.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s49",
+   "url": "https://www.amd.com/en/support/downloads/drivers.html/processors/ryzen/ryzen-5000-series/amd-ryzen-7-5800h.html",
+   "title": "AMD Ryzen 7 5800H (spec page)",
+   "publisher": "amd.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s50",
+   "url": "https://www.amd.com/en/support/downloads/drivers.html/processors/ryzen/ryzen-6000-series/amd-ryzen-7-6800u.html",
+   "title": "AMD Ryzen 7 6800U (spec page)",
+   "publisher": "amd.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s51",
+   "url": "https://www.amd.com/en/support/downloads/drivers.html/processors/ryzen/ryzen-6000-series/amd-ryzen-7-6800h.html",
+   "title": "AMD Ryzen 7 6800H (spec page)",
+   "publisher": "amd.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s52",
+   "url": "https://www.amd.com/en/products/processors/laptop/ryzen/7000-series/amd-ryzen-7-7840u.html",
+   "title": "AMD Ryzen 7 7840U",
+   "publisher": "amd.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s53",
+   "url": "https://www.amd.com/en/products/processors/laptop/ryzen/7000-series/amd-ryzen-7-7840hs.html",
+   "title": "AMD Ryzen 7 7840HS",
+   "publisher": "amd.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s54",
+   "url": "https://www.amd.com/en/products/processors/laptop/ryzen/8000-series/amd-ryzen-5-8640u.html",
+   "title": "AMD Ryzen 5 8640U",
+   "publisher": "amd.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s55",
+   "url": "https://www.amd.com/en/products/processors/laptop/ryzen/8000-series/amd-ryzen-5-8640hs.html",
+   "title": "AMD Ryzen 5 8640HS",
+   "publisher": "amd.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s56",
+   "url": "https://www.amd.com/en/products/processors/laptop/ryzen/8000-series/amd-ryzen-5-8540u.html",
+   "title": "AMD Ryzen 5 8540U",
+   "publisher": "amd.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s57",
+   "url": "https://www.amd.com/en/products/processors/laptop/ryzen/8000-series/amd-ryzen-3-8440u.html",
+   "title": "AMD Ryzen 3 8440U",
+   "publisher": "amd.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s58",
+   "url": "https://www.amd.com/en/products/processors/laptop/ryzen/8000-series/amd-ryzen-7-8840hs.html",
+   "title": "AMD Ryzen 7 8840HS",
+   "publisher": "amd.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s59",
+   "url": "https://www.amd.com/en/products/processors/laptop/ryzen/ai-300-series/amd-ryzen-ai-9-365.html",
+   "title": "AMD Ryzen AI 9 365",
+   "publisher": "amd.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s60",
+   "url": "https://www.amd.com/en/products/processors/laptop/ryzen/ai-300-series/amd-ryzen-ai-7-350.html",
+   "title": "AMD Ryzen AI 7 350",
+   "publisher": "amd.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s61",
+   "url": "https://www.amd.com/en/products/processors/laptop/ryzen/ai-300-series/amd-ryzen-ai-5-340.html",
+   "title": "AMD Ryzen AI 5 340",
+   "publisher": "amd.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s62",
+   "url": "https://www.amd.com/en/products/processors/desktops/ryzen/7000-series/amd-ryzen-9-7900x.html",
+   "title": "AMD Ryzen 9 7900X",
+   "publisher": "amd.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s63",
+   "url": "https://www.amd.com/en/products/processors/desktops/ryzen/9000-series/amd-ryzen-9-9900x.html",
+   "title": "AMD Ryzen 9 9900X",
+   "publisher": "amd.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s64",
+   "url": "https://www.amd.com/en/support/downloads/drivers.html/processors/ryzen-threadripper/ryzen-threadripper-3000-series/amd-ryzen-threadripper-3970x.html",
+   "title": "AMD Ryzen Threadripper 3970X (spec page)",
+   "publisher": "amd.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s65",
+   "url": "https://www.amd.com/en/support/downloads/drivers.html/processors/ryzen-threadripper/ryzen-threadripper-7000-series/amd-ryzen-threadripper-7970x.html",
+   "title": "AMD Ryzen Threadripper 7970X (spec page)",
+   "publisher": "amd.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s66",
+   "url": "https://www.amd.com/en/support/downloads/drivers.html/processors/ryzen-threadripper/ryzen-threadripper-9000-series/amd-ryzen-threadripper-9970x.html",
+   "title": "AMD Ryzen Threadripper 9970X (spec page)",
+   "publisher": "amd.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s67",
+   "url": "https://www.amd.com/en/support/downloads/drivers.html/processors/ryzen-threadripper-pro/amd-ryzen-threadripper-pro-7000-wx-series/amd-ryzen-threadripper-pro-7965wx.html",
+   "title": "AMD Ryzen Threadripper PRO 7965WX (spec page)",
+   "publisher": "amd.com",
+   "official": true,
+   "fetch": "ok"
+  },
+  {
+   "id": "s68",
+   "url": "https://www.amd.com/en/support/downloads/drivers.html/processors/ryzen-threadripper-pro/ryzen-threadripper-pro-9000-wx-series/amd-ryzen-threadripper-pro-9965wx.html",
+   "title": "AMD Ryzen Threadripper PRO 9965WX (spec page)",
+   "publisher": "amd.com",
+   "official": true,
+   "fetch": "ok"
+  }
+ ],
+ "source_map": [
+  {
+   "field": "all cpu fields (name, cores, socket, launch, architecture, isa, memory.*, igpu)",
+   "source": "s1",
+   "note": "One page per model, section General Specifications. Reads with page.py. Three URL families: (a) current desktop pages https://www.amd.com/en/products/processors/desktops/ryzen/<N>000-series/amd-ryzen-<tier>-<model>.html exist for 5000, 7000, 8000, 9000 (404 for 1000 to 3000); (b) the same spec table is on https://www.amd.com/en/support/downloads/drivers.html/processors/ryzen/ryzen-<N>000-series/amd-ryzen-<tier>-<model>.html (1000 to 3000) and .../processors/ryzen-threadripper/ryzen-threadripper-<N>000-series/amd-ryzen-threadripper-<model>.html, and .../processors/ryzen-threadripper-pro/(amd-)ryzen-threadripper-pro-<N>000-wx-series/amd-ryzen-threadripper-pro-<model>.html; (c) laptop pages https://www.amd.com/en/products/processors/laptop/ryzen/<N>000-series/amd-ryzen-<tier>-<model>.html and .../ai-300-series/amd-ryzen-ai-9-hx-370.html."
+  },
+  {
+   "field": "memory.max_speed_mts",
+   "source": "s1",
+   "note": "Row 'Max Memory Speed' per DIMM configuration on 5-digit-era pages (3000 desktop with 2 channels, 7000, 8000, 9000, TR 3000 3990X). Older pages (1000, 2000, 3000 low end, 5000, TR 1000/2000/3960X, TR 7000/9000, PRO 7000/9000) give one line 'System Memory Specification Up to N MT/s' instead."
+  },
+  {
+   "field": "memory.channels",
+   "source": "s1",
+   "note": "Row 'Memory Channels'. Absent on the Ryzen 5000 pages and on the 3000 pages other than 3950X."
+  },
+  {
+   "field": "memory.max_gb",
+   "source": "s1",
+   "note": "Row 'Max. Memory'. Absent on 1000, 2000, 5000, TR 1000/2000, TR 3960X, TR 7000/9000 and PRO pages; the 9950X product page (256 GB) and shop page (192 GB) disagree."
+  },
+  {
+   "field": "memory.max_bandwidth_gbps",
+   "source": null,
+   "note": "AMD states no memory bandwidth on any page opened; derived per schema rule 4. The Threadripper PRO white paper and tech briefs are PDFs (not readable here)."
+  },
+  {
+   "field": "isa",
+   "source": "s1",
+   "note": "Row 'Supported Extensions' (3000 and later pages, not 1000, 2000, 5000). It lists AVX512 as one item; AVX-512 sub-features (VNNI, BF16) are on no page opened."
+  },
+  {
+   "field": "igpu",
+   "source": "s1",
+   "note": "Row 'Graphics Model'; 'Discrete Graphics Card Required' means none."
+  },
+  {
+   "field": "segment",
+   "source": null,
+   "note": "Pages carry 'Form Factor' (and 'Market Segment' on newer pages); mapped to the schema values with a note."
+  }
+ ],
+ "rows": [
+  {
+   "id": "amd-ryzen-1000-desktop",
+   "vendor": "amd",
+   "name": {
+    "v": "Ryzen 1000 Series",
+    "src": "s11",
+    "quote": "Family Ryzen Series Ryzen 1000 Series",
+    "how": "stated",
+    "official": true
+   },
+   "models": {
+    "v": [
+     "Ryzen 3 1200",
+     "Ryzen 7 1800X"
+    ],
+    "src": "s12",
+    "quote": "Name AMD RyzenTM 3 1200 | Name AMD RyzenTM 7 1800X",
+    "how": "stated",
+    "official": true,
+    "also": [
+     "s11"
+    ],
+    "note": "Ryzen 5 1600 (s39) is listed by AMD under Ryzen 1000 Series but its page says Former Codename Pinnacle Ridge, so it is not in models"
+   },
+   "segment": {
+    "v": "desktop",
+    "src": "s11",
+    "quote": "Form Factor Desktops , Boxed Processor",
+    "how": "stated",
+    "official": true
+   },
+   "architecture": {
+    "v": "Summit Ridge",
+    "src": "s11",
+    "quote": "Former Codename Summit Ridge",
+    "how": "code name only, page gives no Zen generation",
+    "official": true
+   },
+   "launch": {
+    "v": "2017-03 (1800X) to 2017-07 (1200)",
+    "src": "s11",
+    "quote": "Launch Date 3/2/2017",
+    "how": "stated",
+    "official": true,
+    "note": "1200 page: Launch Date 7/27/2017"
+   },
+   "socket": {
+    "v": "AM4",
+    "src": "s11",
+    "quote": "CPU Socket AM4",
+    "how": "stated",
+    "official": true
+   },
+   "cores": {
+    "v": {
+     "smallest": {
+      "cores": 4,
+      "threads": 4
+     },
+     "largest": {
+      "cores": 8,
+      "threads": 16
+     }
+    },
+    "src": "s11",
+    "quote": "# of CPU Cores 8 # of Threads 16",
+    "how": "stated",
+    "official": true,
+    "note": "1200 (s12): # of CPU Cores 4 # of Threads 4"
+   },
+   "isa": {
+    "v": null,
+    "why": "no Supported Extensions row on the spec pages of the 1800X, 1200, 1600, 1700, 1700X, 1500X, 1600X, 1300X (all read in wave 3); AMD's page lists only Instruction Set x86-64"
+   },
+   "igpu": {
+    "v": null,
+    "why": "page says Graphics Model Discrete Graphics Card Required (no integrated GPU)"
+   },
+   "memory": {
+    "types": {
+     "v": [
+      "DDR4"
+     ],
+     "src": "s11",
+     "quote": "System Memory Type DDR4 Memory Channels 2 System Memory Specification Up to 2667 MT/s",
+     "how": "stated",
+     "official": true
+    },
+    "max_speed_mts": {
+     "v": {
+      "DDR4": 2667
+     },
+     "src": "s11",
+     "quote": "System Memory Type DDR4 Memory Channels 2 System Memory Specification Up to 2667 MT/s",
+     "how": "stated",
+     "official": true
+    },
+    "channels": {
+     "v": 2,
+     "src": "s11",
+     "quote": "System Memory Type DDR4 Memory Channels 2 System Memory Specification Up to 2667 MT/s",
+     "how": "stated",
+     "official": true
+    },
+    "max_gb": {
+     "v": null,
+     "why": "the page has no Max. Memory row"
+    },
+    "max_bandwidth_gbps": {
+     "v": 42.672,
+     "src": "s11",
+     "quote": "System Memory Type DDR4 Memory Channels 2 System Memory Specification Up to 2667 MT/s",
+     "how": "derived: 2 channels x 2667 MT/s x 8 bytes / 1000",
+     "official": true
+    }
+   }
+  },
+  {
+   "id": "amd-ryzen-2000-desktop",
+   "vendor": "amd",
+   "name": {
+    "v": "Ryzen 2000 Series",
+    "src": "s14",
+    "quote": "Ryzen Series Ryzen 2000 Series",
+    "how": "stated",
+    "official": true
+   },
+   "models": {
+    "v": [
+     "Ryzen 3 2300X",
+     "Ryzen 5 2600",
+     "Ryzen 7 2700X"
+    ],
+    "src": "s13",
+    "quote": "Name AMD RyzenTM 3 2300X | Name AMD RyzenTM 5 2600 | Name AMD RyzenTM 7 2700X",
+    "how": "stated",
+    "official": true,
+    "also": [
+     "s40",
+     "s14"
+    ]
+   },
+   "segment": {
+    "v": "desktop",
+    "src": "s14",
+    "quote": "Form Factor Desktops",
+    "how": "stated",
+    "official": true
+   },
+   "architecture": {
+    "v": "Pinnacle Ridge",
+    "src": "s14",
+    "quote": "Former Codename Pinnacle Ridge",
+    "how": "code name only",
+    "official": true
+   },
+   "launch": {
+    "v": "2018-04 (2700X); 2018-09 (2300X)",
+    "src": "s14",
+    "quote": "Launch Date 4/19/2018",
+    "how": "stated",
+    "official": true,
+    "note": "2300X: Launch Date 9/10/2018"
+   },
+   "socket": {
+    "v": "AM4",
+    "src": "s14",
+    "quote": "CPU Socket AM4",
+    "how": "stated",
+    "official": true
+   },
+   "cores": {
+    "v": {
+     "smallest": {
+      "cores": 4,
+      "threads": 4
+     },
+     "largest": {
+      "cores": 8,
+      "threads": 16
+     }
+    },
+    "src": "s14",
+    "quote": "# of CPU Cores 8 # of Threads 16",
+    "how": "stated",
+    "official": true,
+    "note": "2300X (s13): # of CPU Cores 4 # of Threads 4"
+   },
+   "isa": {
+    "v": null,
+    "why": "no Supported Extensions row on the spec pages of the 2700X, 2300X, 2600, 2700, 2600X, 2400G, 2200G (all read in wave 3)"
+   },
+   "igpu": {
+    "v": null,
+    "why": "2700X page: Graphics Model Discrete Graphics Card Required (not re-read on 2300X)"
+   },
+   "memory": {
+    "types": {
+     "v": [
+      "DDR4"
+     ],
+     "src": "s14",
+     "quote": "System Memory Type DDR4 Memory Channels 2 System Memory Specification Up to 2933 MT/s",
+     "how": "stated",
+     "official": true
+    },
+    "max_speed_mts": {
+     "v": {
+      "DDR4": 2933
+     },
+     "src": "s14",
+     "quote": "System Memory Type DDR4 Memory Channels 2 System Memory Specification Up to 2933 MT/s",
+     "how": "stated",
+     "official": true
+    },
+    "channels": {
+     "v": 2,
+     "src": "s14",
+     "quote": "System Memory Type DDR4 Memory Channels 2 System Memory Specification Up to 2933 MT/s",
+     "how": "stated",
+     "official": true
+    },
+    "max_gb": {
+     "v": null,
+     "why": "the page has no Max. Memory row"
+    },
+    "max_bandwidth_gbps": {
+     "v": 46.928,
+     "src": "s14",
+     "quote": "System Memory Type DDR4 Memory Channels 2 System Memory Specification Up to 2933 MT/s",
+     "how": "derived: 2 channels x 2933 MT/s x 8 bytes / 1000",
+     "official": true
+    }
+   }
+  },
+  {
+   "id": "amd-ryzen-3000-desktop",
+   "vendor": "amd",
+   "name": {
+    "v": "Ryzen 3000 Series",
+    "src": "s15",
+    "quote": "Ryzen Series Ryzen 3000 Series",
+    "how": "stated",
+    "official": true
+   },
+   "models": {
+    "v": [
+     "Ryzen 3 3100",
+     "Ryzen 5 3600",
+     "Ryzen 7 3700X",
+     "Ryzen 9 3950X"
+    ],
+    "src": "s16",
+    "quote": "Name AMD RyzenTM 3 3100 | Name AMD RyzenTM 5 3600 | Name AMD RyzenTM 7 3700X | Name AMD RyzenTM 9 3950X",
+    "how": "stated",
+    "official": true,
+    "also": [
+     "s41",
+     "s17",
+     "s15"
+    ],
+    "note": "the 3400G (Zen+, Picasso, integrated graphics) is listed by AMD under Ryzen 3000 Series but differs; it has its own row"
+   },
+   "segment": {
+    "v": "desktop",
+    "src": "s15",
+    "quote": "Form Factor Desktops , Boxed Processor",
+    "how": "stated",
+    "official": true
+   },
+   "architecture": {
+    "v": "Zen 2 (Matisse)",
+    "src": "s15",
+    "quote": "Former Codename Matisse Processor Architecture Zen 2",
+    "how": "stated on 3950X page; 3100 and 3700X pages give only the code name Matisse",
+    "official": true
+   },
+   "launch": {
+    "v": "2019-07 (3700X, 3950X per page dates 7/7/2019 and 07/07/2019); 2020-04 (3100)",
+    "src": "s15",
+    "quote": "Launch Date 07/07/2019",
+    "how": "stated",
+    "official": true,
+    "note": "3100 page: Launch Date 04/2020"
+   },
+   "socket": {
+    "v": "AM4",
+    "src": "s15",
+    "quote": "CPU Socket AM4",
+    "how": "stated",
+    "official": true
+   },
+   "cores": {
+    "v": {
+     "smallest": {
+      "cores": 4,
+      "threads": 8
+     },
+     "largest": {
+      "cores": 16,
+      "threads": 32
+     }
+    },
+    "src": "s15",
+    "quote": "# of CPU Cores 16 Multithreading (SMT) Yes # of Threads 32",
+    "how": "stated",
+    "official": true,
+    "note": "3100 (s16): # of CPU Cores 4 # of Threads 8"
+   },
+   "isa": {
+    "v": [
+     "AES",
+     "AMD-V",
+     "AVX",
+     "AVX2",
+     "FMA3",
+     "MMX-plus",
+     "SHA",
+     "SSE",
+     "SSE2",
+     "SSE3",
+     "SSE4.1",
+     "SSE4.2",
+     "SSE4A",
+     "SSSE3",
+     "x86-64"
+    ],
+    "src": "s15",
+    "quote": "Supported Extensions AES , AMD-V , AVX , AVX2 , FMA3 , MMX-plus , SHA , SSE , SSE2 , SSE3 , SSE4.1 , SSE4.2 , SSE4A , SSSE3 , x86-64",
+    "how": "stated on 3950X page only (3100 and 3700X pages have no such row)",
+    "official": true,
+    "note": "Supported Extensions is on the 3950X page only; the 3100, 3600 and 3700X pages carry no such row"
+   },
+   "igpu": {
+    "v": null,
+    "why": "page says Graphics Model Discrete Graphics Card Required (no integrated GPU)"
+   },
+   "memory": {
+    "types": {
+     "v": [
+      "DDR4"
+     ],
+     "src": "s15",
+     "quote": "System Memory Type DDR4 Memory Channels 2 Max. Memory 128 GB System Memory Subtype UDIMM Max Memory Speed 2x1R DDR4-3200 2x2R DDR4-3200 4x1R DDR4-2933 4x2R DDR4-2667",
+     "how": "stated",
+     "official": true
+    },
+    "max_speed_mts": {
+     "v": {
+      "DDR4": 3200
+     },
+     "src": "s15",
+     "quote": "Max Memory Speed 2x1R DDR4-3200 2x2R DDR4-3200 4x1R DDR4-2933 4x2R DDR4-2667",
+     "how": "highest cell value; configs 2x1R and 2x2R DDR4-3200, 4 DIMMs 2933/2667",
+     "official": true,
+     "note": "3100 and 3700X pages: System Memory Specification Up to 3200 MT/s"
+    },
+    "channels": {
+     "v": 2,
+     "src": "s15",
+     "quote": "System Memory Type DDR4 Memory Channels 2 Max. Memory 128 GB",
+     "how": "stated on 3950X page only",
+     "official": true
+    },
+    "max_gb": {
+     "v": 128,
+     "src": "s15",
+     "quote": "Memory Channels 2 Max. Memory 128 GB",
+     "how": "stated on 3950X page only",
+     "official": true
+    },
+    "max_bandwidth_gbps": {
+     "v": 51.2,
+     "src": "s15",
+     "quote": "Memory Channels 2 Max. Memory 128 GB System Memory Subtype UDIMM Max Memory Speed 2x1R DDR4-3200",
+     "how": "derived: 2 channels x 3200 MT/s x 8 bytes / 1000",
+     "official": true
+    }
+   }
+  },
+  {
+   "id": "amd-ryzen-5000-desktop",
+   "vendor": "amd",
+   "name": {
+    "v": "Ryzen 5000 Series",
+    "src": "s8",
+    "quote": "Family Ryzen Series Ryzen 5000 Series",
+    "how": "stated",
+    "official": true
+   },
+   "models": {
+    "v": [
+     "Ryzen 5 5600X",
+     "Ryzen 7 5700X",
+     "Ryzen 7 5800X",
+     "Ryzen 9 5950X"
+    ],
+    "src": "s8",
+    "quote": "Name AMD RyzenTM 5 5600X | Name AMD RyzenTM 7 5700X | Name AMD RyzenTM 7 5800X | Name AMD RyzenTM 9 5950X",
+    "how": "stated",
+    "official": true,
+    "also": [
+     "s45",
+     "s10",
+     "s9"
+    ],
+    "note": "G models (5600G, 5700G) have their own row"
+   },
+   "segment": {
+    "v": "desktop",
+    "src": "s8",
+    "quote": "Form Factor Desktops , Boxed Processor",
+    "how": "stated",
+    "official": true
+   },
+   "architecture": {
+    "v": "Vermeer",
+    "src": "s8",
+    "quote": "Former Codename Vermeer",
+    "how": "code name only; the page has no Zen generation row",
+    "official": true
+   },
+   "launch": {
+    "v": "2020-11",
+    "src": "s8",
+    "quote": "Launch Date 11/5/2020",
+    "how": "stated",
+    "official": true,
+    "note": "same date on 5800X and 5950X pages"
+   },
+   "socket": {
+    "v": "AM4",
+    "src": "s8",
+    "quote": "CPU Socket AM4",
+    "how": "stated",
+    "official": true
+   },
+   "cores": {
+    "v": {
+     "smallest": {
+      "cores": 6,
+      "threads": 12
+     },
+     "largest": {
+      "cores": 16,
+      "threads": 32
+     }
+    },
+    "src": "s8",
+    "quote": "Former Codename Vermeer # of CPU Cores 6 # of Threads 12",
+    "how": "stated",
+    "official": true,
+    "note": "5950X (s9): Former Codename Vermeer # of CPU Cores 16 # of Threads 32; 5800X: 8 / 16"
+   },
+   "isa": {
+    "v": [
+     "AES",
+     "AMD-V",
+     "AVX",
+     "AVX2",
+     "FMA3",
+     "MMX-plus",
+     "SHA",
+     "SSE",
+     "SSE2",
+     "SSE3",
+     "SSE4.1",
+     "SSE4.2",
+     "SSE4A",
+     "SSSE3",
+     "x86-64"
+    ],
+    "src": "s45",
+    "quote": "Supported Extensions AES , AMD-V , AVX , AVX2 , FMA3 , MMX-plus , SHA , SSE , SSE2 , SSE3 , SSE4.1 , SSE4.2 , SSE4A , SSSE3 , x86-64",
+    "how": "stated",
+    "official": true,
+    "note": "stated on the 5700X page only; the 5600X, 5800X, 5900X and 5950X pages carry no such row"
+   },
+   "igpu": {
+    "v": null,
+    "why": "page says Graphics Model Discrete Graphics Card Required (no integrated GPU)"
+   },
+   "memory": {
+    "types": {
+     "v": [
+      "DDR4"
+     ],
+     "src": "s8",
+     "quote": "System Memory Type DDR4 System Memory Specification Up to 3200 MT/s",
+     "how": "stated",
+     "official": true
+    },
+    "max_speed_mts": {
+     "v": {
+      "DDR4": 3200
+     },
+     "src": "s8",
+     "quote": "System Memory Type DDR4 System Memory Specification Up to 3200 MT/s",
+     "how": "stated",
+     "official": true
+    },
+    "channels": {
+     "v": 2,
+     "src": "s45",
+     "quote": "System Memory Type DDR4 Memory Channels 2 Max. Memory 128 GB",
+     "how": "stated",
+     "official": true,
+     "note": "stated on the 5700X page (also 5600, 5600XT, 5800X3D, 5900XT support pages, read); the 5600X, 5800X, 5900X and 5950X pages have no Memory Channels row"
+    },
+    "max_gb": {
+     "v": 128,
+     "src": "s45",
+     "quote": "Memory Channels 2 Max. Memory 128 GB",
+     "how": "stated",
+     "official": true,
+     "note": "stated on the 5700X page (also 5600, 5600XT, 5800X3D, 5900XT pages); not on the 5600X, 5800X, 5950X pages"
+    },
+    "max_bandwidth_gbps": {
+     "v": 51.2,
+     "src": "s45",
+     "quote": "System Memory Type DDR4 Memory Channels 2 Max. Memory 128 GB System Memory Subtype UDIMM System Memory Specification Up to 3200 MT/s",
+     "how": "derived: 2 channels x 3200 MT/s x 8 bytes / 1000",
+     "official": true
+    }
+   }
+  },
+  {
+   "id": "amd-ryzen-7000-desktop",
+   "vendor": "amd",
+   "name": {
+    "v": "Ryzen 7000 Series",
+    "src": "s1",
+    "quote": "Family Ryzen Series Ryzen 7000 Series",
+    "how": "stated",
+    "official": true
+   },
+   "models": {
+    "v": [
+     "Ryzen 5 7600",
+     "Ryzen 5 7600X",
+     "Ryzen 7 7700X",
+     "Ryzen 9 7900X",
+     "Ryzen 9 7950X"
+    ],
+    "src": "s3",
+    "quote": "Name AMD RyzenTM 5 7600 | Name AMD RyzenTM 5 7600X | Name AMD RyzenTM 7 7700X | Name AMD RyzenTM 9 7900X | Name AMD RyzenTM 9 7950X",
+    "how": "stated",
+    "official": true,
+    "also": [
+     "s2",
+     "s4",
+     "s62",
+     "s1"
+    ]
+   },
+   "segment": {
+    "v": "desktop",
+    "src": "s1",
+    "quote": "Form Factor Desktops , Boxed Processor Market Segment Enthusiast Desktop",
+    "how": "stated",
+    "official": true
+   },
+   "architecture": {
+    "v": "Zen 4 (Raphael)",
+    "src": "s1",
+    "quote": "Former Codename Raphael AM5 Processor Architecture Zen 4",
+    "how": "stated",
+    "official": true
+   },
+   "launch": {
+    "v": "2022-09 (7600X to 7950X: 09/27/2022; 7600: 01/14/2023)",
+    "src": "s1",
+    "quote": "Launch Date 09/27/2022",
+    "how": "stated",
+    "official": true,
+    "note": "7600 (s3): Launch Date 01/14/2023"
+   },
+   "socket": {
+    "v": "AM5",
+    "src": "s1",
+    "quote": "CPU Socket AM5",
+    "how": "stated",
+    "official": true
+   },
+   "cores": {
+    "v": {
+     "smallest": {
+      "cores": 6,
+      "threads": 12
+     },
+     "largest": {
+      "cores": 16,
+      "threads": 32
+     }
+    },
+    "src": "s1",
+    "quote": "# of CPU Cores 16 Multithreading (SMT) Yes # of Threads 32",
+    "how": "stated",
+    "official": true,
+    "note": "7600X (s2): # of CPU Cores 6 Multithreading (SMT) Yes # of Threads 12"
+   },
+   "isa": {
+    "v": [
+     "AES",
+     "AMD-V",
+     "AVX",
+     "AVX2",
+     "AVX512",
+     "FMA3",
+     "MMX-plus",
+     "SHA",
+     "SSE",
+     "SSE2",
+     "SSE3",
+     "SSE4.1",
+     "SSE4.2",
+     "SSE4A",
+     "SSSE3",
+     "x86-64"
+    ],
+    "src": "s1",
+    "quote": "Supported Extensions AES , AMD-V , AVX , AVX2 , AVX512 , FMA3 , MMX-plus , SHA , SSE , SSE2 , SSE3 , SSE4.1 , SSE4.2 , SSE4A , SSSE3 , x86-64",
+    "how": "stated; AVX512 sub-features not listed",
+    "official": true
+   },
+   "igpu": {
+    "v": "AMD Radeon Graphics (2 graphics cores)",
+    "src": "s1",
+    "quote": "Graphics Model AMD RadeonTM Graphics Graphics Core Count 2",
+    "how": "stated",
+    "official": true
+   },
+   "memory": {
+    "types": {
+     "v": [
+      "DDR5"
+     ],
+     "src": "s1",
+     "quote": "System Memory Type DDR5 Memory Channels 2 Max. Memory 128 GB System Memory Subtype UDIMM Max Memory Speed 2x1R DDR5-5200 2x2R DDR5-5200 4x1R DDR5-3600 4x2R DDR5-3600",
+     "how": "stated",
+     "official": true
+    },
+    "max_speed_mts": {
+     "v": {
+      "DDR5": 5200
+     },
+     "src": "s1",
+     "quote": "Max Memory Speed 2x1R DDR5-5200 2x2R DDR5-5200 4x1R DDR5-3600 4x2R DDR5-3600",
+     "how": "highest cell value (2 DIMMs); 4 DIMMs DDR5-3600",
+     "official": true
+    },
+    "channels": {
+     "v": 2,
+     "src": "s1",
+     "quote": "System Memory Type DDR5 Memory Channels 2 Max. Memory 128 GB",
+     "how": "stated",
+     "official": true
+    },
+    "max_gb": {
+     "v": 128,
+     "src": "s1",
+     "quote": "Memory Channels 2 Max. Memory 128 GB",
+     "how": "stated",
+     "official": true
+    },
+    "max_bandwidth_gbps": {
+     "v": 83.2,
+     "src": "s1",
+     "quote": "Memory Channels 2 Max. Memory 128 GB System Memory Subtype UDIMM Max Memory Speed 2x1R DDR5-5200",
+     "how": "derived: 2 channels x 5200 MT/s x 8 bytes / 1000",
+     "official": true
+    }
+   }
+  },
+  {
+   "id": "amd-ryzen-9000-desktop",
+   "vendor": "amd",
+   "name": {
+    "v": "Ryzen 9000 Series",
+    "src": "s5",
+    "quote": "Family Ryzen Series Ryzen 9000 Series",
+    "how": "stated",
+    "official": true
+   },
+   "models": {
+    "v": [
+     "Ryzen 5 9600X",
+     "Ryzen 7 9700X",
+     "Ryzen 9 9900X",
+     "Ryzen 9 9950X"
+    ],
+    "src": "s6",
+    "quote": "Name AMD RyzenTM 5 9600X | Name AMD RyzenTM 7 9700X | Name AMD RyzenTM 9 9900X | Name AMD RyzenTM 9 9950X",
+    "how": "stated",
+    "official": true,
+    "also": [
+     "s7",
+     "s63",
+     "s5"
+    ]
+   },
+   "segment": {
+    "v": "desktop",
+    "src": "s5",
+    "quote": "Form Factor Desktops , Boxed Processor Market Segment Enthusiast Desktop",
+    "how": "stated",
+    "official": true
+   },
+   "architecture": {
+    "v": "Zen 5 (Granite Ridge)",
+    "src": "s5",
+    "quote": "Former Codename Granite Ridge AM5 Processor Architecture Zen 5",
+    "how": "stated",
+    "official": true
+   },
+   "launch": {
+    "v": "2024-08 (9950X 08/15/2024; 9600X and 9700X 08/08/2024)",
+    "src": "s5",
+    "quote": "Launch Date 08/15/2024",
+    "how": "stated",
+    "official": true,
+    "note": "9600X (s6) and 9700X (s7): Launch Date 08/08/2024"
+   },
+   "socket": {
+    "v": "AM5",
+    "src": "s5",
+    "quote": "CPU Socket AM5",
+    "how": "stated",
+    "official": true
+   },
+   "cores": {
+    "v": {
+     "smallest": {
+      "cores": 6,
+      "threads": 12
+     },
+     "largest": {
+      "cores": 16,
+      "threads": 32
+     }
+    },
+    "src": "s5",
+    "quote": "# of CPU Cores 16 Multithreading (SMT) Yes # of Threads 32",
+    "how": "stated",
+    "official": true,
+    "note": "9600X (s6): # of CPU Cores 6 Multithreading (SMT) Yes # of Threads 12"
+   },
+   "isa": {
+    "v": [
+     "AES",
+     "AMD-V",
+     "AVX",
+     "AVX2",
+     "AVX512",
+     "FMA3",
+     "MMX-plus",
+     "SHA",
+     "SSE",
+     "SSE2",
+     "SSE3",
+     "SSE4.1",
+     "SSE4.2",
+     "SSE4A",
+     "SSSE3",
+     "x86-64"
+    ],
+    "src": "s5",
+    "quote": "Supported Extensions AES , AMD-V , AVX , AVX2 , AVX512 , FMA3 , MMX-plus , SHA , SSE , SSE2 , SSE3 , SSE4.1 , SSE4.2 , SSE4A , SSSE3 , x86-64",
+    "how": "stated; AVX512 sub-features not listed",
+    "official": true
+   },
+   "igpu": {
+    "v": "AMD Radeon Graphics (2 graphics cores)",
+    "src": "s5",
+    "quote": "Graphics Model AMD RadeonTM Graphics Graphics Core Count 2",
+    "how": "stated",
+    "official": true
+   },
+   "memory": {
+    "types": {
+     "v": [
+      "DDR5"
+     ],
+     "src": "s5",
+     "quote": "System Memory Type DDR5 Memory Channels 2 Max. Memory 256 GB System Memory Subtype UDIMM Max Memory Speed 2x1R DDR5-5600 2x2R DDR5-5600 4x1R DDR5-3600 4x2R DDR5-3600",
+     "how": "stated",
+     "official": true
+    },
+    "max_speed_mts": {
+     "v": {
+      "DDR5": 5600
+     },
+     "src": "s5",
+     "quote": "Max Memory Speed 2x1R DDR5-5600 2x2R DDR5-5600 4x1R DDR5-3600 4x2R DDR5-3600",
+     "how": "highest cell value (2 DIMMs); 4 DIMMs DDR5-3600",
+     "official": true
+    },
+    "channels": {
+     "v": 2,
+     "src": "s5",
+     "quote": "System Memory Type DDR5 Memory Channels 2 Max. Memory 256 GB",
+     "how": "stated",
+     "official": true
+    },
+    "max_gb": {
+     "v": null,
+     "why": "AMD's pages disagree: 9950X product page (s5) says Max. Memory 256 GB, AMD shop page (s37) says Max Memory: 192 GB (rule 5)"
+    },
+    "max_bandwidth_gbps": {
+     "v": 89.6,
+     "src": "s5",
+     "quote": "Memory Channels 2 Max. Memory 256 GB System Memory Subtype UDIMM Max Memory Speed 2x1R DDR5-5600",
+     "how": "derived: 2 channels x 5600 MT/s x 8 bytes / 1000",
+     "official": true
+    }
+   }
+  },
+  {
+   "id": "amd-ryzen-threadripper-1000",
+   "vendor": "amd",
+   "name": {
+    "v": "Ryzen Threadripper 1000 Series",
+    "src": "s25",
+    "quote": "Ryzen Threadripper 1000 Series",
+    "how": "stated",
+    "official": true
+   },
+   "models": {
+    "v": [
+     "Ryzen Threadripper 1900X",
+     "Ryzen Threadripper 1950X"
+    ],
+    "src": "s24",
+    "quote": "Name AMD RyzenTM ThreadripperTM 1900X | Name AMD RyzenTM ThreadripperTM 1950X",
+    "how": "stated",
+    "official": true,
+    "also": [
+     "s25"
+    ]
+   },
+   "segment": {
+    "v": "hedt",
+    "src": "s25",
+    "quote": "Form Factor Desktops , Boxed Processor",
+    "how": "page says Desktops; mapped to hedt because the family is Threadripper",
+    "official": true,
+    "note": "the segment 'hedt' is the filler's own mapping for Threadripper, not AMD's word; AMD's page says Form Factor Desktops (7000 page also Market Segment Enthusiast Desktop)"
+   },
+   "architecture": {
+    "v": "Threadripper (1950X page code name); Summit Ridge (1900X page)",
+    "src": "s25",
+    "quote": "Former Codename Threadripper",
+    "how": "code names only",
+    "official": true,
+    "note": "1900X (s24): Former Codename Summit Ridge"
+   },
+   "launch": {
+    "v": "2017-07 (1950X 7/31/2017); 2017-08 (1900X 8/31/2017)",
+    "src": "s25",
+    "quote": "Launch Date 7/31/2017",
+    "how": "stated",
+    "official": true,
+    "note": "1900X: Launch Date 8/31/2017"
+   },
+   "socket": {
+    "v": "sTR4",
+    "src": "s25",
+    "quote": "CPU Socket sTR4",
+    "how": "stated",
+    "official": true
+   },
+   "cores": {
+    "v": {
+     "smallest": {
+      "cores": 8,
+      "threads": 16
+     },
+     "largest": {
+      "cores": 16,
+      "threads": 32
+     }
+    },
+    "src": "s25",
+    "quote": "# of CPU Cores 16 # of Threads 32",
+    "how": "stated",
+    "official": true,
+    "note": "1900X (s24): # of CPU Cores 8 # of Threads 16"
+   },
+   "isa": {
+    "v": null,
+    "why": "no Supported Extensions row on the 1900X, 1950X and 1920X spec pages (read in wave 3)"
+   },
+   "igpu": {
+    "v": null,
+    "why": "page says Graphics Model Discrete Graphics Card Required (no integrated GPU)"
+   },
+   "memory": {
+    "types": {
+     "v": [
+      "DDR4"
+     ],
+     "src": "s25",
+     "quote": "System Memory Type DDR4 Memory Channels 4 System Memory Specification Up to 2667 MT/s",
+     "how": "stated",
+     "official": true
+    },
+    "max_speed_mts": {
+     "v": {
+      "DDR4": 2667
+     },
+     "src": "s25",
+     "quote": "System Memory Type DDR4 Memory Channels 4 System Memory Specification Up to 2667 MT/s",
+     "how": "stated",
+     "official": true
+    },
+    "channels": {
+     "v": 4,
+     "src": "s25",
+     "quote": "System Memory Type DDR4 Memory Channels 4 System Memory Specification Up to 2667 MT/s",
+     "how": "stated",
+     "official": true
+    },
+    "max_gb": {
+     "v": null,
+     "why": "the page has no Max. Memory row"
+    },
+    "max_bandwidth_gbps": {
+     "v": 85.344,
+     "src": "s25",
+     "quote": "System Memory Type DDR4 Memory Channels 4 System Memory Specification Up to 2667 MT/s",
+     "how": "derived: 4 channels x 2667 MT/s x 8 bytes / 1000",
+     "official": true
+    }
+   }
+  },
+  {
+   "id": "amd-ryzen-threadripper-2000",
+   "vendor": "amd",
+   "name": {
+    "v": "Ryzen Threadripper 2000 Series",
+    "src": "s27",
+    "quote": "Ryzen Threadripper 2000 Series",
+    "how": "stated",
+    "official": true
+   },
+   "models": {
+    "v": [
+     "Ryzen Threadripper 2920X",
+     "Ryzen Threadripper 2990WX"
+    ],
+    "src": "s26",
+    "quote": "Name AMD RyzenTM ThreadripperTM 2920X | Name AMD RyzenTM ThreadripperTM 2990WX",
+    "how": "stated",
+    "official": true,
+    "also": [
+     "s27"
+    ]
+   },
+   "segment": {
+    "v": "hedt",
+    "src": "s27",
+    "quote": "Form Factor Desktops , Boxed Processor",
+    "how": "page says Desktops; mapped to hedt because the family is Threadripper",
+    "official": true,
+    "note": "the segment 'hedt' is the filler's own mapping for Threadripper, not AMD's word; AMD's page says Form Factor Desktops (7000 page also Market Segment Enthusiast Desktop)"
+   },
+   "architecture": {
+    "v": "Colfax",
+    "src": "s27",
+    "quote": "Former Codename Colfax",
+    "how": "code name only",
+    "official": true
+   },
+   "launch": {
+    "v": "2018-08 (2990WX 8/13/2018); 2018-10 (2920X)",
+    "src": "s27",
+    "quote": "Launch Date 8/13/2018",
+    "how": "stated",
+    "official": true,
+    "note": "2920X: Launch Date 10/2018"
+   },
+   "socket": {
+    "v": "sTR4",
+    "src": "s27",
+    "quote": "CPU Socket sTR4",
+    "how": "stated",
+    "official": true
+   },
+   "cores": {
+    "v": {
+     "smallest": {
+      "cores": 12,
+      "threads": 24
+     },
+     "largest": {
+      "cores": 32,
+      "threads": 64
+     }
+    },
+    "src": "s27",
+    "quote": "# of CPU Cores 32 # of Threads 64",
+    "how": "stated",
+    "official": true,
+    "note": "2920X (s26): # of CPU Cores 12 # of Threads 24"
+   },
+   "isa": {
+    "v": null,
+    "why": "no Supported Extensions row on the 2920X, 2990WX, 2950X and 2970WX spec pages (read in wave 3)"
+   },
+   "igpu": {
+    "v": null,
+    "why": "page says Graphics Model Discrete Graphics Card Required (no integrated GPU)"
+   },
+   "memory": {
+    "types": {
+     "v": [
+      "DDR4"
+     ],
+     "src": "s27",
+     "quote": "System Memory Type DDR4 Memory Channels 4 System Memory Specification Up to 2933 MT/s",
+     "how": "stated",
+     "official": true
+    },
+    "max_speed_mts": {
+     "v": {
+      "DDR4": 2933
+     },
+     "src": "s27",
+     "quote": "System Memory Type DDR4 Memory Channels 4 System Memory Specification Up to 2933 MT/s",
+     "how": "stated",
+     "official": true
+    },
+    "channels": {
+     "v": 4,
+     "src": "s27",
+     "quote": "System Memory Type DDR4 Memory Channels 4 System Memory Specification Up to 2933 MT/s",
+     "how": "stated",
+     "official": true
+    },
+    "max_gb": {
+     "v": null,
+     "why": "the page has no Max. Memory row"
+    },
+    "max_bandwidth_gbps": {
+     "v": 93.856,
+     "src": "s27",
+     "quote": "System Memory Type DDR4 Memory Channels 4 System Memory Specification Up to 2933 MT/s",
+     "how": "derived: 4 channels x 2933 MT/s x 8 bytes / 1000",
+     "official": true
+    }
+   }
+  },
+  {
+   "id": "amd-ryzen-threadripper-3000",
+   "vendor": "amd",
+   "name": {
+    "v": "Ryzen Threadripper 3000 Series",
+    "src": "s18",
+    "quote": "Family Ryzen Threadripper Series Ryzen Threadripper 3000 Series",
+    "how": "stated",
+    "official": true
+   },
+   "models": {
+    "v": [
+     "Ryzen Threadripper 3960X",
+     "Ryzen Threadripper 3970X",
+     "Ryzen Threadripper 3990X"
+    ],
+    "src": "s19",
+    "quote": "Name AMD RyzenTM ThreadripperTM 3960X | Name AMD RyzenTM ThreadripperTM 3970X | Name AMD RyzenTM ThreadripperTM 3990X",
+    "how": "stated",
+    "official": true,
+    "also": [
+     "s64",
+     "s18"
+    ]
+   },
+   "segment": {
+    "v": "hedt",
+    "src": "s18",
+    "quote": "Form Factor Desktops , Boxed Processor",
+    "how": "page says Desktops; mapped to hedt because the family is Threadripper",
+    "official": true,
+    "note": "the segment 'hedt' is the filler's own mapping for Threadripper, not AMD's word; AMD's page says Form Factor Desktops (7000 page also Market Segment Enthusiast Desktop)"
+   },
+   "architecture": {
+    "v": "Zen 2 (Castle Peak)",
+    "src": "s18",
+    "quote": "Former Codename Castle Peak Processor Architecture Zen 2",
+    "how": "stated",
+    "official": true
+   },
+   "launch": {
+    "v": "2019-11 (3960X 11/25/2019); 2020-02 (3990X 02/07/2020)",
+    "src": "s18",
+    "quote": "Launch Date 02/07/2020",
+    "how": "stated",
+    "official": true,
+    "note": "3960X (s19): Launch Date 11/25/2019"
+   },
+   "socket": {
+    "v": "sTRX4",
+    "src": "s18",
+    "quote": "CPU Socket sTRX4",
+    "how": "stated",
+    "official": true
+   },
+   "cores": {
+    "v": {
+     "smallest": {
+      "cores": 24,
+      "threads": 48
+     },
+     "largest": {
+      "cores": 64,
+      "threads": 128
+     }
+    },
+    "src": "s18",
+    "quote": "# of CPU Cores 64 Multithreading (SMT) Yes # of Threads 128",
+    "how": "stated",
+    "official": true,
+    "note": "3960X (s19): # of CPU Cores 24 # of Threads 48"
+   },
+   "isa": {
+    "v": [
+     "AES",
+     "AMD-V",
+     "AVX",
+     "AVX2",
+     "FMA3",
+     "MMX-plus",
+     "SHA",
+     "SSE",
+     "SSE2",
+     "SSE3",
+     "SSE4.1",
+     "SSE4.2",
+     "SSE4A",
+     "SSSE3",
+     "x86-64"
+    ],
+    "src": "s18",
+    "quote": "Supported Extensions AES , AMD-V , AVX , AVX2 , FMA3 , MMX-plus , SHA , SSE , SSE2 , SSE3 , SSE4.1 , SSE4.2 , SSE4A , SS",
+    "how": "stated on 3990X page; 3960X page has no such row",
+    "official": true,
+    "note": "Supported Extensions is on the 3990X page only; the 3960X and 3970X pages carry no such row"
+   },
+   "igpu": {
+    "v": null,
+    "why": "page says Graphics Model Discrete Graphics Card Required (no integrated GPU)"
+   },
+   "memory": {
+    "types": {
+     "v": [
+      "DDR4"
+     ],
+     "src": "s18",
+     "quote": "System Memory Type DDR4 Memory Channels 4 Max. Memory 256 GB System Memory Subtype UDIMM Max Memory Speed 4x1R DDR4-3200 4x2R DDR4-3200 8x1R DDR4-2933 8x2R DDR4-2677",
+     "how": "stated",
+     "official": true
+    },
+    "max_speed_mts": {
+     "v": {
+      "DDR4": 3200
+     },
+     "src": "s18",
+     "quote": "Max Memory Speed 4x1R DDR4-3200 4x2R DDR4-3200 8x1R DDR4-2933 8x2R DDR4-2677",
+     "how": "highest cell value (4 DIMMs); 8 DIMMs 2933 / 2677 as printed",
+     "official": true,
+     "note": "3960X page: System Memory Specification Up to 3200 MT/s"
+    },
+    "channels": {
+     "v": 4,
+     "src": "s18",
+     "quote": "System Memory Type DDR4 Memory Channels 4 Max. Memory 256 GB",
+     "how": "stated",
+     "official": true
+    },
+    "max_gb": {
+     "v": 256,
+     "src": "s18",
+     "quote": "Memory Channels 4 Max. Memory 256 GB",
+     "how": "stated on 3990X page only",
+     "official": true
+    },
+    "max_bandwidth_gbps": {
+     "v": 102.4,
+     "src": "s18",
+     "quote": "Memory Channels 4 Max. Memory 256 GB System Memory Subtype UDIMM Max Memory Speed 4x1R DDR4-3200",
+     "how": "derived: 4 channels x 3200 MT/s x 8 bytes / 1000",
+     "official": true
+    }
+   }
+  },
+  {
+   "id": "amd-ryzen-threadripper-7000",
+   "vendor": "amd",
+   "name": {
+    "v": "Ryzen Threadripper 7000 Series",
+    "src": "s20",
+    "quote": "Family Ryzen Threadripper Series Ryzen Threadripper 7000 Series",
+    "how": "stated",
+    "official": true
+   },
+   "models": {
+    "v": [
+     "Ryzen Threadripper 7960X",
+     "Ryzen Threadripper 7970X",
+     "Ryzen Threadripper 7980X"
+    ],
+    "src": "s21",
+    "quote": "Name AMD RyzenTM ThreadripperTM 7960X | Name AMD RyzenTM ThreadripperTM 7970X | Name AMD RyzenTM ThreadripperTM 7980X",
+    "how": "stated",
+    "official": true,
+    "also": [
+     "s65",
+     "s20"
+    ]
+   },
+   "segment": {
+    "v": "hedt",
+    "src": "s20",
+    "quote": "Form Factor Desktops Market Segment Enthusiast Desktop",
+    "how": "page says Enthusiast Desktop; mapped to hedt",
+    "official": true,
+    "note": "the segment 'hedt' is the filler's own mapping for Threadripper, not AMD's word; AMD's page says Form Factor Desktops (7000 page also Market Segment Enthusiast Desktop)"
+   },
+   "architecture": {
+    "v": "Zen 4 (Storm Peak)",
+    "src": "s20",
+    "quote": "Former Codename Storm Peak Processor Architecture Zen 4",
+    "how": "stated",
+    "official": true
+   },
+   "launch": {
+    "v": "2023-10",
+    "src": "s20",
+    "quote": "Launch Date 10/19/2023",
+    "how": "stated",
+    "official": true
+   },
+   "socket": {
+    "v": "sTR5",
+    "src": "s20",
+    "quote": "CPU Socket sTR5",
+    "how": "stated",
+    "official": true
+   },
+   "cores": {
+    "v": {
+     "smallest": {
+      "cores": 24,
+      "threads": 48
+     },
+     "largest": {
+      "cores": 64,
+      "threads": 128
+     }
+    },
+    "src": "s20",
+    "quote": "# of CPU Cores 64 Multithreading (SMT) Yes # of Threads 128",
+    "how": "stated",
+    "official": true,
+    "note": "7960X (s21): # of CPU Cores 24 Multithreading (SMT) Yes # of Threads 48"
+   },
+   "isa": {
+    "v": [
+     "AES",
+     "AMD-V",
+     "AVX",
+     "AVX2",
+     "AVX512",
+     "FMA3",
+     "MMX-plus",
+     "SHA",
+     "SSE",
+     "SSE2",
+     "SSE3",
+     "SSE4.1",
+     "SSE4.2",
+     "SSE4A",
+     "SSSE3",
+     "x86-64"
+    ],
+    "src": "s20",
+    "quote": "Supported Extensions AES , AMD-V , AVX , AVX2 , AVX512 , FMA3 , MMX-plus , SHA , SSE , SSE2 , SSE3 , SSE4.1 , SSE4.2 , SSE4A , SSSE3 , x86-64",
+    "how": "stated; AVX512 sub-features not listed",
+    "official": true
+   },
+   "igpu": {
+    "v": null,
+    "why": "no integrated GPU: the 7970X page says Graphics Model Discrete Graphics Card Required"
+   },
+   "memory": {
+    "types": {
+     "v": [
+      "DDR5"
+     ],
+     "src": "s20",
+     "quote": "System Memory Type DDR5 Memory Channels 4 System Memory Subtype RDIMM System Memory Specification Up to 5200 MT/s",
+     "how": "stated",
+     "official": true
+    },
+    "max_speed_mts": {
+     "v": {
+      "DDR5": 5200
+     },
+     "src": "s20",
+     "quote": "System Memory Type DDR5 Memory Channels 4 System Memory Subtype RDIMM System Memory Specification Up to 5200 MT/s",
+     "how": "stated",
+     "official": true,
+     "note": "product pages 7980X and 7960X both say 5200; the press release platform table (s38) also says DDR5-5200; the DDR5-5600 tech briefs seen by wave 1 are PDFs, unreadable here"
+    },
+    "channels": {
+     "v": 4,
+     "src": "s20",
+     "quote": "System Memory Type DDR5 Memory Channels 4 System Memory Subtype RDIMM",
+     "how": "stated",
+     "official": true
+    },
+    "max_gb": {
+     "v": null,
+     "why": "the product pages have no Max. Memory row; the press release platform table row mixes 7000 and PRO 7000 and is not attributed to this series with certainty"
+    },
+    "max_bandwidth_gbps": {
+     "v": 166.4,
+     "src": "s20",
+     "quote": "System Memory Type DDR5 Memory Channels 4 System Memory Subtype RDIMM System Memory Specification Up to 5200 MT/s",
+     "how": "derived: 4 channels x 5200 MT/s x 8 bytes / 1000",
+     "official": true
+    }
+   }
+  },
+  {
+   "id": "amd-ryzen-threadripper-pro-7000",
+   "vendor": "amd",
+   "name": {
+    "v": "Ryzen Threadripper PRO 7000 WX-Series",
+    "src": "s22",
+    "quote": "Family Ryzen Threadripper PRO Series Ryzen Threadripper PRO 7000",
+    "how": "stated",
+    "official": true
+   },
+   "models": {
+    "v": [
+     "Ryzen Threadripper PRO 7945WX",
+     "Ryzen Threadripper PRO 7965WX",
+     "Ryzen Threadripper PRO 7995WX"
+    ],
+    "src": "s23",
+    "quote": "Name AMD RyzenTM ThreadripperTM PRO 7945WX | Name AMD RyzenTM ThreadripperTM PRO 7965WX | Name AMD RyzenTM ThreadripperTM PRO 7995WX",
+    "how": "stated",
+    "official": true,
+    "also": [
+     "s67",
+     "s22"
+    ]
+   },
+   "segment": {
+    "v": "workstation",
+    "src": "s22",
+    "quote": "Family Ryzen Threadripper PRO Series",
+    "how": "PRO workstation family; mapped by the row author",
+    "official": true,
+    "note": "the segment 'workstation' is the filler's own mapping for Threadripper PRO, not AMD's word; AMD's pages say Form Factor Desktops and AMD PRO Technologies Yes"
+   },
+   "architecture": {
+    "v": "Zen 4 (Storm Peak)",
+    "src": "s22",
+    "quote": "Former Codename Storm Peak Processor Architecture Zen 4",
+    "how": "stated",
+    "official": true
+   },
+   "launch": {
+    "v": "2023-10",
+    "src": "s22",
+    "quote": "Launch Date 10/19/2023",
+    "how": "stated",
+    "official": true
+   },
+   "socket": {
+    "v": "sTR5",
+    "src": "s22",
+    "quote": "CPU Socket sTR5",
+    "how": "stated",
+    "official": true
+   },
+   "cores": {
+    "v": {
+     "smallest": {
+      "cores": 12,
+      "threads": 24
+     },
+     "largest": {
+      "cores": 96,
+      "threads": 192
+     }
+    },
+    "src": "s22",
+    "quote": "# of CPU Cores 96 Multithreading (SMT) Yes # of Threads 192",
+    "how": "stated",
+    "official": true,
+    "note": "7945WX (s23): # of CPU Cores 12 Multithreading (SMT) Yes # of Threads 24"
+   },
+   "isa": {
+    "v": [
+     "AES",
+     "AMD-V",
+     "AVX",
+     "AVX2",
+     "AVX512",
+     "FMA3",
+     "MMX-plus",
+     "SHA",
+     "SSE",
+     "SSE2",
+     "SSE3",
+     "SSE4.1",
+     "SSE4.2",
+     "SSE4A",
+     "SSSE3",
+     "x86-64"
+    ],
+    "src": "s22",
+    "quote": "Supported Extensions AES , AMD-V , AVX , AVX2 , AVX512 , FMA3 , MMX-plus , SHA , SSE , SSE2 , SSE3 , SSE4.1 , SSE4.2 , S",
+    "how": "stated; AVX512 sub-features not listed",
+    "official": true
+   },
+   "igpu": {
+    "v": null,
+    "why": "no integrated GPU: the 7965WX page says Graphics Model Discrete Graphics Card Required"
+   },
+   "memory": {
+    "types": {
+     "v": [
+      "DDR5"
+     ],
+     "src": "s22",
+     "quote": "System Memory Type DDR5 Memory Channels 8 System Memory Subtype RDIMM System Memory Specification Up to 5200 MT/s",
+     "how": "stated",
+     "official": true
+    },
+    "max_speed_mts": {
+     "v": {
+      "DDR5": 5200
+     },
+     "src": "s22",
+     "quote": "System Memory Type DDR5 Memory Channels 8 System Memory Subtype RDIMM System Memory Specification Up to 5200 MT/s",
+     "how": "stated",
+     "official": true
+    },
+    "channels": {
+     "v": 8,
+     "src": "s22",
+     "quote": "System Memory Type DDR5 Memory Channels 8 System Memory Subtype RDIMM",
+     "how": "stated",
+     "official": true
+    },
+    "max_gb": {
+     "v": 2048,
+     "src": "s38",
+     "quote": "Ryzen Threadripper PRO 7000 WX-Series 8-Channel Up to 2TB DDR5-5200 RDIMM",
+     "how": "stated in press release platform table as 2 TB",
+     "official": true
+    },
+    "max_bandwidth_gbps": {
+     "v": 332.8,
+     "src": "s22",
+     "quote": "System Memory Type DDR5 Memory Channels 8 System Memory Subtype RDIMM System Memory Specification Up to 5200 MT/s",
+     "how": "derived: 8 channels x 5200 MT/s x 8 bytes / 1000",
+     "official": true
+    }
+   }
+  },
+  {
+   "id": "amd-ryzen-threadripper-9000",
+   "vendor": "amd",
+   "name": {
+    "v": "Ryzen Threadripper 9000 Series",
+    "src": "s28",
+    "quote": "Ryzen Threadripper 9000 Series",
+    "how": "stated",
+    "official": true
+   },
+   "models": {
+    "v": [
+     "Ryzen Threadripper 9960X",
+     "Ryzen Threadripper 9970X",
+     "Ryzen Threadripper 9980X"
+    ],
+    "src": "s29",
+    "quote": "Name AMD RyzenTM ThreadripperTM 9960X | Name AMD RyzenTM ThreadripperTM 9970X | Name AMD RyzenTM ThreadripperTM 9980X",
+    "how": "stated",
+    "official": true,
+    "also": [
+     "s66",
+     "s28"
+    ]
+   },
+   "segment": {
+    "v": "hedt",
+    "src": "s28",
+    "quote": "AMD PRO Technologies No",
+    "how": "non-PRO Threadripper; mapped to hedt",
+    "official": true,
+    "note": "the segment 'hedt' is the filler's own mapping for Threadripper, not AMD's word; AMD's page says Form Factor Desktops (7000 page also Market Segment Enthusiast Desktop)"
+   },
+   "architecture": {
+    "v": "Zen 5 (Shimada Peak)",
+    "src": "s28",
+    "quote": "Former Codename Shimada Peak Processor Architecture Zen 5",
+    "how": "stated",
+    "official": true
+   },
+   "launch": {
+    "v": null,
+    "why": "the 9980X and 9960X pages have no Launch Date row"
+   },
+   "socket": {
+    "v": "sTR5",
+    "src": "s28",
+    "quote": "CPU Socket sTR5",
+    "how": "stated",
+    "official": true
+   },
+   "cores": {
+    "v": {
+     "smallest": {
+      "cores": 24,
+      "threads": 48
+     },
+     "largest": {
+      "cores": 64,
+      "threads": 128
+     }
+    },
+    "src": "s28",
+    "quote": "# of CPU Cores 64 Multithreading (SMT) Yes # of Threads 128",
+    "how": "stated",
+    "official": true,
+    "note": "9960X (s29): # of CPU Cores 24 Multithreading (SMT) Yes # of Threads 48"
+   },
+   "isa": {
+    "v": [
+     "AES",
+     "AMD-V",
+     "AVX",
+     "AVX2",
+     "AVX512",
+     "FMA3",
+     "MMX-plus",
+     "SHA",
+     "SSE",
+     "SSE2",
+     "SSE3",
+     "SSE4.1",
+     "SSE4.2",
+     "SSE4A",
+     "SSSE3",
+     "x86-64"
+    ],
+    "src": "s28",
+    "quote": "Supported Extensions AES , AMD-V , AVX , AVX2 , AVX512 , FMA3 , MMX-plus , SHA , SSE , SSE2 , SSE3 , SSE4.1 , SSE4.2 , SSE4A , SSSE3 , x86-64",
+    "how": "stated; AVX512 sub-features not listed",
+    "official": true
+   },
+   "igpu": {
+    "v": null,
+    "why": "page says Graphics Model Discrete Graphics Card Required"
+   },
+   "memory": {
+    "types": {
+     "v": [
+      "DDR5"
+     ],
+     "src": "s28",
+     "quote": "System Memory Type DDR5 Memory Channels 4 System Memory Subtype RDIMM System Memory Specification Up to 6400 MT/s",
+     "how": "stated",
+     "official": true
+    },
+    "max_speed_mts": {
+     "v": {
+      "DDR5": 6400
+     },
+     "src": "s28",
+     "quote": "System Memory Type DDR5 Memory Channels 4 System Memory Subtype RDIMM System Memory Specification Up to 6400 MT/s",
+     "how": "stated",
+     "official": true
+    },
+    "channels": {
+     "v": 4,
+     "src": "s28",
+     "quote": "System Memory Type DDR5 Memory Channels 4 System Memory Subtype RDIMM",
+     "how": "stated",
+     "official": true
+    },
+    "max_gb": {
+     "v": null,
+     "why": "the pages have no Max. Memory row"
+    },
+    "max_bandwidth_gbps": {
+     "v": 204.8,
+     "src": "s28",
+     "quote": "System Memory Type DDR5 Memory Channels 4 System Memory Subtype RDIMM System Memory Specification Up to 6400 MT/s",
+     "how": "derived: 4 channels x 6400 MT/s x 8 bytes / 1000",
+     "official": true
+    }
+   }
+  },
+  {
+   "id": "amd-ryzen-threadripper-pro-9000",
+   "vendor": "amd",
+   "name": {
+    "v": "Ryzen Threadripper PRO 9000 WX-Series",
+    "src": "s30",
+    "quote": "Ryzen Threadripper PRO 9000",
+    "how": "stated",
+    "official": true
+   },
+   "models": {
+    "v": [
+     "Ryzen Threadripper PRO 9945WX",
+     "Ryzen Threadripper PRO 9965WX",
+     "Ryzen Threadripper PRO 9995WX"
+    ],
+    "src": "s31",
+    "quote": "Name AMD RyzenTM ThreadripperTM PRO 9945WX | Name AMD RyzenTM ThreadripperTM PRO 9965WX | Name AMD RyzenTM ThreadripperTM PRO 9995WX",
+    "how": "stated",
+    "official": true,
+    "also": [
+     "s68",
+     "s30"
+    ]
+   },
+   "segment": {
+    "v": "workstation",
+    "src": "s30",
+    "quote": "AMD PRO Technologies Yes",
+    "how": "PRO workstation family; mapped by the row author",
+    "official": true,
+    "note": "the segment 'workstation' is the filler's own mapping for Threadripper PRO, not AMD's word; AMD's pages say Form Factor Desktops and AMD PRO Technologies Yes"
+   },
+   "architecture": {
+    "v": "Zen 5 (Shimada Peak)",
+    "src": "s30",
+    "quote": "Former Codename Shimada Peak Processor Architecture Zen 5",
+    "how": "stated",
+    "official": true
+   },
+   "launch": {
+    "v": "2025-07",
+    "src": "s30",
+    "quote": "Launch Date 07/23/25",
+    "how": "stated",
+    "official": true
+   },
+   "socket": {
+    "v": "sTR5",
+    "src": "s30",
+    "quote": "CPU Socket sTR5",
+    "how": "stated",
+    "official": true
+   },
+   "cores": {
+    "v": {
+     "smallest": {
+      "cores": 12,
+      "threads": 24
+     },
+     "largest": {
+      "cores": 96,
+      "threads": 192
+     }
+    },
+    "src": "s30",
+    "quote": "# of CPU Cores 96 Multithreading (SMT) Yes # of Threads 192",
+    "how": "stated",
+    "official": true,
+    "note": "9945WX (s31): # of CPU Cores 12 Multithreading (SMT) Yes # of Threads 24"
+   },
+   "isa": {
+    "v": [
+     "AES",
+     "AMD-V",
+     "AVX",
+     "AVX2",
+     "AVX512",
+     "FMA3",
+     "MMX-plus",
+     "SHA",
+     "SSE",
+     "SSE2",
+     "SSE3",
+     "SSE4.1",
+     "SSE4.2",
+     "SSE4A",
+     "SSSE3",
+     "x86-64"
+    ],
+    "src": "s30",
+    "quote": "Supported Extensions AES , AMD-V , AVX , AVX2 , AVX512 , FMA3 , MMX-plus , SHA , SSE , SSE2 , SSE3 , SSE4.1 , SSE4.2 , SSE4A , SSSE3 , x86-64",
+    "how": "stated; AVX512 sub-features not listed",
+    "official": true
+   },
+   "igpu": {
+    "v": null,
+    "why": "page says Graphics Model Discrete Graphics Card Required"
+   },
+   "memory": {
+    "types": {
+     "v": [
+      "DDR5"
+     ],
+     "src": "s30",
+     "quote": "System Memory Type DDR5 Memory Channels 8 System Memory Subtype RDIMM System Memory Specification Up to 6400 MT/s",
+     "how": "stated",
+     "official": true
+    },
+    "max_speed_mts": {
+     "v": {
+      "DDR5": 6400
+     },
+     "src": "s30",
+     "quote": "System Memory Type DDR5 Memory Channels 8 System Memory Subtype RDIMM System Memory Specification Up to 6400 MT/s",
+     "how": "stated",
+     "official": true
+    },
+    "channels": {
+     "v": 8,
+     "src": "s30",
+     "quote": "System Memory Type DDR5 Memory Channels 8 System Memory Subtype RDIMM",
+     "how": "stated",
+     "official": true
+    },
+    "max_gb": {
+     "v": null,
+     "why": "the pages have no Max. Memory row"
+    },
+    "max_bandwidth_gbps": {
+     "v": 409.6,
+     "src": "s30",
+     "quote": "System Memory Type DDR5 Memory Channels 8 System Memory Subtype RDIMM System Memory Specification Up to 6400 MT/s",
+     "how": "derived: 8 channels x 6400 MT/s x 8 bytes / 1000",
+     "official": true
+    }
+   }
+  },
+  {
+   "id": "amd-ryzen-5-8600g",
+   "vendor": "amd",
+   "name": {
+    "v": "AMD Ryzen 5 8600G",
+    "src": "s32",
+    "quote": "Name AMD RyzenTM 5 8600G",
+    "how": "stated",
+    "official": true
+   },
+   "models": {
+    "v": [
+     "Ryzen 5 8600G"
+    ],
+    "src": "s32",
+    "quote": "Name AMD RyzenTM 5 8600G",
+    "how": "stated",
+    "official": true
+   },
+   "segment": {
+    "v": "desktop",
+    "src": "s32",
+    "quote": "Form Factor Desktops",
+    "how": "stated",
+    "official": true
+   },
+   "architecture": {
+    "v": "Zen 4 (Phoenix)",
+    "src": "s32",
+    "quote": "Former Codename Phoenix Processor Architecture Zen 4",
+    "how": "stated",
+    "official": true
+   },
+   "launch": {
+    "v": "Q1 2024",
+    "src": "s32",
+    "quote": "Launch Date Q1 2024",
+    "how": "stated",
+    "official": true
+   },
+   "socket": {
+    "v": "AM5",
+    "src": "s32",
+    "quote": "CPU Socket AM5",
+    "how": "stated",
+    "official": true
+   },
+   "cores": {
+    "v": {
+     "cores": 6,
+     "threads": 12
+    },
+    "src": "s32",
+    "quote": "# of CPU Cores 6 Multithreading (SMT) Yes # of Threads 12",
+    "how": "stated",
+    "official": true
+   },
+   "isa": {
+    "v": [
+     "AES",
+     "AMD-V",
+     "AVX",
+     "AVX2",
+     "AVX512",
+     "FMA3",
+     "MMX-plus",
+     "SHA",
+     "SSE",
+     "SSE2",
+     "SSE3",
+     "SSE4.1",
+     "SSE4.2",
+     "SSE4A",
+     "SSSE3",
+     "x86-64"
+    ],
+    "src": "s32",
+    "quote": "Supported Extensions AES , AMD-V , AVX , AVX2 , AVX512 , FMA3 , MMX-plus , SHA , SSE , SSE2 , SSE3 , SSE4.1 , SSE4.2 , SSE4A , SSSE3 , x86-64",
+    "how": "stated",
+    "official": true
+   },
+   "igpu": {
+    "v": "AMD Radeon 760M Graphics (8 cores)",
+    "src": "s32",
+    "quote": "Graphics Model AMD RadeonTM 760M Graphics Core Count 8",
+    "how": "stated",
+    "official": true
+   },
+   "memory": {
+    "types": {
+     "v": [
+      "DDR5"
+     ],
+     "src": "s32",
+     "quote": "System Memory Type DDR5 Memory Channels 2 Max. Memory 256 GB System Memory Subtype UDIMM Max Memory Speed 2x1R DDR5-5200 2x2R DDR5-5200 4x1R DDR5-3600 4x2R DDR5-3600",
+     "how": "stated",
+     "official": true
+    },
+    "max_speed_mts": {
+     "v": {
+      "DDR5": 5200
+     },
+     "src": "s32",
+     "quote": "Max Memory Speed 2x1R DDR5-5200 2x2R DDR5-5200 4x1R DDR5-3600 4x2R DDR5-3600",
+     "how": "highest cell value (2 DIMMs)",
+     "official": true
+    },
+    "channels": {
+     "v": 2,
+     "src": "s32",
+     "quote": "System Memory Type DDR5 Memory Channels 2 Max. Memory 256 GB",
+     "how": "stated",
+     "official": true
+    },
+    "max_gb": {
+     "v": 256,
+     "src": "s32",
+     "quote": "Memory Channels 2 Max. Memory 256 GB",
+     "how": "stated",
+     "official": true
+    },
+    "max_bandwidth_gbps": {
+     "v": 83.2,
+     "src": "s32",
+     "quote": "Memory Channels 2 Max. Memory 256 GB System Memory Subtype UDIMM Max Memory Speed 2x1R DDR5-5200",
+     "how": "derived: 2 channels x 5200 MT/s x 8 bytes / 1000",
+     "official": true
+    }
+   }
+  },
+  {
+   "id": "amd-ryzen-7-8700g",
+   "vendor": "amd",
+   "name": {
+    "v": "AMD Ryzen 7 8700G",
+    "src": "s33",
+    "quote": "Name AMD RyzenTM 7 8700G",
+    "how": "stated",
+    "official": true
+   },
+   "models": {
+    "v": [
+     "Ryzen 7 8700G"
+    ],
+    "src": "s33",
+    "quote": "Name AMD RyzenTM 7 8700G",
+    "how": "stated",
+    "official": true
+   },
+   "segment": {
+    "v": "desktop",
+    "src": "s33",
+    "quote": "Form Factor Desktops",
+    "how": "stated",
+    "official": true
+   },
+   "architecture": {
+    "v": "Zen 4 (Phoenix)",
+    "src": "s33",
+    "quote": "Former Codename Phoenix Processor Architecture Zen 4",
+    "how": "stated",
+    "official": true
+   },
+   "launch": {
+    "v": "Q1 2024",
+    "src": "s33",
+    "quote": "Launch Date Q1 2024",
+    "how": "stated",
+    "official": true
+   },
+   "socket": {
+    "v": "AM5",
+    "src": "s33",
+    "quote": "CPU Socket AM5",
+    "how": "stated",
+    "official": true
+   },
+   "cores": {
+    "v": {
+     "cores": 8,
+     "threads": 16
+    },
+    "src": "s33",
+    "quote": "# of CPU Cores 8 Multithreading (SMT) Yes # of Threads 16",
+    "how": "stated",
+    "official": true
+   },
+   "isa": {
+    "v": [
+     "AES",
+     "AMD-V",
+     "AVX",
+     "AVX2",
+     "AVX512",
+     "FMA3",
+     "MMX-plus",
+     "SHA",
+     "SSE",
+     "SSE2",
+     "SSE3",
+     "SSE4.1",
+     "SSE4.2",
+     "SSE4A",
+     "SSSE3",
+     "x86-64"
+    ],
+    "src": "s33",
+    "quote": "Supported Extensions AES , AMD-V , AVX , AVX2 , AVX512 , FMA3 , MMX-plus , SHA , SSE , SSE2 , SSE3 , SSE4.1 , SSE4.2 , SSE4A , SSSE3 , x86-64",
+    "how": "stated",
+    "official": true
+   },
+   "igpu": {
+    "v": "AMD Radeon 780M Graphics (12 cores)",
+    "src": "s33",
+    "quote": "Graphics Model AMD RadeonTM 780M Graphics Core Count 12",
+    "how": "stated",
+    "official": true
+   },
+   "memory": {
+    "types": {
+     "v": [
+      "DDR5"
+     ],
+     "src": "s33",
+     "quote": "System Memory Type DDR5 Memory Channels 2 Max. Memory 256 GB System Memory Subtype UDIMM Max Memory Speed 2x1R DDR5-5200 2x2R DDR5-5200 4x1R DDR5-3600 4x2R DDR5-3600",
+     "how": "stated",
+     "official": true
+    },
+    "max_speed_mts": {
+     "v": {
+      "DDR5": 5200
+     },
+     "src": "s33",
+     "quote": "Max Memory Speed 2x1R DDR5-5200 2x2R DDR5-5200 4x1R DDR5-3600 4x2R DDR5-3600",
+     "how": "highest cell value (2 DIMMs)",
+     "official": true
+    },
+    "channels": {
+     "v": 2,
+     "src": "s33",
+     "quote": "System Memory Type DDR5 Memory Channels 2 Max. Memory 256 GB",
+     "how": "stated",
+     "official": true
+    },
+    "max_gb": {
+     "v": 256,
+     "src": "s33",
+     "quote": "Memory Channels 2 Max. Memory 256 GB",
+     "how": "stated",
+     "official": true
+    },
+    "max_bandwidth_gbps": {
+     "v": 83.2,
+     "src": "s33",
+     "quote": "Memory Channels 2 Max. Memory 256 GB System Memory Subtype UDIMM Max Memory Speed 2x1R DDR5-5200",
+     "how": "derived: 2 channels x 5200 MT/s x 8 bytes / 1000",
+     "official": true
+    }
+   }
+  },
+  {
+   "id": "amd-ryzen-8040-mobile",
+   "vendor": "amd",
+   "name": {
+    "v": "Ryzen 8040 Series (Hawk Point), 8840U, 8840HS and 8945HS",
+    "src": "s34",
+    "quote": "Name AMD RyzenTM 7 8840U",
+    "how": "stated",
+    "official": true
+   },
+   "models": {
+    "v": [
+     "Ryzen 7 8840U",
+     "Ryzen 7 8840HS",
+     "Ryzen 9 8945HS"
+    ],
+    "src": "s34",
+    "quote": "Name AMD RyzenTM 7 8840U | Name AMD RyzenTM 7 8840HS | Name AMD RyzenTM 9 8945HS",
+    "how": "stated",
+    "official": true,
+    "also": [
+     "s58",
+     "s35"
+    ],
+    "note": "8840HS page (s58) read: same cores, memory, extensions and 780M graphics. 8640 and 8540/8440 models differ and have their own rows"
+   },
+   "segment": {
+    "v": "laptop",
+    "src": "s34",
+    "quote": "Form Factor Laptops , Desktops",
+    "how": "stated (page lists Laptops and Desktops)",
+    "official": true,
+    "note": "AMD's page lists Form Factor Laptops , Desktops; mapped to laptop"
+   },
+   "architecture": {
+    "v": "Zen 4 (Hawk Point)",
+    "src": "s34",
+    "quote": "Former Codename Hawk Point Processor Architecture Zen 4",
+    "how": "stated",
+    "official": true
+   },
+   "launch": {
+    "v": null,
+    "why": "the 8840U and 8945HS pages have no Launch Date row"
+   },
+   "socket": {
+    "v": [
+     "FP7",
+     "FP7r2",
+     "FP8"
+    ],
+    "src": "s34",
+    "quote": "CPU Socket FP7 , FP7r2 , FP8",
+    "how": "stated",
+    "official": true
+   },
+   "cores": {
+    "v": {
+     "cores": 8,
+     "threads": 16
+    },
+    "src": "s34",
+    "quote": "# of CPU Cores 8 Multithreading (SMT) Yes # of Threads 16",
+    "how": "stated, both models",
+    "official": true
+   },
+   "isa": {
+    "v": [
+     "AES",
+     "AMD-V",
+     "AVX",
+     "AVX2",
+     "AVX512",
+     "FMA3",
+     "MMX-plus",
+     "SHA",
+     "SSE",
+     "SSE2",
+     "SSE3",
+     "SSE4.1",
+     "SSE4.2",
+     "SSE4A",
+     "SSSE3",
+     "x86-64"
+    ],
+    "src": "s34",
+    "quote": "Supported Extensions AES , AMD-V , AVX , AVX2 , AVX512 , FMA3 , MMX-plus , SHA , SSE , SSE2 , SSE3 , SSE4.1 , SSE4.2 , SSE4A , SSSE3 , x86-64",
+    "how": "stated",
+    "official": true
+   },
+   "igpu": {
+    "v": "AMD Radeon 780M Graphics (12 cores)",
+    "src": "s34",
+    "quote": "Graphics Model AMD RadeonTM 780M Graphics Core Count 12",
+    "how": "stated, both models",
+    "official": true
+   },
+   "memory": {
+    "types": {
+     "v": [
+      "DDR5",
+      "LPDDR5X"
+     ],
+     "src": "s34",
+     "quote": "System Memory Type DDR5 (FP7r2) , LPDDR5X (FP7-FP8) Memory Channels 2 Max Memory Size by Type DDR5 96 GB LPDDR5 64 GB Max Memory Speed 4x2R DDR5-5600, LPDDR5x-7500",
+     "how": "stated",
+     "official": true
+    },
+    "max_speed_mts": {
+     "v": {
+      "DDR5": 5600,
+      "LPDDR5X": 7500
+     },
+     "src": "s34",
+     "quote": "Max Memory Speed 4x2R DDR5-5600, LPDDR5x-7500",
+     "how": "cell values as printed",
+     "official": true
+    },
+    "channels": {
+     "v": 2,
+     "src": "s34",
+     "quote": "System Memory Type DDR5 (FP7r2) , LPDDR5X (FP7-FP8) Memory Channels 2",
+     "how": "stated",
+     "official": true
+    },
+    "max_gb": {
+     "v": {
+      "DDR5": 96,
+      "LPDDR5": 64
+     },
+     "src": "s34",
+     "quote": "Max Memory Size by Type DDR5 96 GB LPDDR5 64 GB",
+     "how": "stated",
+     "official": true
+    },
+    "max_bandwidth_gbps": {
+     "v": 89.6,
+     "src": "s34",
+     "quote": "Memory Channels 2 Max Memory Size by Type DDR5 96 GB LPDDR5 64 GB Max Memory Speed 4x2R DDR5-5600, LPDDR5x-7500",
+     "how": "derived for DDR5 only: 2 channels x 5600 MT/s x 8 bytes / 1000; LPDDR5X channel width not stated so not derived",
+     "official": true
+    }
+   }
+  },
+  {
+   "id": "amd-ryzen-ai-9-hx-370",
+   "vendor": "amd",
+   "name": {
+    "v": "AMD Ryzen AI 9 HX 370",
+    "src": "s36",
+    "quote": "Name AMD RyzenTM AI 9 HX 370",
+    "how": "stated",
+    "official": true
+   },
+   "models": {
+    "v": [
+     "Ryzen AI 9 HX 370"
+    ],
+    "src": "s36",
+    "quote": "Name AMD RyzenTM AI 9 HX 370",
+    "how": "stated",
+    "official": true
+   },
+   "segment": {
+    "v": "laptop",
+    "src": "s36",
+    "quote": "Form Factor Laptops , Desktops",
+    "how": "stated",
+    "official": true,
+    "note": "AMD's page lists Form Factor Laptops , Desktops; mapped to laptop"
+   },
+   "architecture": {
+    "v": "Strix Point, 4x Zen 5 and 8x Zen 5c",
+    "src": "s36",
+    "quote": "Former Codename Strix Point Processor Architecture 4x Zen 5 , 8x Zen 5c",
+    "how": "stated",
+    "official": true
+   },
+   "launch": {
+    "v": "2025-07-28",
+    "src": "s36",
+    "quote": "Launch Date 7/28/2025",
+    "how": "stated",
+    "official": true
+   },
+   "socket": {
+    "v": "FP8",
+    "src": "s36",
+    "quote": "CPU Socket FP8",
+    "how": "stated",
+    "official": true
+   },
+   "cores": {
+    "v": {
+     "cores": 12,
+     "threads": 24
+    },
+    "src": "s36",
+    "quote": "# of CPU Cores 12 Multithreading (SMT) Yes # of Threads 24",
+    "how": "stated",
+    "official": true
+   },
+   "isa": {
+    "v": [
+     "AES",
+     "AMD-V",
+     "AVX",
+     "AVX2",
+     "AVX512",
+     "FMA3",
+     "MMX-plus",
+     "SHA",
+     "SSE",
+     "SSE2",
+     "SSE3",
+     "SSE4.1",
+     "SSE4.2",
+     "SSE4A",
+     "SSSE3",
+     "x86-64"
+    ],
+    "src": "s36",
+    "quote": "Supported Extensions AES , AMD-V , AVX , AVX2 , AVX512 , FMA3 , MMX-plus , SHA , SSE , SSE2 , SSE3 , SSE4.1 , SSE4.2 , SSE4A , SSSE3 , x86-64",
+    "how": "stated",
+    "official": true
+   },
+   "igpu": {
+    "v": "AMD Radeon 890M Graphics (16 cores)",
+    "src": "s36",
+    "quote": "Graphics Model AMD RadeonTM 890M Graphics Core Count 16",
+    "how": "stated",
+    "official": true
+   },
+   "memory": {
+    "types": {
+     "v": [
+      "DDR5",
+      "LPDDR5X"
+     ],
+     "src": "s36",
+     "quote": "System Memory Type DDR5 (FP8) , LPDDR5X (FP8) Memory Channels 2 Max. Memory 256 GB Max Memory Speed 2x2R DDR5-5600, LPDDR5x-8000",
+     "how": "stated",
+     "official": true
+    },
+    "max_speed_mts": {
+     "v": {
+      "DDR5": 5600,
+      "LPDDR5X": 8000
+     },
+     "src": "s36",
+     "quote": "Max Memory Speed 2x2R DDR5-5600, LPDDR5x-8000",
+     "how": "cell values as printed",
+     "official": true
+    },
+    "channels": {
+     "v": 2,
+     "src": "s36",
+     "quote": "System Memory Type DDR5 (FP8) , LPDDR5X (FP8) Memory Channels 2",
+     "how": "stated",
+     "official": true
+    },
+    "max_gb": {
+     "v": 256,
+     "src": "s36",
+     "quote": "Memory Channels 2 Max. Memory 256 GB",
+     "how": "stated",
+     "official": true
+    },
+    "max_bandwidth_gbps": {
+     "v": 89.6,
+     "src": "s36",
+     "quote": "Memory Channels 2 Max. Memory 256 GB Max Memory Speed 2x2R DDR5-5600, LPDDR5x-8000",
+     "how": "derived for DDR5 only: 2 channels x 5600 MT/s x 8 bytes / 1000; LPDDR5X channel width not stated so not derived",
+     "official": true
+    }
+   }
+  },
+  {
+   "name": {
+    "v": "Ryzen 5000 Series",
+    "src": "s42",
+    "quote": "Family Ryzen Series Ryzen 5000 Series",
+    "how": "stated",
+    "official": true,
+    "note": "G models with integrated graphics (Cezanne)"
+   },
+   "models": {
+    "v": [
+     "Ryzen 5 5600G",
+     "Ryzen 7 5700G"
+    ],
+    "src": "s42",
+    "quote": "Name AMD RyzenTM 5 5600G | Name AMD RyzenTM 7 5700G",
+    "how": "stated",
+    "official": true,
+    "also": [
+     "s43"
+    ]
+   },
+   "segment": {
+    "v": "desktop",
+    "src": "s42",
+    "quote": "Form Factor Desktops , Boxed Processor",
+    "how": "stated",
+    "official": true
+   },
+   "architecture": {
+    "v": "Zen 3 (Cezanne)",
+    "src": "s42",
+    "quote": "Former Codename Cezanne Processor Architecture Zen 3",
+    "how": "stated",
+    "official": true,
+    "also": [
+     "s43"
+    ]
+   },
+   "launch": {
+    "v": "2021-04",
+    "src": "s42",
+    "quote": "Launch Date 4/13/2021",
+    "how": "stated",
+    "official": true,
+    "also": [
+     "s43"
+    ]
+   },
+   "socket": {
+    "v": "AM4",
+    "src": "s42",
+    "quote": "CPU Socket AM4",
+    "how": "stated",
+    "official": true,
+    "also": [
+     "s43"
+    ]
+   },
+   "cores": {
+    "v": {
+     "smallest": {
+      "cores": 6,
+      "threads": 12
+     },
+     "largest": {
+      "cores": 8,
+      "threads": 16
+     }
+    },
+    "src": "s42",
+    "quote": "# of CPU Cores 6 # of Threads 12",
+    "how": "stated",
+    "official": true,
+    "also": [
+     "s43"
+    ],
+    "note": "5700G (s43): # of CPU Cores 8 # of Threads 16"
+   },
+   "isa": {
+    "v": null,
+    "why": "no Supported Extensions row on the 5600G and 5700G spec pages"
+   },
+   "memory": {
+    "types": {
+     "v": [
+      "DDR4"
+     ],
+     "src": "s42",
+     "quote": "System Memory Type DDR4 Memory Channels 2 System Memory Specification Up to 3200 MT/s",
+     "how": "stated",
+     "official": true,
+     "also": [
+      "s43"
+     ]
+    },
+    "max_speed_mts": {
+     "v": {
+      "DDR4": 3200
+     },
+     "src": "s42",
+     "quote": "System Memory Type DDR4 Memory Channels 2 System Memory Specification Up to 3200 MT/s",
+     "how": "stated",
+     "official": true,
+     "also": [
+      "s43"
+     ]
+    },
+    "channels": {
+     "v": 2,
+     "src": "s42",
+     "quote": "System Memory Type DDR4 Memory Channels 2 System Memory Specification Up to 3200 MT/s",
+     "how": "stated",
+     "official": true,
+     "also": [
+      "s43"
+     ]
+    },
+    "max_gb": {
+     "v": null,
+     "why": "no Max. Memory row on the 5600G and 5700G pages"
+    },
+    "max_bandwidth_gbps": {
+     "v": 51.2,
+     "src": "s42",
+     "quote": "System Memory Type DDR4 Memory Channels 2 System Memory Specification Up to 3200 MT/s",
+     "how": "derived: 2 channels x 3200 MT/s x 8 bytes / 1000",
+     "official": true,
+     "also": [
+      "s43"
+     ]
+    }
+   },
+   "igpu": {
+    "v": "AMD Radeon Graphics (7 cores on 5600G, 8 cores on 5700G)",
+    "src": "s42",
+    "quote": "Graphics Model RadeonTM Graphics Graphics Core Count 7 | Graphics Model RadeonTM Graphics Graphics Core Count 8",
+    "how": "stated",
+    "official": true,
+    "also": [
+     "s43"
+    ]
+   },
+   "id": "amd-ryzen-5000g-desktop",
+   "vendor": "amd",
+   "kind": "cpu"
+  },
+  {
+   "name": {
+    "v": "AMD Ryzen 5 3400G with Radeon RX Vega 11 Graphics",
+    "src": "s44",
+    "quote": "Name AMD RyzenTM 5 3400G with RadeonTM RX Vega 11 Graphics",
+    "how": "stated",
+    "official": true
+   },
+   "models": {
+    "v": [
+     "Ryzen 5 3400G"
+    ],
+    "src": "s44",
+    "quote": "Name AMD RyzenTM 5 3400G with RadeonTM RX Vega 11 Graphics",
+    "how": "stated",
+    "official": true
+   },
+   "segment": {
+    "v": "desktop",
+    "src": "s44",
+    "quote": "Form Factor Desktops , Boxed Processor Market Segment Mainstream Desktop",
+    "how": "stated",
+    "official": true
+   },
+   "architecture": {
+    "v": "Zen+ (Picasso)",
+    "src": "s44",
+    "quote": "Former Codename Picasso Processor Architecture Zen+",
+    "how": "stated",
+    "official": true
+   },
+   "launch": {
+    "v": "2019-07",
+    "src": "s44",
+    "quote": "Launch Date 07/07/2019",
+    "how": "stated",
+    "official": true
+   },
+   "socket": {
+    "v": "AM4",
+    "src": "s44",
+    "quote": "CPU Socket AM4",
+    "how": "stated",
+    "official": true
+   },
+   "cores": {
+    "v": {
+     "cores": 4,
+     "threads": 8
+    },
+    "src": "s44",
+    "quote": "# of CPU Cores 4 Multithreading (SMT) Yes # of Threads 8",
+    "how": "stated",
+    "official": true
+   },
+   "isa": {
+    "v": [
+     "AES",
+     "AMD-V",
+     "AVX",
+     "FMA3",
+     "MMX-plus",
+     "SHA",
+     "SSE",
+     "SSE2",
+     "SSE3",
+     "SSE4.1",
+     "SSE4.2",
+     "SSE4A",
+     "SSSE3",
+     "x86-64"
+    ],
+    "src": "s44",
+    "quote": "Supported Extensions AES , AMD-V , AVX , FMA3 , MMX-plus , SHA , SSE , SSE2 , SSE3 , SSE4.1 , SSE4.2 , SSE4A , SSSE3 , x86-64",
+    "how": "stated",
+    "official": true,
+    "note": "no AVX2 in the list"
+   },
+   "memory": {
+    "types": {
+     "v": [
+      "DDR4"
+     ],
+     "src": "s44",
+     "quote": "System Memory Type DDR4 Memory Channels 2 Max. Memory 64 GB",
+     "how": "stated",
+     "official": true
+    },
+    "max_speed_mts": {
+     "v": {
+      "DDR4": 2933
+     },
+     "src": "s44",
+     "quote": "Max Memory Speed 2x1R DDR4-2933 2x2R DDR4-2667 4x1R DDR4-2133 4x2R DDR4-1866",
+     "how": "highest cell value (2 DIMMs)",
+     "official": true
+    },
+    "channels": {
+     "v": 2,
+     "src": "s44",
+     "quote": "System Memory Type DDR4 Memory Channels 2 Max. Memory 64 GB",
+     "how": "stated",
+     "official": true
+    },
+    "max_gb": {
+     "v": 64,
+     "src": "s44",
+     "quote": "Memory Channels 2 Max. Memory 64 GB",
+     "how": "stated",
+     "official": true
+    },
+    "max_bandwidth_gbps": {
+     "v": 46.928,
+     "src": "s44",
+     "quote": "Memory Channels 2 Max. Memory 64 GB System Memory Subtype UDIMM Max Memory Speed 2x1R DDR4-2933",
+     "how": "derived: 2 channels x 2933 MT/s x 8 bytes / 1000",
+     "official": true
+    }
+   },
+   "igpu": {
+    "v": "AMD Radeon RX Vega 11 Graphics (11 cores)",
+    "src": "s44",
+    "quote": "Graphics Model RadeonTM RX Vega 11 Graphics Graphics Core Count 11",
+    "how": "stated",
+    "official": true
+   },
+   "id": "amd-ryzen-5-3400g",
+   "vendor": "amd",
+   "kind": "cpu"
+  },
+  {
+   "name": {
+    "v": "AMD Ryzen 7 4800U",
+    "src": "s46",
+    "quote": "Name AMD RyzenTM 7 4800U",
+    "how": "stated",
+    "official": true
+   },
+   "models": {
+    "v": [
+     "Ryzen 7 4800U"
+    ],
+    "src": "s46",
+    "quote": "Name AMD RyzenTM 7 4800U",
+    "how": "stated",
+    "official": true
+   },
+   "segment": {
+    "v": "laptop",
+    "src": "s46",
+    "quote": "Form Factor Laptops , Desktops",
+    "how": "stated",
+    "official": true,
+    "note": "AMD's page lists Form Factor Laptops , Desktops; mapped to laptop"
+   },
+   "architecture": {
+    "v": "Renoir",
+    "src": "s46",
+    "quote": "Former Codename Renoir",
+    "how": "code name only; the page has no Zen generation row",
+    "official": true
+   },
+   "launch": {
+    "v": "2020-01",
+    "src": "s46",
+    "quote": "Launch Date 1/6/2020",
+    "how": "stated",
+    "official": true
+   },
+   "socket": {
+    "v": "FP6",
+    "src": "s46",
+    "quote": "CPU Socket FP6",
+    "how": "stated",
+    "official": true
+   },
+   "cores": {
+    "v": {
+     "cores": 8,
+     "threads": 16
+    },
+    "src": "s46",
+    "quote": "# of CPU Cores 8 # of Threads 16",
+    "how": "stated",
+    "official": true
+   },
+   "isa": {
+    "v": null,
+    "why": "no Supported Extensions row on the 4800U and 4800H spec pages"
+   },
+   "memory": {
+    "types": {
+     "v": [
+      "DDR4",
+      "LPDDR4"
+     ],
+     "src": "s46",
+     "quote": "System Memory Type DDR4 - Up to 3200 , LPDDR4 - Up to 4266",
+     "how": "stated",
+     "official": true
+    },
+    "max_speed_mts": {
+     "v": {
+      "DDR4": 3200,
+      "LPDDR4": 4266
+     },
+     "src": "s46",
+     "quote": "System Memory Type DDR4 - Up to 3200 , LPDDR4 - Up to 4266",
+     "how": "stated",
+     "official": true
+    },
+    "channels": {
+     "v": null,
+     "why": "no Memory Channels row on the 4800U and 4800H pages"
+    },
+    "max_gb": {
+     "v": null,
+     "why": "no Max. Memory row on the 4800U and 4800H pages"
+    },
+    "max_bandwidth_gbps": {
+     "v": null,
+     "why": "channel count not on the page, so not derived"
+    }
+   },
+   "igpu": {
+    "v": "AMD Radeon Graphics (8 cores)",
+    "src": "s46",
+    "quote": "Graphics Model AMD RadeonTM Graphics Graphics Core Count 8",
+    "how": "stated",
+    "official": true
+   },
+   "id": "amd-ryzen-7-4800u",
+   "vendor": "amd",
+   "kind": "cpu"
+  },
+  {
+   "name": {
+    "v": "AMD Ryzen 7 4800H",
+    "src": "s47",
+    "quote": "Name AMD RyzenTM 7 4800H",
+    "how": "stated",
+    "official": true
+   },
+   "models": {
+    "v": [
+     "Ryzen 7 4800H"
+    ],
+    "src": "s47",
+    "quote": "Name AMD RyzenTM 7 4800H",
+    "how": "stated",
+    "official": true
+   },
+   "segment": {
+    "v": "laptop",
+    "src": "s47",
+    "quote": "Form Factor Laptops , Desktops",
+    "how": "stated",
+    "official": true,
+    "note": "AMD's page lists Form Factor Laptops , Desktops; mapped to laptop"
+   },
+   "architecture": {
+    "v": "Renoir",
+    "src": "s47",
+    "quote": "Former Codename Renoir",
+    "how": "code name only; the page has no Zen generation row",
+    "official": true
+   },
+   "launch": {
+    "v": "2020-01",
+    "src": "s47",
+    "quote": "Launch Date 1/6/2020",
+    "how": "stated",
+    "official": true
+   },
+   "socket": {
+    "v": "FP6",
+    "src": "s47",
+    "quote": "CPU Socket FP6",
+    "how": "stated",
+    "official": true
+   },
+   "cores": {
+    "v": {
+     "cores": 8,
+     "threads": 16
+    },
+    "src": "s47",
+    "quote": "# of CPU Cores 8 # of Threads 16",
+    "how": "stated",
+    "official": true
+   },
+   "isa": {
+    "v": null,
+    "why": "no Supported Extensions row on the 4800U and 4800H spec pages"
+   },
+   "memory": {
+    "types": {
+     "v": [
+      "DDR4",
+      "LPDDR4"
+     ],
+     "src": "s47",
+     "quote": "System Memory Type DDR4 - Up to 3200 , LPDDR4 - Up to 4266",
+     "how": "stated",
+     "official": true
+    },
+    "max_speed_mts": {
+     "v": {
+      "DDR4": 3200,
+      "LPDDR4": 4266
+     },
+     "src": "s47",
+     "quote": "System Memory Type DDR4 - Up to 3200 , LPDDR4 - Up to 4266",
+     "how": "stated",
+     "official": true
+    },
+    "channels": {
+     "v": null,
+     "why": "no Memory Channels row on the 4800U and 4800H pages"
+    },
+    "max_gb": {
+     "v": null,
+     "why": "no Max. Memory row on the 4800U and 4800H pages"
+    },
+    "max_bandwidth_gbps": {
+     "v": null,
+     "why": "channel count not on the page, so not derived"
+    }
+   },
+   "igpu": {
+    "v": "AMD Radeon Graphics (7 cores)",
+    "src": "s47",
+    "quote": "Graphics Model AMD RadeonTM Graphics Graphics Core Count 7",
+    "how": "stated",
+    "official": true
+   },
+   "id": "amd-ryzen-7-4800h",
+   "vendor": "amd",
+   "kind": "cpu"
+  },
+  {
+   "name": {
+    "v": "Ryzen 5000 Series (Cezanne), 5800U and 5800H",
+    "src": "s48",
+    "quote": "Name AMD RyzenTM 7 5800U",
+    "how": "stated",
+    "official": true,
+    "also": [
+     "s49"
+    ]
+   },
+   "models": {
+    "v": [
+     "Ryzen 7 5800U",
+     "Ryzen 7 5800H"
+    ],
+    "src": "s48",
+    "quote": "Name AMD RyzenTM 7 5800U | Name AMD RyzenTM 7 5800H",
+    "how": "stated",
+    "official": true,
+    "also": [
+     "s49"
+    ]
+   },
+   "segment": {
+    "v": "laptop",
+    "src": "s48",
+    "quote": "Form Factor Laptops , Desktops",
+    "how": "stated",
+    "official": true,
+    "also": [
+     "s49"
+    ],
+    "note": "AMD's page lists Form Factor Laptops , Desktops; mapped to laptop"
+   },
+   "architecture": {
+    "v": "Zen 3 (Cezanne)",
+    "src": "s48",
+    "quote": "Former Codename Cezanne | AMD Zen 3 Core Architecture",
+    "how": "stated",
+    "official": true,
+    "also": [
+     "s49"
+    ]
+   },
+   "launch": {
+    "v": "2021-01",
+    "src": "s48",
+    "quote": "Launch Date 1/12/2021",
+    "how": "stated",
+    "official": true,
+    "also": [
+     "s49"
+    ]
+   },
+   "socket": {
+    "v": "FP6",
+    "src": "s48",
+    "quote": "CPU Socket FP6",
+    "how": "stated",
+    "official": true,
+    "also": [
+     "s49"
+    ]
+   },
+   "cores": {
+    "v": {
+     "cores": 8,
+     "threads": 16
+    },
+    "src": "s48",
+    "quote": "# of CPU Cores 8 # of Threads 16",
+    "how": "stated",
+    "official": true,
+    "also": [
+     "s49"
+    ]
+   },
+   "isa": {
+    "v": null,
+    "why": "no Supported Extensions row on the 5800U and 5800H spec pages"
+   },
+   "memory": {
+    "types": {
+     "v": [
+      "DDR4",
+      "LPDDR4"
+     ],
+     "src": "s48",
+     "quote": "System Memory Type DDR4 - Up to 3200 , LPDDR4 - Up to 4266",
+     "how": "stated",
+     "official": true,
+     "also": [
+      "s49"
+     ]
+    },
+    "max_speed_mts": {
+     "v": {
+      "DDR4": 3200,
+      "LPDDR4": 4266
+     },
+     "src": "s48",
+     "quote": "System Memory Type DDR4 - Up to 3200 , LPDDR4 - Up to 4266",
+     "how": "stated",
+     "official": true,
+     "also": [
+      "s49"
+     ]
+    },
+    "channels": {
+     "v": null,
+     "why": "no Memory Channels row on the 5800U and 5800H pages"
+    },
+    "max_gb": {
+     "v": null,
+     "why": "no Max. Memory row on the 5800U and 5800H pages"
+    },
+    "max_bandwidth_gbps": {
+     "v": null,
+     "why": "channel count not on the page, so not derived"
+    }
+   },
+   "igpu": {
+    "v": "AMD Radeon Graphics (8 cores)",
+    "src": "s48",
+    "quote": "Graphics Model AMD RadeonTM Graphics Graphics Core Count 8",
+    "how": "stated",
+    "official": true,
+    "also": [
+     "s49"
+    ]
+   },
+   "id": "amd-ryzen-5000-mobile-cezanne",
+   "vendor": "amd",
+   "kind": "cpu"
+  },
+  {
+   "name": {
+    "v": "Ryzen 6000 Series (Rembrandt), 6800U and 6800H",
+    "src": "s50",
+    "quote": "Name AMD RyzenTM 7 6800U",
+    "how": "stated",
+    "official": true,
+    "also": [
+     "s51"
+    ]
+   },
+   "models": {
+    "v": [
+     "Ryzen 7 6800U",
+     "Ryzen 7 6800H"
+    ],
+    "src": "s50",
+    "quote": "Name AMD RyzenTM 7 6800U | Name AMD RyzenTM 7 6800H",
+    "how": "stated",
+    "official": true,
+    "also": [
+     "s51"
+    ]
+   },
+   "segment": {
+    "v": "laptop",
+    "src": "s50",
+    "quote": "Form Factor Laptops , Desktops",
+    "how": "stated",
+    "official": true,
+    "also": [
+     "s51"
+    ],
+    "note": "AMD's page lists Form Factor Laptops , Desktops; mapped to laptop"
+   },
+   "architecture": {
+    "v": "Zen 3+ (Rembrandt)",
+    "src": "s50",
+    "quote": "Former Codename Rembrandt Processor Architecture Zen 3+",
+    "how": "stated",
+    "official": true,
+    "also": [
+     "s51"
+    ]
+   },
+   "launch": {
+    "v": "2022-04",
+    "src": "s50",
+    "quote": "Launch Date 04/19/2022",
+    "how": "stated",
+    "official": true,
+    "note": "6800U page; the 6800H page has no Launch Date row"
+   },
+   "socket": {
+    "v": "FP7",
+    "src": "s50",
+    "quote": "CPU Socket FP7",
+    "how": "stated",
+    "official": true,
+    "also": [
+     "s51"
+    ]
+   },
+   "cores": {
+    "v": {
+     "cores": 8,
+     "threads": 16
+    },
+    "src": "s50",
+    "quote": "# of CPU Cores 8 Multithreading (SMT) Yes # of Threads 16",
+    "how": "stated",
+    "official": true,
+    "also": [
+     "s51"
+    ]
+   },
+   "isa": {
+    "v": [
+     "AES",
+     "AMD-V",
+     "AVX",
+     "AVX2",
+     "FMA3",
+     "MMX-plus",
+     "SHA",
+     "SSE",
+     "SSE2",
+     "SSE3",
+     "SSE4.1",
+     "SSE4.2",
+     "SSE4A",
+     "SSSE3",
+     "x86-64"
+    ],
+    "src": "s50",
+    "quote": "Supported Extensions AES , AMD-V , AVX , AVX2 , FMA3 , MMX-plus , SHA , SSE , SSE2 , SSE3 , SSE4.1 , SSE4.2 , SSE4A , SSSE3 , x86-64",
+    "how": "stated",
+    "official": true,
+    "also": [
+     "s51"
+    ]
+   },
+   "memory": {
+    "types": {
+     "v": [
+      "DDR5",
+      "LPDDR5"
+     ],
+     "src": "s50",
+     "quote": "System Memory Type DDR5 Memory Channels 2 Max. Memory 64 GB System Memory Subtype UDIMM , SO-DIMM Max Memory Speed 4x1R DDR5-4800, LPDDR5-6400",
+     "how": "stated",
+     "official": true,
+     "also": [
+      "s51"
+     ]
+    },
+    "max_speed_mts": {
+     "v": {
+      "DDR5": 4800,
+      "LPDDR5": 6400
+     },
+     "src": "s50",
+     "quote": "Max Memory Speed 4x1R DDR5-4800, LPDDR5-6400",
+     "how": "cell values as printed",
+     "official": true,
+     "also": [
+      "s51"
+     ]
+    },
+    "channels": {
+     "v": 2,
+     "src": "s50",
+     "quote": "System Memory Type DDR5 Memory Channels 2",
+     "how": "stated",
+     "official": true,
+     "also": [
+      "s51"
+     ]
+    },
+    "max_gb": {
+     "v": 64,
+     "src": "s50",
+     "quote": "Memory Channels 2 Max. Memory 64 GB",
+     "how": "stated",
+     "official": true,
+     "also": [
+      "s51"
+     ]
+    },
+    "max_bandwidth_gbps": {
+     "v": 76.8,
+     "src": "s50",
+     "quote": "System Memory Type DDR5 Memory Channels 2 Max. Memory 64 GB System Memory Subtype UDIMM , SO-DIMM Max Memory Speed 4x1R DDR5-4800, LPDDR5-6400",
+     "how": "derived for DDR5 only: 2 channels x 4800 MT/s x 8 bytes / 1000; LPDDR5 channel width not stated so not derived",
+     "official": true,
+     "also": [
+      "s51"
+     ]
+    }
+   },
+   "igpu": {
+    "v": "AMD Radeon 680M Graphics (12 cores)",
+    "src": "s50",
+    "quote": "Graphics Model AMD RadeonTM 680M Graphics Core Count 12",
+    "how": "stated",
+    "official": true,
+    "also": [
+     "s51"
+    ]
+   },
+   "id": "amd-ryzen-6000-mobile-rembrandt",
+   "vendor": "amd",
+   "kind": "cpu"
+  },
+  {
+   "name": {
+    "v": "Ryzen 7000 Series (Phoenix), 7840U and 7840HS",
+    "src": "s52",
+    "quote": "Name AMD RyzenTM 7 7840U",
+    "how": "stated",
+    "official": true,
+    "also": [
+     "s53"
+    ]
+   },
+   "models": {
+    "v": [
+     "Ryzen 7 7840U",
+     "Ryzen 7 7840HS"
+    ],
+    "src": "s52",
+    "quote": "Name AMD RyzenTM 7 7840U | Name AMD RyzenTM 7 7840HS",
+    "how": "stated",
+    "official": true,
+    "also": [
+     "s53"
+    ],
+    "note": "other Ryzen 7000 mobile models built on Rembrandt-R or Dragon Range are not covered"
+   },
+   "segment": {
+    "v": "laptop",
+    "src": "s52",
+    "quote": "Form Factor Laptops , Desktops",
+    "how": "stated",
+    "official": true,
+    "also": [
+     "s53"
+    ],
+    "note": "AMD's page lists Form Factor Laptops , Desktops; mapped to laptop"
+   },
+   "architecture": {
+    "v": "Zen 4 (Phoenix)",
+    "src": "s52",
+    "quote": "Former Codename Phoenix Processor Architecture Zen 4",
+    "how": "stated",
+    "official": true,
+    "also": [
+     "s53"
+    ]
+   },
+   "launch": {
+    "v": "2023-05 (7840U 05/03/2023); Q4 2023 (7840HS)",
+    "src": "s52",
+    "quote": "Launch Date 05/03/2023",
+    "how": "stated",
+    "official": true,
+    "also": [
+     "s53"
+    ],
+    "note": "7840HS page: Launch Date Q4 2023"
+   },
+   "socket": {
+    "v": [
+     "FP7",
+     "FP7r2",
+     "FP8"
+    ],
+    "src": "s52",
+    "quote": "CPU Socket FP7 , FP7r2 , FP8",
+    "how": "stated",
+    "official": true,
+    "also": [
+     "s53"
+    ]
+   },
+   "cores": {
+    "v": {
+     "cores": 8,
+     "threads": 16
+    },
+    "src": "s52",
+    "quote": "# of CPU Cores 8 Multithreading (SMT) Yes # of Threads 16",
+    "how": "stated",
+    "official": true,
+    "also": [
+     "s53"
+    ]
+   },
+   "isa": {
+    "v": [
+     "AES",
+     "AMD-V",
+     "AVX",
+     "AVX2",
+     "AVX512",
+     "FMA3",
+     "MMX-plus",
+     "SHA",
+     "SSE",
+     "SSE2",
+     "SSE3",
+     "SSE4.1",
+     "SSE4.2",
+     "SSE4A",
+     "SSSE3",
+     "x86-64"
+    ],
+    "src": "s52",
+    "quote": "Supported Extensions AES , AMD-V , AVX , AVX2 , AVX512 , FMA3 , MMX-plus , SHA , SSE , SSE2 , SSE3 , SSE4.1 , SSE4.2 , SSE4A , SSSE3 , x86-64",
+    "how": "stated",
+    "official": true,
+    "also": [
+     "s53"
+    ]
+   },
+   "memory": {
+    "types": {
+     "v": [
+      "DDR5",
+      "LPDDR5X"
+     ],
+     "src": "s52",
+     "quote": "System Memory Type DDR5 (FP7r2) , LPDDR5X (FP7-FP8) Memory Channels 2 Max. Memory 256 GB System Memory Subtype UDIMM , SO-DIMM Max Memory Speed 4x2R DDR5-5600, LPDDR5x-7500",
+     "how": "stated",
+     "official": true,
+     "also": [
+      "s53"
+     ]
+    },
+    "max_speed_mts": {
+     "v": {
+      "DDR5": 5600,
+      "LPDDR5X": 7500
+     },
+     "src": "s52",
+     "quote": "Max Memory Speed 4x2R DDR5-5600, LPDDR5x-7500",
+     "how": "cell values as printed",
+     "official": true,
+     "also": [
+      "s53"
+     ]
+    },
+    "channels": {
+     "v": 2,
+     "src": "s52",
+     "quote": "System Memory Type DDR5 (FP7r2) , LPDDR5X (FP7-FP8) Memory Channels 2",
+     "how": "stated",
+     "official": true,
+     "also": [
+      "s53"
+     ]
+    },
+    "max_gb": {
+     "v": 256,
+     "src": "s52",
+     "quote": "Memory Channels 2 Max. Memory 256 GB",
+     "how": "stated",
+     "official": true,
+     "also": [
+      "s53"
+     ]
+    },
+    "max_bandwidth_gbps": {
+     "v": 89.6,
+     "src": "s52",
+     "quote": "System Memory Type DDR5 (FP7r2) , LPDDR5X (FP7-FP8) Memory Channels 2 Max. Memory 256 GB System Memory Subtype UDIMM , SO-DIMM Max Memory Speed 4x2R DDR5-5600, LPDDR5x-7500",
+     "how": "derived for DDR5 only: 2 channels x 5600 MT/s x 8 bytes / 1000; LPDDR5X channel width not stated so not derived",
+     "official": true,
+     "also": [
+      "s53"
+     ]
+    }
+   },
+   "igpu": {
+    "v": "AMD Radeon 780M Graphics (12 cores)",
+    "src": "s52",
+    "quote": "Graphics Model AMD RadeonTM 780M Graphics Core Count 12",
+    "how": "stated",
+    "official": true,
+    "also": [
+     "s53"
+    ]
+   },
+   "id": "amd-ryzen-7000-mobile-phoenix",
+   "vendor": "amd",
+   "kind": "cpu"
+  },
+  {
+   "name": {
+    "v": "Ryzen 8000 Series (Hawk Point), 8640U and 8640HS",
+    "src": "s54",
+    "quote": "Name AMD RyzenTM 5 8640U",
+    "how": "stated",
+    "official": true,
+    "also": [
+     "s55"
+    ]
+   },
+   "models": {
+    "v": [
+     "Ryzen 5 8640U",
+     "Ryzen 5 8640HS"
+    ],
+    "src": "s54",
+    "quote": "Name AMD RyzenTM 5 8640U | Name AMD RyzenTM 5 8640HS",
+    "how": "stated",
+    "official": true,
+    "also": [
+     "s55"
+    ]
+   },
+   "segment": {
+    "v": "laptop",
+    "src": "s54",
+    "quote": "Form Factor Laptops , Desktops",
+    "how": "stated",
+    "official": true,
+    "also": [
+     "s55"
+    ],
+    "note": "AMD's page lists Form Factor Laptops , Desktops; mapped to laptop"
+   },
+   "architecture": {
+    "v": "Zen 4 (Hawk Point)",
+    "src": "s54",
+    "quote": "Former Codename Hawk Point Processor Architecture Zen 4",
+    "how": "stated",
+    "official": true,
+    "also": [
+     "s55"
+    ]
+   },
+   "launch": {
+    "v": null,
+    "why": "the Ryzen 5 8640U, Ryzen 5 8640HS pages have no Launch Date row"
+   },
+   "socket": {
+    "v": [
+     "FP7",
+     "FP7r2",
+     "FP8"
+    ],
+    "src": "s54",
+    "quote": "CPU Socket FP7 , FP7r2 , FP8",
+    "how": "stated",
+    "official": true,
+    "also": [
+     "s55"
+    ]
+   },
+   "cores": {
+    "v": {
+     "cores": 6,
+     "threads": 12
+    },
+    "src": "s54",
+    "quote": "# of CPU Cores 6 Multithreading (SMT) Yes # of Threads 12",
+    "how": "stated",
+    "official": true,
+    "also": [
+     "s55"
+    ]
+   },
+   "isa": {
+    "v": [
+     "AES",
+     "AMD-V",
+     "AVX",
+     "AVX2",
+     "AVX512",
+     "FMA3",
+     "MMX-plus",
+     "SHA",
+     "SSE",
+     "SSE2",
+     "SSE3",
+     "SSE4.1",
+     "SSE4.2",
+     "SSE4A",
+     "SSSE3",
+     "x86-64"
+    ],
+    "src": "s54",
+    "quote": "Supported Extensions AES , AMD-V , AVX , AVX2 , AVX512 , FMA3 , MMX-plus , SHA , SSE , SSE2 , SSE3 , SSE4.1 , SSE4.2 , SSE4A , SSSE3 , x86-64",
+    "how": "stated",
+    "official": true,
+    "also": [
+     "s55"
+    ]
+   },
+   "memory": {
+    "types": {
+     "v": [
+      "DDR5",
+      "LPDDR5X"
+     ],
+     "src": "s54",
+     "quote": "System Memory Type DDR5 (FP7r2) , LPDDR5X (FP7-FP8) Memory Channels 2",
+     "how": "stated",
+     "official": true,
+     "also": [
+      "s55"
+     ]
+    },
+    "max_speed_mts": {
+     "v": {
+      "DDR5": 5600,
+      "LPDDR5X": 7500
+     },
+     "src": "s54",
+     "quote": "Max Memory Speed 4x2R DDR5-5600, LPDDR5x-7500",
+     "how": "cell values as printed",
+     "official": true,
+     "also": [
+      "s55"
+     ]
+    },
+    "channels": {
+     "v": 2,
+     "src": "s54",
+     "quote": "System Memory Type DDR5 (FP7r2) , LPDDR5X (FP7-FP8) Memory Channels 2",
+     "how": "stated",
+     "official": true,
+     "also": [
+      "s55"
+     ]
+    },
+    "max_gb": {
+     "v": {
+      "DDR5": 96,
+      "LPDDR5": 64
+     },
+     "src": "s54",
+     "quote": "Max Memory Size by Type DDR5 96 GB LPDDR5 64 GB",
+     "how": "stated",
+     "official": true,
+     "also": [
+      "s55"
+     ]
+    },
+    "max_bandwidth_gbps": {
+     "v": 89.6,
+     "src": "s54",
+     "quote": "System Memory Type DDR5 (FP7r2) , LPDDR5X (FP7-FP8) Memory Channels 2 Max Memory Size by Type DDR5 96 GB LPDDR5 64 GB Max Memory Speed 4x2R DDR5-5600, LPDDR5x-7500",
+     "how": "derived for DDR5 only: 2 channels x 5600 MT/s x 8 bytes / 1000; LPDDR5X channel width not stated so not derived",
+     "official": true,
+     "also": [
+      "s55"
+     ]
+    }
+   },
+   "igpu": {
+    "v": "AMD Radeon 760M Graphics (8 cores)",
+    "src": "s54",
+    "quote": "Graphics Model AMD RadeonTM 760M Graphics Core Count 8",
+    "how": "stated",
+    "official": true,
+    "also": [
+     "s55"
+    ]
+   },
+   "id": "amd-ryzen-5-8640-mobile",
+   "vendor": "amd",
+   "kind": "cpu"
+  },
+  {
+   "name": {
+    "v": "AMD Ryzen 5 8540U",
+    "src": "s56",
+    "quote": "Name AMD RyzenTM 5 8540U",
+    "how": "stated",
+    "official": true
+   },
+   "models": {
+    "v": [
+     "Ryzen 5 8540U"
+    ],
+    "src": "s56",
+    "quote": "Name AMD RyzenTM 5 8540U",
+    "how": "stated",
+    "official": true
+   },
+   "segment": {
+    "v": "laptop",
+    "src": "s56",
+    "quote": "Form Factor Laptops , Desktops",
+    "how": "stated",
+    "official": true,
+    "note": "AMD's page lists Form Factor Laptops , Desktops; mapped to laptop"
+   },
+   "architecture": {
+    "v": "Hawk Point, 2x Zen 4 and 4x Zen 4c",
+    "src": "s56",
+    "quote": "Former Codename Hawk Point Processor Architecture 2x Zen 4 , 4x Zen 4c",
+    "how": "stated",
+    "official": true
+   },
+   "launch": {
+    "v": null,
+    "why": "the Ryzen 5 8540U pages have no Launch Date row"
+   },
+   "socket": {
+    "v": [
+     "FP7",
+     "FP7r2"
+    ],
+    "src": "s56",
+    "quote": "CPU Socket FP7 , FP7r2",
+    "how": "stated",
+    "official": true
+   },
+   "cores": {
+    "v": {
+     "cores": 6,
+     "threads": 12
+    },
+    "src": "s56",
+    "quote": "# of CPU Cores 6 Multithreading (SMT) Yes # of Threads 12",
+    "how": "stated",
+    "official": true
+   },
+   "isa": {
+    "v": [
+     "AES",
+     "AMD-V",
+     "AVX",
+     "AVX2",
+     "AVX512",
+     "FMA3",
+     "MMX-plus",
+     "SHA",
+     "SSE",
+     "SSE2",
+     "SSE3",
+     "SSE4.1",
+     "SSE4.2",
+     "SSE4A",
+     "SSSE3",
+     "x86-64"
+    ],
+    "src": "s56",
+    "quote": "Supported Extensions AES , AMD-V , AVX , AVX2 , AVX512 , FMA3 , MMX-plus , SHA , SSE , SSE2 , SSE3 , SSE4.1 , SSE4.2 , SSE4A , SSSE3 , x86-64",
+    "how": "stated",
+    "official": true
+   },
+   "memory": {
+    "types": {
+     "v": [
+      "DDR5",
+      "LPDDR5X"
+     ],
+     "src": "s56",
+     "quote": "System Memory Type DDR5 (FP7r2) , LPDDR5X (FP7-FP8) Memory Channels 2",
+     "how": "stated",
+     "official": true
+    },
+    "max_speed_mts": {
+     "v": {
+      "DDR5": 5600,
+      "LPDDR5X": 7500
+     },
+     "src": "s56",
+     "quote": "Max Memory Speed 4x2R DDR5-5600, LPDDR5x-7500",
+     "how": "cell values as printed",
+     "official": true
+    },
+    "channels": {
+     "v": 2,
+     "src": "s56",
+     "quote": "System Memory Type DDR5 (FP7r2) , LPDDR5X (FP7-FP8) Memory Channels 2",
+     "how": "stated",
+     "official": true
+    },
+    "max_gb": {
+     "v": {
+      "DDR5": 96,
+      "LPDDR5": 64
+     },
+     "src": "s56",
+     "quote": "Max Memory Size by Type DDR5 96 GB LPDDR5 64 GB",
+     "how": "stated",
+     "official": true
+    },
+    "max_bandwidth_gbps": {
+     "v": 89.6,
+     "src": "s56",
+     "quote": "System Memory Type DDR5 (FP7r2) , LPDDR5X (FP7-FP8) Memory Channels 2 Max Memory Size by Type DDR5 96 GB LPDDR5 64 GB Max Memory Speed 4x2R DDR5-5600, LPDDR5x-7500",
+     "how": "derived for DDR5 only: 2 channels x 5600 MT/s x 8 bytes / 1000; LPDDR5X channel width not stated so not derived",
+     "official": true
+    }
+   },
+   "igpu": {
+    "v": "AMD Radeon 740M Graphics (4 cores)",
+    "src": "s56",
+    "quote": "Graphics Model AMD RadeonTM 740M Graphics Core Count 4",
+    "how": "stated",
+    "official": true
+   },
+   "id": "amd-ryzen-5-8540u",
+   "vendor": "amd",
+   "kind": "cpu"
+  },
+  {
+   "name": {
+    "v": "AMD Ryzen 3 8440U",
+    "src": "s57",
+    "quote": "Name AMD RyzenTM 3 8440U",
+    "how": "stated",
+    "official": true
+   },
+   "models": {
+    "v": [
+     "Ryzen 3 8440U"
+    ],
+    "src": "s57",
+    "quote": "Name AMD RyzenTM 3 8440U",
+    "how": "stated",
+    "official": true
+   },
+   "segment": {
+    "v": "laptop",
+    "src": "s57",
+    "quote": "Form Factor Laptops , Desktops",
+    "how": "stated",
+    "official": true,
+    "note": "AMD's page lists Form Factor Laptops , Desktops; mapped to laptop"
+   },
+   "architecture": {
+    "v": "Hawk Point, 1x Zen 4 and 3x Zen 4c",
+    "src": "s57",
+    "quote": "Former Codename Hawk Point Processor Architecture 1x Zen 4 , 3x Zen 4c",
+    "how": "stated",
+    "official": true
+   },
+   "launch": {
+    "v": null,
+    "why": "the Ryzen 3 8440U pages have no Launch Date row"
+   },
+   "socket": {
+    "v": [
+     "FP7",
+     "FP7r2"
+    ],
+    "src": "s57",
+    "quote": "CPU Socket FP7 , FP7r2",
+    "how": "stated",
+    "official": true
+   },
+   "cores": {
+    "v": {
+     "cores": 4,
+     "threads": 8
+    },
+    "src": "s57",
+    "quote": "# of CPU Cores 4 Multithreading (SMT) Yes # of Threads 8",
+    "how": "stated",
+    "official": true
+   },
+   "isa": {
+    "v": [
+     "AES",
+     "AMD-V",
+     "AVX",
+     "AVX2",
+     "AVX512",
+     "FMA3",
+     "MMX-plus",
+     "SHA",
+     "SSE",
+     "SSE2",
+     "SSE3",
+     "SSE4.1",
+     "SSE4.2",
+     "SSE4A",
+     "SSSE3",
+     "x86-64"
+    ],
+    "src": "s57",
+    "quote": "Supported Extensions AES , AMD-V , AVX , AVX2 , AVX512 , FMA3 , MMX-plus , SHA , SSE , SSE2 , SSE3 , SSE4.1 , SSE4.2 , SSE4A , SSSE3 , x86-64",
+    "how": "stated",
+    "official": true
+   },
+   "memory": {
+    "types": {
+     "v": [
+      "DDR5",
+      "LPDDR5X"
+     ],
+     "src": "s57",
+     "quote": "System Memory Type DDR5 (FP7r2) , LPDDR5X (FP7) Memory Channels 2",
+     "how": "stated",
+     "official": true
+    },
+    "max_speed_mts": {
+     "v": {
+      "DDR5": 5600,
+      "LPDDR5X": 7500
+     },
+     "src": "s57",
+     "quote": "Max Memory Speed 4x2R DDR5-5600, LPDDR5x-7500",
+     "how": "cell values as printed",
+     "official": true
+    },
+    "channels": {
+     "v": 2,
+     "src": "s57",
+     "quote": "System Memory Type DDR5 (FP7r2) , LPDDR5X (FP7) Memory Channels 2",
+     "how": "stated",
+     "official": true
+    },
+    "max_gb": {
+     "v": {
+      "DDR5": 96,
+      "LPDDR5": 64
+     },
+     "src": "s57",
+     "quote": "Max Memory Size by Type DDR5 96 GB LPDDR5 64 GB",
+     "how": "stated",
+     "official": true
+    },
+    "max_bandwidth_gbps": {
+     "v": 89.6,
+     "src": "s57",
+     "quote": "System Memory Type DDR5 (FP7r2) , LPDDR5X (FP7) Memory Channels 2 Max Memory Size by Type DDR5 96 GB LPDDR5 64 GB Max Memory Speed 4x2R DDR5-5600, LPDDR5x-7500",
+     "how": "derived for DDR5 only: 2 channels x 5600 MT/s x 8 bytes / 1000; LPDDR5X channel width not stated so not derived",
+     "official": true
+    }
+   },
+   "igpu": {
+    "v": "AMD Radeon 740M Graphics (4 cores)",
+    "src": "s57",
+    "quote": "Graphics Model AMD RadeonTM 740M Graphics Core Count 4",
+    "how": "stated",
+    "official": true
+   },
+   "id": "amd-ryzen-3-8440u",
+   "vendor": "amd",
+   "kind": "cpu"
+  },
+  {
+   "name": {
+    "v": "AMD Ryzen AI 9 365",
+    "src": "s59",
+    "quote": "Name AMD RyzenTM AI 9 365",
+    "how": "stated",
+    "official": true
+   },
+   "models": {
+    "v": [
+     "Ryzen AI 9 365"
+    ],
+    "src": "s59",
+    "quote": "Name AMD RyzenTM AI 9 365",
+    "how": "stated",
+    "official": true
+   },
+   "segment": {
+    "v": "laptop",
+    "src": "s59",
+    "quote": "Form Factor Laptops , Desktops",
+    "how": "stated",
+    "official": true,
+    "note": "AMD's page lists Form Factor Laptops , Desktops; mapped to laptop"
+   },
+   "architecture": {
+    "v": "Strix Point, 4x Zen 5 and 6x Zen 5c",
+    "src": "s59",
+    "quote": "Former Codename Strix Point Processor Architecture 4x Zen 5 , 6x Zen 5c",
+    "how": "stated",
+    "official": true
+   },
+   "launch": {
+    "v": "2025-07-28",
+    "src": "s59",
+    "quote": "Launch Date 7/28/2025",
+    "how": "stated",
+    "official": true
+   },
+   "socket": {
+    "v": "FP8",
+    "src": "s59",
+    "quote": "CPU Socket FP8",
+    "how": "stated",
+    "official": true
+   },
+   "cores": {
+    "v": {
+     "cores": 10,
+     "threads": 20
+    },
+    "src": "s59",
+    "quote": "# of CPU Cores 10 Multithreading (SMT) Yes # of Threads 20",
+    "how": "stated",
+    "official": true
+   },
+   "isa": {
+    "v": [
+     "AES",
+     "AMD-V",
+     "AVX",
+     "AVX2",
+     "AVX512",
+     "FMA3",
+     "MMX-plus",
+     "SHA",
+     "SSE",
+     "SSE2",
+     "SSE3",
+     "SSE4.1",
+     "SSE4.2",
+     "SSE4A",
+     "SSSE3",
+     "x86-64"
+    ],
+    "src": "s59",
+    "quote": "Supported Extensions AES , AMD-V , AVX , AVX2 , AVX512 , FMA3 , MMX-plus , SHA , SSE , SSE2 , SSE3 , SSE4.1 , SSE4.2 , SSE4A , SSSE3 , x86-64",
+    "how": "stated",
+    "official": true
+   },
+   "memory": {
+    "types": {
+     "v": [
+      "DDR5",
+      "LPDDR5X"
+     ],
+     "src": "s59",
+     "quote": "System Memory Type DDR5 (FP8) , LPDDR5X (FP8) Memory Channels 2",
+     "how": "stated",
+     "official": true
+    },
+    "max_speed_mts": {
+     "v": {
+      "DDR5": 5600,
+      "LPDDR5X": 8000
+     },
+     "src": "s59",
+     "quote": "Max Memory Speed 2x2R DDR5-5600, LPDDR5x-8000",
+     "how": "cell values as printed",
+     "official": true
+    },
+    "channels": {
+     "v": 2,
+     "src": "s59",
+     "quote": "System Memory Type DDR5 (FP8) , LPDDR5X (FP8) Memory Channels 2",
+     "how": "stated",
+     "official": true
+    },
+    "max_gb": {
+     "v": 256,
+     "src": "s59",
+     "quote": "Memory Channels 2 Max. Memory 256 GB",
+     "how": "stated",
+     "official": true
+    },
+    "max_bandwidth_gbps": {
+     "v": 89.6,
+     "src": "s59",
+     "quote": "System Memory Type DDR5 (FP8) , LPDDR5X (FP8) Memory Channels 2 Max. Memory 256 GB Max Memory Speed 2x2R DDR5-5600, LPDDR5x-8000",
+     "how": "derived for DDR5 only: 2 channels x 5600 MT/s x 8 bytes / 1000; LPDDR5X channel width not stated so not derived",
+     "official": true
+    }
+   },
+   "igpu": {
+    "v": "AMD Radeon 880M Graphics (12 cores)",
+    "src": "s59",
+    "quote": "Graphics Model AMD RadeonTM 880M Graphics Core Count 12",
+    "how": "stated",
+    "official": true
+   },
+   "id": "amd-ryzen-ai-9-365",
+   "vendor": "amd",
+   "kind": "cpu"
+  },
+  {
+   "name": {
+    "v": "AMD Ryzen AI 7 350",
+    "src": "s60",
+    "quote": "Name AMD RyzenTM AI 7 350",
+    "how": "stated",
+    "official": true
+   },
+   "models": {
+    "v": [
+     "Ryzen AI 7 350"
+    ],
+    "src": "s60",
+    "quote": "Name AMD RyzenTM AI 7 350",
+    "how": "stated",
+    "official": true
+   },
+   "segment": {
+    "v": "laptop",
+    "src": "s60",
+    "quote": "Form Factor Laptops , Desktops",
+    "how": "stated",
+    "official": true,
+    "note": "AMD's page lists Form Factor Laptops , Desktops; mapped to laptop"
+   },
+   "architecture": {
+    "v": "Krackan Point, 4x Zen 5 and 4x Zen 5c",
+    "src": "s60",
+    "quote": "Former Codename Krackan Point Processor Architecture 4x Zen 5 , 4x Zen 5c",
+    "how": "stated",
+    "official": true
+   },
+   "launch": {
+    "v": "2025-02-18",
+    "src": "s60",
+    "quote": "Launch Date 2/18/2025",
+    "how": "stated",
+    "official": true
+   },
+   "socket": {
+    "v": "FP8",
+    "src": "s60",
+    "quote": "CPU Socket FP8",
+    "how": "stated",
+    "official": true
+   },
+   "cores": {
+    "v": {
+     "cores": 8,
+     "threads": 16
+    },
+    "src": "s60",
+    "quote": "# of CPU Cores 8 Multithreading (SMT) Yes # of Threads 16",
+    "how": "stated",
+    "official": true
+   },
+   "isa": {
+    "v": [
+     "AES",
+     "AMD-V",
+     "AVX",
+     "AVX2",
+     "AVX512",
+     "FMA3",
+     "MMX-plus",
+     "SHA",
+     "SSE",
+     "SSE2",
+     "SSE3",
+     "SSE4.1",
+     "SSE4.2",
+     "SSE4A",
+     "SSSE3",
+     "x86-64"
+    ],
+    "src": "s60",
+    "quote": "Supported Extensions AES , AMD-V , AVX , AVX512 , AVX2 , FMA3 , MMX-plus , SHA , SSE , SSE2 , SSE3 , SSE4.1 , SSE4.2 , SSE4A , SSSE3 , x86-64",
+    "how": "stated",
+    "official": true
+   },
+   "memory": {
+    "types": {
+     "v": [
+      "DDR5",
+      "LPDDR5X"
+     ],
+     "src": "s60",
+     "quote": "System Memory Type DDR5 (FP8) , LPDDR5X (FP8) Memory Channels 2",
+     "how": "stated",
+     "official": true
+    },
+    "max_speed_mts": {
+     "v": {
+      "DDR5": 5600,
+      "LPDDR5X": 8000
+     },
+     "src": "s60",
+     "quote": "Max Memory Speed 4x2R LPDDR5x-8000, DDR5-5600",
+     "how": "cell values as printed",
+     "official": true
+    },
+    "channels": {
+     "v": 2,
+     "src": "s60",
+     "quote": "System Memory Type DDR5 (FP8) , LPDDR5X (FP8) Memory Channels 2",
+     "how": "stated",
+     "official": true
+    },
+    "max_gb": {
+     "v": 256,
+     "src": "s60",
+     "quote": "Memory Channels 2 Max. Memory 256 GB",
+     "how": "stated",
+     "official": true
+    },
+    "max_bandwidth_gbps": {
+     "v": 89.6,
+     "src": "s60",
+     "quote": "System Memory Type DDR5 (FP8) , LPDDR5X (FP8) Memory Channels 2 Max. Memory 256 GB Max Memory Speed 4x2R LPDDR5x-8000, DDR5-5600",
+     "how": "derived for DDR5 only: 2 channels x 5600 MT/s x 8 bytes / 1000; LPDDR5X channel width not stated so not derived",
+     "official": true
+    }
+   },
+   "igpu": {
+    "v": "AMD Radeon 860M Graphics (8 cores)",
+    "src": "s60",
+    "quote": "Graphics Model AMD RadeonTM 860M Graphics Core Count 8",
+    "how": "stated",
+    "official": true
+   },
+   "id": "amd-ryzen-ai-7-350",
+   "vendor": "amd",
+   "kind": "cpu"
+  },
+  {
+   "name": {
+    "v": "AMD Ryzen AI 5 340",
+    "src": "s61",
+    "quote": "Name AMD RyzenTM AI 5 340",
+    "how": "stated",
+    "official": true
+   },
+   "models": {
+    "v": [
+     "Ryzen AI 5 340"
+    ],
+    "src": "s61",
+    "quote": "Name AMD RyzenTM AI 5 340",
+    "how": "stated",
+    "official": true
+   },
+   "segment": {
+    "v": "laptop",
+    "src": "s61",
+    "quote": "Form Factor Laptops , Desktops",
+    "how": "stated",
+    "official": true,
+    "note": "AMD's page lists Form Factor Laptops , Desktops; mapped to laptop"
+   },
+   "architecture": {
+    "v": "Krackan Point, 3x Zen 5 and 3x Zen 5c",
+    "src": "s61",
+    "quote": "Former Codename Krackan Point Processor Architecture 3x Zen 5 , 3x Zen 5c",
+    "how": "stated",
+    "official": true
+   },
+   "launch": {
+    "v": "2025-02-18",
+    "src": "s61",
+    "quote": "Launch Date 2/18/2025",
+    "how": "stated",
+    "official": true
+   },
+   "socket": {
+    "v": "FP8",
+    "src": "s61",
+    "quote": "CPU Socket FP8",
+    "how": "stated",
+    "official": true
+   },
+   "cores": {
+    "v": {
+     "cores": 6,
+     "threads": 12
+    },
+    "src": "s61",
+    "quote": "# of CPU Cores 6 Multithreading (SMT) Yes # of Threads 12",
+    "how": "stated",
+    "official": true
+   },
+   "isa": {
+    "v": [
+     "AES",
+     "AMD-V",
+     "AVX",
+     "AVX2",
+     "AVX512",
+     "FMA3",
+     "MMX-plus",
+     "SHA",
+     "SSE",
+     "SSE2",
+     "SSE3",
+     "SSE4.1",
+     "SSE4.2",
+     "SSE4A",
+     "SSSE3",
+     "x86-64"
+    ],
+    "src": "s61",
+    "quote": "Supported Extensions AES , AMD-V , AVX , AVX2 , AVX512 , FMA3 , MMX-plus , SHA , SSE , SSE2 , SSE3 , SSE4.1 , SSE4.2 , SSE4A , SSSE3 , x86-64",
+    "how": "stated",
+    "official": true
+   },
+   "memory": {
+    "types": {
+     "v": [
+      "DDR5",
+      "LPDDR5X"
+     ],
+     "src": "s61",
+     "quote": "System Memory Type DDR5 (FP8) , LPDDR5X (FP8) Memory Channels 2",
+     "how": "stated",
+     "official": true
+    },
+    "max_speed_mts": {
+     "v": {
+      "DDR5": 5600,
+      "LPDDR5X": 8000
+     },
+     "src": "s61",
+     "quote": "Max Memory Speed 4x2R LPDDR5x-8000, DDR5-5600",
+     "how": "cell values as printed",
+     "official": true
+    },
+    "channels": {
+     "v": 2,
+     "src": "s61",
+     "quote": "System Memory Type DDR5 (FP8) , LPDDR5X (FP8) Memory Channels 2",
+     "how": "stated",
+     "official": true
+    },
+    "max_gb": {
+     "v": 256,
+     "src": "s61",
+     "quote": "Memory Channels 2 Max. Memory 256 GB",
+     "how": "stated",
+     "official": true
+    },
+    "max_bandwidth_gbps": {
+     "v": 89.6,
+     "src": "s61",
+     "quote": "System Memory Type DDR5 (FP8) , LPDDR5X (FP8) Memory Channels 2 Max. Memory 256 GB Max Memory Speed 4x2R LPDDR5x-8000, DDR5-5600",
+     "how": "derived for DDR5 only: 2 channels x 5600 MT/s x 8 bytes / 1000; LPDDR5X channel width not stated so not derived",
+     "official": true
+    }
+   },
+   "igpu": {
+    "v": "AMD Radeon 840M Graphics (4 cores)",
+    "src": "s61",
+    "quote": "Graphics Model AMD RadeonTM 840M Graphics Core Count 4",
+    "how": "stated",
+    "official": true
+   },
+   "id": "amd-ryzen-ai-5-340",
+   "vendor": "amd",
+   "kind": "cpu"
+  }
+ ],
+ "gaps": [
+  {
+   "what": "settled: Ryzen 9 9950X max memory",
+   "why": "product page s5 says Max. Memory 256 GB; AMD shop page s37 says Max Memory: 192 GB. Both pages read; they disagree, so memory.max_gb of the 9000 row is null (rule 5). The 9600X and 9700X product pages also say 256 GB.",
+   "next": "none possible from AMD pages; maybe AMD support article"
+  },
+  {
+   "what": "settled: Threadripper 7000 memory speed",
+   "why": "product pages of 7980X and 7960X say Up to 5200 MT/s, and the press release platform table says DDR5-5200 for the 4-channel and 8-channel platforms. No readable AMD page says 5600; the DDR5-5600 tech briefs are PDFs and could not be read. Recorded 5200.",
+   "next": "read the tech brief PDFs if a PDF reader becomes available"
+  },
+  {
+   "what": "AVX-512 sub-features (VNNI, BF16, FP16)",
+   "why": "AMD spec pages list only AVX512 as one item",
+   "next": "AMD64 Programmer's Manual vol. 3 or Software Optimization Guides on docs.amd.com"
+  },
+  {
+   "what": "memory.max_gb for Ryzen 1000/2000/5000, TR 1000/2000/3000(3960X)/7000/9000, PRO 9000",
+   "why": "no Max. Memory row on those pages",
+   "next": "AMD datasheets (PDF) or platform pages"
+  },
+  {
+   "what": "Ryzen 5000 and 3000 (non-3950X) memory.channels",
+   "why": "no Memory Channels row on those pages",
+   "next": "AMD Ryzen 3000/5000 datasheet PDF (s3 of wave 1) if readable"
+  },
+  {
+   "what": "Series rows with unopened middle models",
+   "why": "rows list only models whose pages were opened (named in models)",
+   "next": "open 3970X, 9970X, 2600/3600/5600G etc. if wanted"
+  },
+  {
+   "what": "Threadripper 7000 and PRO 7000 igpu",
+   "why": "graphics row not captured in this run",
+   "next": "read 'Graphics Model' on the 7980X and 7995WX pages (expected: discrete card required)"
+  },
+  {
+   "what": "wave 3: Ryzen 1000 row architecture",
+   "why": "the Ryzen 5 1600 page (s39), listed by AMD under Ryzen 1000 Series, says Former Codename Pinnacle Ridge, while the 1800X and 1200 pages say Summit Ridge; the 1600 is left out of models",
+   "next": "none"
+  },
+  {
+   "what": "wave 3: 3400G split from the Ryzen 3000 row",
+   "why": "3400G page: Zen+ Picasso, extension list without AVX2, DDR4-2933 max, Radeon RX Vega 11; the 3000 row is Zen 2 Matisse with AVX2",
+   "next": "none"
+  },
+  {
+   "what": "wave 3: isa for Ryzen 1000, 2000, Threadripper 1000 and 2000",
+   "why": "searched Supported Extensions on 1800X, 1200, 1600, 1700, 1700X, 1500X, 1600X, 1300X; 2700X, 2300X, 2600, 2700, 2600X, 2400G, 2200G; TR 1900X, 1950X, 1920X, 2920X, 2990WX, 2950X, 2970WX: no such row on any",
+   "next": "AMD64 Programmer's Manual / PDF datasheets"
+  },
+  {
+   "what": "wave 3: Ryzen 5000 desktop channels and max memory",
+   "why": "the 5600X, 5800X, 5900X and 5950X pages have no Memory Channels or Max. Memory row; the 5700X, 5600, 5600XT, 5800X3D and 5900XT pages say Channels 2 and Max. Memory 128 GB; taken from the 5700X page",
+   "next": "none"
+  },
+  {
+   "what": "wave 3: Ryzen 9000 desktop max memory",
+   "why": "9950X product page says 256 GB, AMD shop page says 192 GB (9900X page also says 256 GB); cell stays null (rule 5)",
+   "next": "none"
+  },
+  {
+   "what": "wave 3: mobile 4000 and 5000 memory channels, max memory, extensions",
+   "why": "4800U, 4800H, 5800U, 5800H pages give only 'System Memory Type DDR4 - Up to 3200 , LPDDR4 - Up to 4266' and no channel, capacity or extension row",
+   "next": "none"
+  },
+  {
+   "what": "wave 3: Ryzen AI 300 and 8000 mobile families not fully covered",
+   "why": "rows for 9 365, 7 350, 5 340 and 8640U/HS, 8540U, 8440U, 8840HS (inside the 8840U/8945HS row); HX 375, 8845HS, 8645HS, 8945H and Ryzen 7000 mobile models other than 7840U/7840HS not opened (the 8945H page URL answered 404)",
+   "next": "open them if wanted"
+  },
+  {
+   "what": "wave 3: max_bandwidth for mobile rows",
+   "why": "derived for DDR5 only; LPDDR5/LPDDR5X rows run faster but AMD states no channel width for them",
+   "next": "none"
+  },
+  {
+   "what": "wave 3: Threadripper 7000 and PRO 7000 igpu",
+   "why": "7970X and 7965WX pages: Graphics Model Discrete Graphics Card Required, so null with that reason",
+   "next": "none"
+  },
+  {
+   "what": "wave 3: wave-2 models cells without source",
+   "why": "the 10 'no source or quote' cells had src written as 's1,s2'; rewritten as src plus also, one Name quote per model; the 1800X now has its own Name quote on s11",
+   "next": "none"
+  }
+ ],
+ "blocked": [
+  {
+   "url": "https://www.amd.com/en/products/processors/desktops/ryzen/1000-series/amd-ryzen-7-1800x.html",
+   "status": "404",
+   "wanted": "1000 to 3000 series desktop pages do not exist at the products URL; the support-downloads spec pages were used instead"
+  },
+  {
+   "url": "https://www.amd.com/en/products/processors/desktops/ryzen/5000-series/amd-ryzen-5-5600g.html",
+   "status": "404",
+   "wanted": "Ryzen 5000 G series (AM4) page; not found"
+  },
+  {
+   "url": "https://www.amd.com/content/dam/amd/en/documents/processor-tech-docs/white-papers/threadripperpro-white-paper-third-wave-workstation-computing.pdf",
+   "status": "PDF not readable here",
+   "wanted": "Threadripper PRO channels and peak bandwidth"
+  },
+  {
+   "url": "https://www.amd.com/content/dam/amd/en/documents/products/processors/ryzen/5000/amd-ryzen-5000-datasheet.pdf",
+   "status": "PDF not readable here",
+   "wanted": "Ryzen 3000/5000 memory channels, extensions"
+  },
+  {
+   "url": "https://www.amd.com/content/dam/amd/en/documents/products/processors/ryzen-threadripper/threadripper-pro-dme-brief.pdf",
+   "status": "PDF not readable here",
+   "wanted": "Threadripper 7000 DDR5 speed claim (5600?)"
+  },
+  {
+   "url": "https://www.amd.com/en/products/processors/laptop/ryzen/8000-series/amd-ryzen-9-8945h.html",
+   "status": "404",
+   "wanted": "Ryzen 9 8945H"
+  },
+  {
+   "url": "https://www.amd.com/en/products/processors/laptop/ryzen/4000-series/amd-ryzen-7-4800u.html",
+   "status": "404",
+   "wanted": "laptop product page; support-page pattern used instead"
+  },
+  {
+   "url": "https://www.amd.com/en/products/processors/laptop/ryzen/5000-series/amd-ryzen-7-5800u.html",
+   "status": "404",
+   "wanted": "laptop product page; support-page pattern used instead"
+  },
+  {
+   "url": "https://www.amd.com/en/products/processors/laptop/ryzen/6000-series/amd-ryzen-7-6800u.html",
+   "status": "404",
+   "wanted": "laptop product page; support-page pattern used instead"
+  }
+ ],
+ "coverage": {
+  "target": [
+   "Ryzen 1000 desktop",
+   "Ryzen 2000 desktop",
+   "Ryzen 3000 desktop",
+   "Ryzen 5000 desktop (AM4)",
+   "Ryzen 7000 desktop (AM5)",
+   "Ryzen 9000 desktop",
+   "Desktop APUs with graphics (G series, AM4 and AM5)",
+   "Ryzen mobile 4000 to 8000 (U and H)",
+   "Ryzen AI 300",
+   "Threadripper 1000",
+   "Threadripper 2000",
+   "Threadripper 3000 (sTRX4)",
+   "Threadripper 7000",
+   "Threadripper PRO 7000",
+   "Threadripper 9000",
+   "Threadripper PRO 9000"
+  ],
+  "done": [
+   "Ryzen 1000 desktop",
+   "Ryzen 2000 desktop",
+   "Ryzen 3000 desktop",
+   "Ryzen 5000 desktop (AM4)",
+   "Ryzen 7000 desktop (AM5)",
+   "Ryzen 9000 desktop",
+   "Threadripper 1000",
+   "Threadripper 2000",
+   "Threadripper 3000 (sTRX4)",
+   "Threadripper 7000",
+   "Threadripper PRO 7000",
+   "Threadripper 9000",
+   "Threadripper PRO 9000",
+   "Desktop APUs AM4 (5600G, 5700G, 3400G)",
+   "Ryzen mobile 4000, 5000, 6000, 7000 (one U and one H model each)",
+   "Ryzen 8000 mobile 8640, 8540U, 8440U, 8840HS",
+   "Ryzen AI 300: 9 365, 7 350, 5 340"
+  ],
+  "left": [
+   "8000 mobile 8845HS, 8645HS, 8945H, other U models; Ryzen AI 300 HX 375 and others; 7000 mobile models other than 7840U/HS; Ryzen 2000G and 4000G desktop APUs; AM5 8000G other than 8600G/8700G"
+  ]
+ }
+}

@@ -34,3 +34,7 @@ graphify-out/
 # fleet folder, never at the repo root; one written here by a run with the repo
 # as its working directory is a stray, not source.
 /lock/
+
+# The pages the hardware table's scripts read (tools/hardware-table), cached by
+# URL so a check reads each page once. Fetched again on demand; not source.
+/tools/hardware-table/cache/

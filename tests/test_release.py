@@ -220,6 +220,7 @@ def _door_files() -> list[str]:
 DATA_FILES = (
     "mcgyvr/data/capability-table.json",
     "mcgyvr/data/task-catalog.json",
+    "mcgyvr/data/hardware-capabilities.json",
     "mcgyvr/gate/_engine/ghostcall/__init__.py",
     "mcgyvr/gate/_engine/ghostcall/parser.py",
     "mcgyvr/gate/_engine/ghostcall/checker.py",
