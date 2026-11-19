@@ -204,7 +204,7 @@ def _row(raw: Any, sources: Mapping[str, Source], where: Path) -> Row:
         for field, cell in _leaves(body)
     }
     return Row(
-        id=rid,
+        id=raw["id"],
         vendor=raw["vendor"],
         kind=raw["kind"],
         cells=MappingProxyType(cells),
