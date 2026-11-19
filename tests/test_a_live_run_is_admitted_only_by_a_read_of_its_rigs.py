@@ -38,6 +38,7 @@ import pytest
 import yaml
 
 from mcgyvr.exits import Exit
+from mcgyvr.serving.gatelib import door_line
 from tests import onedoor
 from tests.liveruns import (
     FIRST,
@@ -189,8 +190,9 @@ def test_a_plan_to_clean_or_restore_refuses_and_names_the_door_commands_it_does_
     assert code == Exit.REFUSED, err
     assert "restore" in err and UNIT_SECOND in err, err
     assert "clean" in err and "mcgyvr-box2-stray" in err, err
-    assert "python -m mcgyvr.serving.run serve up --host box1" in err
-    assert "python -m mcgyvr.serving.run serve down --host box2" in err
+    # The lines name the interpreter running mcgyvr, whatever its file is called.
+    assert door_line("serve", "up", "--host", "box1") in err
+    assert door_line("serve", "down", "--host", "box2") in err
     assert dispatched(events) == []
 
 
