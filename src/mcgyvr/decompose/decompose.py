@@ -594,7 +594,8 @@ def _emit(
     The checks run in sequence: the task type must be servable, the target must
     be a file the index holds, the acceptance a `type_check` implies must be
     locatable, and the demonstration and acceptance a baseline run yields fill
-    in whatever the proposal left unstated. Each dependency is restated as the
+    in whatever the proposal left unstated, as the generic stop condition does
+    for a model-run kind that states none. Each dependency is restated as the
     index's signature for that symbol — or, when the index holds none, as the
     signature one of `providers` states for it — with its notes deduplicated
     per path.
@@ -632,6 +633,7 @@ def _emit(
         return acceptance
     proposal = replace(proposal, acceptance=acceptance)
     proposal = _baseline_for(proposal, kind, baseline)
+    proposal = _stop_conditions_for(proposal)
 
     # Each dependency is restated as the signature the index holds for it, or
     # the one a contract this waits on states for a symbol it creates, and its
@@ -810,6 +812,29 @@ def _baseline_for(
     if demonstration == proposal.demonstration and acceptance == proposal.acceptance:
         return proposal
     return replace(proposal, demonstration=demonstration, acceptance=acceptance)
+
+
+def _stop_conditions_for(proposal: Proposal) -> Proposal:
+    """Fill the generic stop condition where a model-run proposal states none.
+
+    The contract refuses a kind that runs on a model with no stop condition,
+    and a proposer that drafts its fields (a re-decomposition asks one) may
+    leave them out. The fill proposer states `generic_stop_condition` in code;
+    this states the same one here, for the kind the contract will check
+    (`kind_of`: the operation when one is named). A proposal that states its
+    own, a deterministic kind, and an operation the catalog does not know (the
+    contract refuses that by name) are returned as they were.
+    """
+    if proposal.stop_conditions:
+        return proposal
+    try:
+        kind = contract_module.kind_of(proposal.task_type, proposal.operation)
+    except ContractError:
+        return proposal
+    if kind.deterministic:
+        return proposal
+    stop = contract_module.generic_stop_condition(kind.name, proposal.target)
+    return replace(proposal, stop_conditions=(stop,))
 
 
 def locate_checkers(
