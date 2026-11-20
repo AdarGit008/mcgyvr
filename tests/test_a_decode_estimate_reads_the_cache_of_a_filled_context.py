@@ -13,6 +13,8 @@ context down to "tg32 @ d32768 | 26.92". Its geometry is the model's public
 ``config.json``: 48 layers, 4 KV heads of 128, 128 experts with 8 in use, each
 2048 x 768 x 3. The term reads the fall to 8k within 2% and reads slow beyond:
 9% at 16k, 13% at 32k, the figures :data:`estimate.CACHE_TERM_CHECK` states.
+The check is of the ratio to the empty context alone: the figure itself was not
+checked on that row, since CUDA has no share at 8 bits.
 """
 
 from __future__ import annotations
@@ -90,6 +92,8 @@ def test_the_cache_adds_to_the_bytes_a_token_reads_and_says_what_checked_it() ->
     assert estimate.CACHE_TERM_CHECK in got.basis
     assert "discussions/16578" in got.basis
     assert "9% at 16k tokens and 13% at 32k" in got.basis
+    assert "as a ratio to the empty context only" in got.basis
+    assert "the figure itself was not checked on that row" in got.basis
 
 
 def test_the_public_row_falls_as_the_term_says_to_8k_and_slower_after() -> None:

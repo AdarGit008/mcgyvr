@@ -1958,8 +1958,8 @@ DECODE_SHARES: Mapping[str, Mapping[str, Mapping[str, FittedShare]]] = MappingPr
                 PATH_VECTOR: MappingProxyType(
                     {
                         "4bit": FittedShare(
-                            0.564,
-                            3,
+                            0.558,
+                            4,
                             0.493,
                             0.823,
                             "GTX 1660 6 GB",

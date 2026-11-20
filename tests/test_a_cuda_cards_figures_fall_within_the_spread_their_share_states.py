@@ -25,6 +25,7 @@ ROWS = [
     ("nvidia-rtx-3060-12gb", hubwire.PATH_MATRIX, 2137.50, 75.57),
     ("nvidia-rtx-2060-super", hubwire.PATH_MATRIX, 1420.24, 60.04),
     ("nvidia-gtx-1080-ti", hubwire.PATH_VECTOR, 1084.41, 62.49),
+    ("nvidia-gtx-1060-6gb", hubwire.PATH_VECTOR, 416.85, 27.79),
     ("nvidia-gtx-1660", hubwire.PATH_VECTOR, 148.91, 41.35),
 ]
 
@@ -63,20 +64,24 @@ def test_the_measured_speeds_lie_within_the_shares_spread(
     assert f"the cuda share on the {path} path" in decode.basis
 
     prefill = estimate.prefill_tps(
-        _rate(row, path), PARAMS, build=hubwire.BACKEND_CUDA, path=path
+        _rate(row, path), PARAMS, quant="Q4_0", build=hubwire.BACKEND_CUDA, path=path
     )
     assert isinstance(prefill, estimate.Figure)
     assert prefill.figure == hubwire.FIGURE_ESTIMATE
     assert _within(
-        pp, prefill.value, estimate.PREFILL_SHARES[hubwire.BACKEND_CUDA][path]
+        pp, prefill.value, estimate.PREFILL_SHARES[hubwire.BACKEND_CUDA][path]["4bit"]
     )
     assert estimate.PATH_RATES[path] in prefill.basis
 
 
 def test_a_prefill_figure_is_the_share_of_the_rate_over_two_operations_each() -> None:
-    share = estimate.PREFILL_SHARES[hubwire.BACKEND_CUDA][hubwire.PATH_MATRIX]
+    share = estimate.PREFILL_SHARES[hubwire.BACKEND_CUDA][hubwire.PATH_MATRIX]["4bit"]
     got = estimate.prefill_tps(
-        100.0, 7_000_000_000, build=hubwire.BACKEND_CUDA, path=hubwire.PATH_MATRIX
+        100.0,
+        7_000_000_000,
+        quant="Q4_0",
+        build=hubwire.BACKEND_CUDA,
+        path=hubwire.PATH_MATRIX,
     )
     assert isinstance(got, estimate.Figure)
     assert got.value == pytest.approx(share.value * 100e12 / (2 * 7e9))

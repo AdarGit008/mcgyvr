@@ -42,7 +42,7 @@ def test_no_build_and_metal_answer_as_every_caller_of_today(
 
 
 @pytest.mark.parametrize(
-    ("path", "share"), [(hubwire.PATH_MATRIX, 0.725), (hubwire.PATH_VECTOR, 0.564)]
+    ("path", "share"), [(hubwire.PATH_MATRIX, 0.725), (hubwire.PATH_VECTOR, 0.558)]
 )
 @pytest.mark.parametrize("quant", ["Q4_0", "Q4_K_M", "IQ4_XS", "Q6_K", "MXFP4"])
 @pytest.mark.parametrize("bandwidth", BANDWIDTHS)

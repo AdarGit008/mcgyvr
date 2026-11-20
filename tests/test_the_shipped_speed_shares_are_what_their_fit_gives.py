@@ -71,10 +71,14 @@ def test_the_shipped_decode_shares_are_the_fits() -> None:
 def test_the_shipped_prefill_shares_are_the_fits() -> None:
     fitted = _fitted()
     shipped = {
-        build: {path: _share(share) for path, share in paths.items()}
+        build: {
+            path: {klass: _share(share) for klass, share in classes.items()}
+            for path, classes in paths.items()
+        }
         for build, paths in estimate.PREFILL_SHARES.items()
     }
     assert shipped == fitted["prefill"]
     for paths in estimate.PREFILL_SHARES.values():
-        for share in paths.values():
-            assert share.source == fitted["source"]
+        for classes in paths.values():
+            for share in classes.values():
+                assert share.source == fitted["source"]

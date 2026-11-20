@@ -24,6 +24,7 @@ what is missing.
 from __future__ import annotations
 
 import json
+import math
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -114,8 +115,9 @@ class HardwareClass:
 #: f16 cache, from an empty context to 32k tokens).
 CACHE_TERM_CHECK = (
     "the cache term, checked on one public row "
-    "(https://github.com/ggml-org/llama.cpp/discussions/16578), reads slow by 9% "
-    "at 16k tokens and 13% at 32k"
+    "(https://github.com/ggml-org/llama.cpp/discussions/16578) as a ratio to the "
+    "empty context only, reads slow by 9% at 16k tokens and 13% at 32k; the "
+    "figure itself was not checked on that row"
 )
 
 
@@ -129,7 +131,7 @@ def decode_tps(
     vendor: str = FITTED_ON,
     build: str | None = None,
     path: str | None = None,
-    cache_bytes: int = 0,
+    cache_bytes: int | NoEstimate = 0,
 ) -> Figure | NoEstimate:
     """Estimated decode tokens per second of a dense model on one device.
 
@@ -142,11 +144,19 @@ def decode_tps(
     share fitted under that build (:func:`mcgyvr.hubwire.decode_efficiency`);
     unnamed, the figure is today's. ``cache_bytes`` is the cache a token reads
     beside the weights, the filled context's (:func:`context_bytes`); 0 reads
-    none. That term is checked on one public row only (:data:`CACHE_TERM_CHECK`),
-    which runs faster than it says at 16k and 32k tokens.
+    none, and anything but a count of bytes gets no estimate. That term is
+    checked on one public row only, as a ratio to the empty context
+    (:data:`CACHE_TERM_CHECK`): the row runs faster than it says at 16k and 32k
+    tokens.
     """
     if bandwidth_gbps <= 0 or model_bytes <= 0:
         return NoEstimate("no bandwidth or model size to estimate decode from")
+    if isinstance(cache_bytes, NoEstimate):
+        return NoEstimate(f"the cache a token reads is unknown: {cache_bytes.why}")
+    if isinstance(cache_bytes, bool) or not isinstance(cache_bytes, int):
+        return NoEstimate(
+            f"the cache a token reads is not a count of bytes: {cache_bytes!r}"
+        )
     if cache_bytes < 0:
         return NoEstimate("the cache a token reads cannot be negative")
     eff = efficiency(bandwidth_gbps, quant, vendor=vendor, build=build, path=path)
@@ -176,6 +186,11 @@ def decode_tps(
         f"token{read}{fitted}",
         verified=verified,
     )
+
+
+def _is_count(value: object) -> bool:
+    """Whether ``value`` is a whole number, and not a bool."""
+    return isinstance(value, int) and not isinstance(value, bool)
 
 
 def _fitted_on(build: str, path: str | None, share: FittedShare | None) -> str:
@@ -218,6 +233,8 @@ def context_bytes(
     sliding layer is charged its window and no more."""
     from mcgyvr.serving import vramfit
 
+    if not _is_count(tokens):
+        return NoEstimate(f"a context's length is a count of tokens, not {tokens!r}")
     if tokens < 0:
         return NoEstimate("a context cannot hold fewer than 0 tokens")
     if cache_type not in vramfit.CACHE_ELEM_BYTES:
@@ -244,22 +261,43 @@ def context_bytes(
 #: pp512 over the card's rate (the matrix units' FP16 rate on the matrix path,
 #: the FP32 rate on the vector path), the median over the CUDA scoreboard's cards
 #: the shipped hardware table names (``tools/speed-shares/fit_shares.py``). A
-#: share over 1 says the build ran faster than that rate. Fitted on a dense 7B
-#: model at Q4_0, one slot, a 512-token prompt; Metal and every other build have
-#: none yet.
-PREFILL_SHARES: Mapping[str, Mapping[str, FittedShare]] = MappingProxyType(
-    {
-        BACKEND_CUDA: MappingProxyType(
-            {
-                PATH_MATRIX: FittedShare(
-                    1.049, 17, 0.666, 1.136, "RTX 2060 SUPER 8 GB", CUDA_SCOREBOARD
-                ),
-                PATH_VECTOR: FittedShare(
-                    1.176, 3, 0.399, 1.29, "GTX 1660 6 GB", CUDA_SCOREBOARD
-                ),
-            }
-        )
-    }
+#: share over 1 says the build ran faster than that rate. By build, path and
+#: efficiency class, as the decode shares are: fitted on a dense 7B model at
+#: Q4_0, one slot, a 512-token prompt, so no other class has a share; Metal and
+#: every other build have none yet.
+PREFILL_SHARES: Mapping[str, Mapping[str, Mapping[str, FittedShare]]] = (
+    MappingProxyType(
+        {
+            BACKEND_CUDA: MappingProxyType(
+                {
+                    PATH_MATRIX: MappingProxyType(
+                        {
+                            "4bit": FittedShare(
+                                1.049,
+                                17,
+                                0.666,
+                                1.136,
+                                "RTX 2060 SUPER 8 GB",
+                                CUDA_SCOREBOARD,
+                            )
+                        }
+                    ),
+                    PATH_VECTOR: MappingProxyType(
+                        {
+                            "4bit": FittedShare(
+                                1.23,
+                                4,
+                                0.399,
+                                1.29,
+                                "GTX 1660 6 GB",
+                                CUDA_SCOREBOARD,
+                            )
+                        }
+                    ),
+                }
+            )
+        }
+    )
 )
 #: What each path's rate is, by name, for a figure's basis and a refusal.
 PATH_RATES: Mapping[str, str] = MappingProxyType(
@@ -269,15 +307,17 @@ PATH_RATES: Mapping[str, str] = MappingProxyType(
 
 def prefill_params(header: Mapping[str, Any]) -> int | NoEstimate:
     """The parameters a prompt token is computed through, from the file's header
-    row: all of them for a dense model. A mixture of experts gets none: the
-    prefill share was fitted on a dense model only."""
-    experts = header.get("n_expert")
-    if isinstance(experts, int) and not isinstance(experts, bool) and experts > 0:
+    row: all of them for a dense model. A mixture of experts, by the product's
+    one rule for it (:func:`mcgyvr.knowledge.record.architecture_of`), gets
+    none: the prefill share was fitted on a dense model only."""
+    from mcgyvr.knowledge.record import MOE, architecture_of
+
+    if architecture_of(header) == MOE:
         return NoEstimate(
             "a mixture of experts: the prefill share was fitted on dense models only"
         )
     params = header.get("params_total")
-    if not isinstance(params, int) or isinstance(params, bool) or params <= 0:
+    if isinstance(params, bool) or not isinstance(params, int) or params <= 0:
         return NoEstimate("the header states no parameter count")
     return params
 
@@ -286,6 +326,7 @@ def prefill_tps(
     rate_tflops: float | None,
     params: int | None,
     *,
+    quant: str | None = None,
     build: str | None,
     path: str | None,
     device: str = "",
@@ -295,9 +336,11 @@ def prefill_tps(
 
     ``share x rate_tflops / (2 x params)``: a prompt token takes two operations
     per parameter, and the device does them at the share of its rate on the
-    path the build takes there (:data:`PREFILL_SHARES`, :data:`PATH_RATES`). A
-    build or path with no share, an unknown rate or an unknown parameter count
-    gets no estimate, and says which.
+    path the build takes there for the file's quantisation
+    (:data:`PREFILL_SHARES`, :data:`PATH_RATES`). A build, path or
+    quantisation with no share, an unknown quantisation, rate or parameter
+    count, or one that is not a finite number over 0, gets no estimate, and
+    says which.
     """
     if build is None:
         return NoEstimate("the engine build is unknown, so no prefill share")
@@ -311,13 +354,28 @@ def prefill_tps(
             f"the {build} build's compute path on this device is unknown, so no "
             "prefill share"
         )
-    share = PREFILL_SHARES[build].get(path)
-    if share is None:
+    shares = PREFILL_SHARES[build].get(path)
+    if shares is None:
         return NoEstimate(f"no {build} prefill share on the {path} path")
-    if rate_tflops is None or not rate_tflops > 0:
-        return NoEstimate(f"the device's {PATH_RATES[path]} rate is unknown")
-    if params is None or params <= 0:
-        return NoEstimate("the model's parameter count is unknown")
+    if quant is None:
+        return NoEstimate("the file's quantisation is unknown, so no prefill share")
+    share = shares.get(quant_class(quant) or "")
+    if share is None:
+        return NoEstimate(
+            f"no {build} prefill share for quantisation {quant!r} "
+            f"(class {quant_class(quant)}): its fit was on 4-bit files only"
+        )
+    if (
+        isinstance(rate_tflops, bool)
+        or not isinstance(rate_tflops, int | float)
+        or not math.isfinite(rate_tflops)
+        or rate_tflops <= 0
+    ):
+        return NoEstimate(
+            f"the device's {PATH_RATES[path]} rate is unknown: {rate_tflops!r}"
+        )
+    if isinstance(params, bool) or not isinstance(params, int) or params <= 0:
+        return NoEstimate(f"the model's parameter count is unknown: {params!r}")
     on = f"{device}, " if device else ""
     return Figure(
         share.value * rate_tflops * 1e12 / (2 * params),
@@ -348,6 +406,10 @@ def line_fit(
     from mcgyvr.hubwire import BYTES_PER_GIB
     from mcgyvr.serving import ModelSpec, UnitError, fit, vramfit
 
+    if not _is_count(ctx_per_slot) or not _is_count(slots):
+        return NoEstimate(
+            f"a context and a slot count are counts, not {ctx_per_slot!r} and {slots!r}"
+        )
     if ctx_per_slot < 1 or slots < 1:
         return NoEstimate("a context and a slot count are counts, so at least 1")
     if cache_type not in vramfit.CACHE_ELEM_BYTES:
