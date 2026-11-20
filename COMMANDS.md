@@ -39,6 +39,9 @@ the live fleet folder under $MCGYVR_HOME/fleets (default ~/.mcgyvr/fleets) that 
   - `--rig RIG` — scan RIG instead, over your own ssh (read-only), and save it as the serving door's rig
     file RIG.json in $MCGYVR_RIGS (default $MCGYVR_HOME/rigs), which a door run from an install holds the
     rig to; says what moved since the last.
+  - `--hardware` — also read and report every card, whatever its vendor, with its PCI ids, memory and
+    compute capability, and the CPU's instruction-set flags and clock; the rig file this scan writes
+    keeps them (with --json: as devices and cpu_detail).
   - `--model-store DIR` — a directory holding \*.gguf and \*.safetensors checkpoints to inventory as
     models-on-disk, in addition to the weights dir (repeatable).
 - `mcgyvr recommend` — print one JSON plan: which checkpoint and engine serve a profile.

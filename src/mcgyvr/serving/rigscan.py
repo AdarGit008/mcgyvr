@@ -102,6 +102,8 @@ READ_ABSENT = 0xFF
 MACHINE_ID_FILES = ("/etc/machine-id", "/var/lib/dbus/machine-id")
 HOSTNAME_FILE = "/proc/sys/kernel/hostname"
 DRM = "/sys/class/drm"
+#: Each PCI device by its address, with its vendor and device id files.
+PCI_DEVICES = "/sys/bus/pci/devices"
 
 #: What one tool call may take: seconds before it is killed, and bytes of output kept.
 BOUND_S = 20.0
@@ -189,6 +191,8 @@ REG_MACHINE_GUID = (
 #: (https://learn.microsoft.com/en-us/windows/win32/cimwin32prov/win32-operatingsystem);
 #: AdapterRAM, a uint32, is not read
 #: (https://learn.microsoft.com/en-us/windows/win32/cimwin32prov/win32-videocontroller).
+#: MaxClockSpeed is the "Maximum speed of the processor, in MHz"
+#: (https://learn.microsoft.com/en-us/windows/win32/cimwin32prov/win32-processor).
 #: Sent as -EncodedCommand, base 64 of UTF-16LE
 #: (https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_powershell_exe?view=powershell-5.1).
 CIM_SCRIPT = (
@@ -197,7 +201,7 @@ CIM_SCRIPT = (
     "capacity=[string]$_.Capacity;type=[string]$_.SMBIOSMemoryType}});"
     "processors=@(Get-CimInstance Win32_Processor|ForEach-Object{[pscustomobject]@{"
     "name=$_.Name;cores=$_.NumberOfCores;threads=$_.NumberOfLogicalProcessors;"
-    "architecture=$_.Architecture}});"
+    "architecture=$_.Architecture;mhz=$_.MaxClockSpeed}});"
     "system=@(Get-CimInstance Win32_OperatingSystem|ForEach-Object{[pscustomobject]@{"
     "version=$_.Version;free_kb=[string]$_.FreePhysicalMemory;"
     "total_kb=[string]$_.TotalVisibleMemorySize}});"
@@ -251,6 +255,127 @@ SECOND_ARGS = ("--showproductname", "--showmeminfo", "vram", "--json")
 #: vendor label used everywhere else, and the second says which tool reads it.
 PCI_VENDORS = {"0x10de": "nvidia", "0x1002": "amd", "0x8086": "intel"}
 VENDOR_TOOLS = {"nvidia": FIRST_TOOL, "amd": SECOND_TOOL}
+#: The PCI vendor id of a card that its vendor's own tool printed.
+VENDOR_PCI = {vendor: vid for vid, vendor in PCI_VENDORS.items()}
+#: The scan with --hardware asks the NVIDIA tool once more, for the PCI id of a
+#: card sysfs gave none for (Windows always; Linux without sysfs): "PCI
+#: vendor device id, in hex" (nvidia-smi --help-query-gpu,
+#: https://github.com/gpuopenanalytics/pynvml/blob/master/help_query_gpu.txt), one
+#: 32-bit number whose other half is the vendor's 0x10de, so the half that is not
+#: 0x10de is the device. compute_cap is "The CUDA Compute Capability, represented
+#: as Major DOT Minor" (https://gist.github.com/Jaid/5e3b3bf4234078a1828fbfa9338c1514).
+PCI_ID_QUERY = "index,pci.device_id"
+#: The reader's argument for the scan with its device list and CPU detail.
+WIDER_ARG = "--hardware"
+_NVIDIA_PCI = re.compile(r"(?:0x)?([0-9a-fA-F]{4})([0-9a-fA-F]{4})", re.ASCII)
+_COMPUTE_CAP = re.compile(r"[0-9]{1,2}\.[0-9]{1,2}", re.ASCII)
+#: A card's PCI address, domain:bus:device.function, as nvidia-smi prints it in
+#: pci.bus_id (an 8-digit domain), rocm-smi in "PCI Bus" ("{:04X}:{:02X}:{:02X}.{:0X}",
+#: https://raw.githubusercontent.com/ROCm/rocm_smi_lib/develop/python_smi_tools/rocm_smi.py)
+#: and the kernel in a PCI device's uevent ("PCI_SLOT_NAME=%s",
+#: https://raw.githubusercontent.com/torvalds/linux/master/drivers/pci/pci-driver.c);
+#: kept as the kernel names it, a 4-digit domain in lower case.
+_PCI_BUS = re.compile(
+    r"([0-9a-fA-F]{4,8}):([0-9a-fA-F]{2}):([0-9a-fA-F]{2})\.([0-7])", re.ASCII
+)
+#: rocm-smi asked for each card's PCI address. Its members are keyed "card" and
+#: rocm-smi's own device index, the index its memory reading is keyed by, which
+#: is not the DRM card number (rocm_smi.py, formatJson).
+SECOND_BUS_ARGS = ("--showbus", "--json")
+SECOND_BUS_KEY = "PCI Bus"
+#: The DRM nodes of one PCI device: its card<N> and its renderD<N>.
+_DRM_NODE = re.compile(r"(card|renderD)[0-9]{1,9}", re.ASCII)
+
+#: The CPU flags the engine's CPU builds are chosen by (the x86 scores in
+#: ggml-cpu/arch/x86/cpu-feats.cpp, the ARM ones in ggml-feats.h), named as Linux
+#: prints them in /proc/cpuinfo's flags line
+#: (https://raw.githubusercontent.com/torvalds/linux/master/arch/x86/include/asm/cpufeatures.h).
+#: The ARM names are the engine's; Linux prints them in the Features line
+#: (https://raw.githubusercontent.com/torvalds/linux/master/arch/arm64/kernel/cpuinfo.c),
+#: dotprod as asimddp, and fp16 as the two of fphp and asimdhp, which the engine
+#: takes together.
+X86_FLAGS = (
+    "sse4_2",
+    "fma",
+    "f16c",
+    "bmi2",
+    "avx",
+    "avx2",
+    "avx_vnni",
+    "avx512f",
+    "avx512cd",
+    "avx512vl",
+    "avx512dq",
+    "avx512bw",
+    "avx512vbmi",
+    "avx512_vnni",
+    "avx512_bf16",
+    "amx_tile",
+    "amx_int8",
+    "amx_bf16",
+)
+ARM_FLAGS = {
+    "dotprod": ("asimddp",),
+    "fp16": ("fphp", "asimdhp"),
+    "sve": ("sve",),
+    "sve2": ("sve2",),
+    "i8mm": ("i8mm",),
+    "bf16": ("bf16",),
+    "sme": ("sme",),
+    "sme2": ("sme2",),
+}
+#: macOS answers a flag per sysctl name, 1 or 0, and a name it does not know is
+#: an error, read as unknown. Intel Macs: hw.optional.<name>
+#: (https://raw.githubusercontent.com/apple-oss-distributions/xnu/main/bsd/kern/kern_mib.c),
+#: which has no VNNI, BF16 or AMX name; Apple silicon: hw.optional.arm.FEAT_<name>
+#: (https://raw.githubusercontent.com/apple-oss-distributions/xnu/main/osfmk/arm/arm_features.inc),
+#: which has no SVE name, as the engine asks them.
+SYSCTL_X86_FLAGS = {
+    "sse4_2": "hw.optional.sse4_2",
+    "fma": "hw.optional.fma",
+    "f16c": "hw.optional.f16c",
+    "bmi2": "hw.optional.bmi2",
+    "avx": "hw.optional.avx1_0",
+    "avx2": "hw.optional.avx2_0",
+    "avx512f": "hw.optional.avx512f",
+    "avx512cd": "hw.optional.avx512cd",
+    "avx512vl": "hw.optional.avx512vl",
+    "avx512dq": "hw.optional.avx512dq",
+    "avx512bw": "hw.optional.avx512bw",
+    "avx512vbmi": "hw.optional.avx512vbmi",
+}
+SYSCTL_ARM_FLAGS = {
+    flag: f"hw.optional.arm.FEAT_{name}"
+    for flag, name in (
+        ("dotprod", "DotProd"),
+        ("fp16", "FP16"),
+        ("sve", "SVE"),
+        ("sve2", "SVE2"),
+        ("i8mm", "I8MM"),
+        ("bf16", "BF16"),
+        ("sme", "SME"),
+        ("sme2", "SME2"),
+    )
+}
+#: The highest clock in Hz; Apple silicon gives none, read as unknown.
+SYSCTL_MAX_HZ = "hw.cpufrequency_max"
+#: Windows answers each flag by its PF_ number, nonzero when present; zero is also
+#: the answer when "the HAL does not support detection of the feature", so zero is
+#: unknown and only a nonzero answer is taken
+#: (https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-isprocessorfeaturepresent).
+WINDOWS_X86_FLAGS = {"sse4_2": 38, "avx": 39, "avx2": 40, "avx512f": 41, "bmi2": 60}
+WINDOWS_ARM_FLAGS = {
+    "dotprod": 43,
+    "sve": 46,
+    "sve2": 47,
+    "i8mm": 66,
+    "fp16": 67,
+    "bf16": 68,
+    "sme": 70,
+    "sme2": 71,
+}
+#: Above this a clock in MHz is not taken as one.
+MHZ_MAX = 100000
 
 #: A template that makes `docker version` print the daemon's version and nothing else.
 DOCKER_VERSION_FORMAT = "{{.Server.Version}}"
@@ -560,6 +685,11 @@ class _Reading:
         #: Set once the NVIDIA tool runs and answers at all, whatever it printed;
         #: _gpus uses it to tell "no NVIDIA card here" from "no answer to read".
         self.first_answered = False
+        #: Beside each card and outside the document it is handed out in: the
+        #: PCI vendor and device id a source printed for it, and the source its
+        #: entry came from, for the scan's device list (:func:`_devices`).
+        self.pci: dict[tuple[str, int], tuple[str | None, str | None]] = {}
+        self.read_from: dict[tuple[str, int], str] = {}
 
     def note(self, field: str, why: str) -> None:
         self.unread.append({"field": field, "why": why})
@@ -719,6 +849,7 @@ def _first_tool(
             continue
         number = int(index)
         key = f"card.nvidia.{number}"
+        reading.read_from[("nvidia", number)] = FIRST_TOOL
         reading.add(
             "nvidia",
             number,
@@ -807,6 +938,7 @@ def _second_tool(reading: _Reading, bound: float) -> None:
         key = f"card.amd.{index}"
         total = reading.number(total_text, f"{key}.total", SECOND_TOOL, bytes_=True)
         used = reading.number(used_text, f"{key}.used", SECOND_TOOL, bytes_=True)
+        reading.read_from[("amd", index)] = SECOND_TOOL
         reading.add(
             "amd",
             index,
@@ -911,6 +1043,8 @@ def _sysfs(reading: _Reading, root: str) -> None:
                 "sysfs gives no used memory for this card: "
                 f"device/mem_info_vram_used {why}",
             )
+        reading.pci[(vendor, number)] = (vid, did)
+        reading.read_from[(vendor, number)] = "sysfs"
         reading.add(
             vendor,
             number,
@@ -1407,6 +1541,7 @@ def _apple_gpu(
             free = min(usable, available)
             used = usable - free
     card = {"total_mib": usable, "used_mib": used, "free_mib": free, "name": name}
+    reading.read_from[("apple", 0)] = METAL_FILE if figure == FIGURE_READING else SYSCTL
     reading.add(
         "apple",
         0,
@@ -1460,6 +1595,8 @@ def _windows_adapters(
         reading.note(f"{key}.total", f"Windows gives no size past 4 GiB, and {tool}")
         reading.note(f"{key}.used", "Windows gives no used memory")
         reading.unsized.append(key)
+        reading.pci[(vendor, number)] = (vid, did)
+        reading.read_from[(vendor, number)] = "Win32_VideoController"
         reading.add(
             vendor,
             number,
@@ -1622,8 +1759,7 @@ def _other_cpu(platform_: _Platform) -> _CpuRead:
     return _cpu_section(model or None, cores, threads, performance), facts, []
 
 
-def _cpuinfo_model(root: str) -> str | None:
-    text, _ = _read(root, "/proc/cpuinfo")
+def _cpuinfo_model(text: str | None) -> str | None:
     for line in (text or "").splitlines():
         name, sep, rest = line.partition(":")
         if sep and name.strip() == "model name" and rest.strip():
@@ -1631,13 +1767,14 @@ def _cpuinfo_model(root: str) -> str | None:
     return None
 
 
-def _cpu_model(root: str, platform_: _Platform) -> tuple[str | None, str]:
+def _cpu_model(cpuinfo: str | None, platform_: _Platform) -> tuple[str | None, str]:
     """The CPU model as the machine prints it, or None and why: /proc/cpuinfo's
-    model name, else lscpu's Model name (asked through the platform, so the
+    model name (`cpuinfo`, the file as the reading read it once, None when it
+    could not), else lscpu's Model name (asked through the platform, so the
     reading runs lscpu once). Looked up once per reading, for the CPU section
     (:func:`_cpu`, which drops a name it may not print) and the snapshot's
     cpu_model."""
-    model = _cpuinfo_model(root)
+    model = _cpuinfo_model(cpuinfo)
     if model:
         return model, ""
     out, _ = platform_.run(("lscpu",))
@@ -1773,8 +1910,14 @@ class _Short:
             _second_tool(reading, bound)
             _sysfs(reading, root)
         self.first_answered = reading.first_answered
+        # Kept for the scan's device list and CPU detail, which only the whole
+        # scan adds (:func:`scan`): the short document is not widened by them.
+        self.reading, self.platform = reading, platform_
         self.notes += memory_notes
-        self.cpu_model = _cpu_model(root, platform_) if linux else (None, "")
+        # /proc/cpuinfo is read once too: the model here, the scan's CPU flags
+        # (:func:`_cpu_detail`) from the same text.
+        self.cpuinfo = _read(root, "/proc/cpuinfo")[0] if linux else None
+        self.cpu_model = _cpu_model(self.cpuinfo, platform_) if linux else (None, "")
         self.cpu, self.cpu_facts, self.cpu_notes = _cpu(
             platform_, self.cpu_model[0] or None
         )
@@ -2339,6 +2482,10 @@ class _Snapshot:
     def __init__(self) -> None:
         self.values: dict[str, str] = {}
         self.unread: list[dict[str, str]] = []
+        #: The snapshot query's fields per NVIDIA index (:func:`_snapshot_cards`),
+        #: and the source of cpu_max_mhz, for the scan's devices and CPU detail.
+        self.nvidia: dict[int, list[str]] = {}
+        self.mhz_from: str | None = None
 
     def put(self, key: str, value: str | None, why: str) -> None:
         value = tok(value) if value is not None else ""
@@ -2363,17 +2510,18 @@ def _uptime_since(root: str, bound: float) -> tuple[str | None, str]:
     return None, "cannot read the boot time (/proc/stat btime, uptime -s)"
 
 
-def _cpu_max_mhz(root: str, bound: float) -> tuple[str | None, str]:
+def _cpu_max_mhz(root: str, bound: float) -> tuple[str | None, str, str | None]:
     # cpufreq publishes kHz and the snapshot wants whole MHz, so the value is divided
-    # down; lscpu's CPU max MHz is the fallback, cut before the decimal point.
+    # down; lscpu's CPU max MHz is the fallback, cut before the decimal point. The
+    # third member names the source the value came from.
     khz, _ = _first_line(root, "/sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq")
     if khz and _DIGITS.fullmatch(khz):
-        return str(int(khz) // 1000), ""
+        return str(int(khz) // 1000), "", "cpufreq cpuinfo_max_freq"
     out, _ = _run(("lscpu",), bound=bound)
     mhz = (_lscpu_field(out or "", "CPU max MHz") or "").split(".")[0]
     if mhz and _DIGITS.fullmatch(mhz):
-        return mhz, ""
-    return None, "cannot read cpu_max_mhz (cpufreq/cpuinfo_max_freq, lscpu)"
+        return mhz, "", "lscpu CPU max MHz"
+    return None, "cannot read cpu_max_mhz (cpufreq/cpuinfo_max_freq, lscpu)", None
 
 
 def _ram_mt_s(bound: float) -> tuple[str | None, str]:
@@ -2454,8 +2602,10 @@ def _snapshot_cards(
     cards: list[dict[str, Any]],
     bound: float,
     tool: str | None = FIRST_TOOL,
-) -> None:
-    """Fill the GPU keys of the snapshot from the first NVIDIA card.
+) -> dict[int, list[str]]:
+    """Fill the GPU keys of the snapshot from the first NVIDIA card, and return
+    what the snapshot query printed per NVIDIA index (slot, compute capability,
+    driver, reserved memory), empty when it printed nothing usable.
 
     The snapshot query adds the slot, the compute capability, the driver and, where
     the tool knows the field, the reserved memory; a tool that does not know
@@ -2469,7 +2619,7 @@ def _snapshot_cards(
     if tool is None:
         for key in SNAPSHOT_CARD_KEYS:
             snapshot.put(key, None, "the GPU state is unread: no nvidia-smi.exe")
-        return
+        return {}
     text, why = _run(
         (tool, f"--query-gpu={SNAPSHOT_QUERY}", "--format=csv,noheader,nounits"),
         bound=bound,
@@ -2493,7 +2643,7 @@ def _snapshot_cards(
         )
         for key in SNAPSHOT_CARD_KEYS:
             snapshot.put(key, None, f"the GPU state is unread: {reason}")
-        return
+        return {}
     extra: dict[int, list[str]] = {}
     for line in text.splitlines():
         parts = [part.strip() for part in line.split(",")]
@@ -2546,6 +2696,7 @@ def _snapshot_cards(
             )
         )
     snapshot.put("gpu_others", ";".join(sorted(others)), "")
+    return extra
 
 
 def _snapshot(
@@ -2567,12 +2718,15 @@ def _snapshot(
     # none of them is there, and dmidecode would be tried through sudo.
     off = (None, f"not read on {system}")
     snapshot.put(*_pair("uptime_since", _uptime_since(root, bound) if linux else off))
-    snapshot.put(*_pair("cpu_max_mhz", _cpu_max_mhz(root, bound) if linux else off))
+    mhz, mhz_why, snapshot.mhz_from = (
+        _cpu_max_mhz(root, bound) if linux else (*off, None)
+    )
+    snapshot.put("cpu_max_mhz", mhz, mhz_why)
     snapshot.put(*_pair("cpu_model", read.cpu_model if linux else off))
     snapshot.put(*_pair("ram_mt_s", _ram_mt_s(bound) if linux else off))
     snapshot.put(*_pair("pl1_uw", _power_limit(root, "pl1") if linux else off))
     snapshot.put(*_pair("pl2_uw", _power_limit(root, "pl2") if linux else off))
-    _snapshot_cards(snapshot, cards, bound, tool)
+    snapshot.nvidia = _snapshot_cards(snapshot, cards, bound, tool)
     # Docker is recorded by the version its daemon answered with, so that a daemon
     # upgrade is the change and an installed CLI on its own is not.
     snapshot.put(
@@ -2622,6 +2776,270 @@ def _pair(key: str, read: tuple[str | None, str]) -> tuple[str, str | None, str]
     return key, read[0], read[1]
 
 
+# What the whole scan adds beside gpus and the CPU section, and never to the short
+# reading (the rig's hello) nor to `cards` (which a rig's id is taken from): every
+# card with its PCI ids, compute capability and source, and the CPU's flags and
+# clock. A value the system does not give is left out or None, which a consumer
+# reads as unknown; nothing is inferred from a product name.
+
+
+def _nvidia_ids(tool: str | None, bound: float) -> dict[int, str]:
+    """Each NVIDIA card's PCI device id by index, from the tool's pci.device_id;
+    empty when the tool is absent, fails or prints no id it can be sure of."""
+    if tool is None:
+        return {}
+    text, _ = _run(
+        (tool, f"--query-gpu={PCI_ID_QUERY}", "--format=csv,noheader,nounits"),
+        bound=bound,
+    )
+    found: dict[int, str] = {}
+    for line in (text or "").splitlines()[:LINES_MAX]:
+        index, _, printed = (part.strip() for part in line.partition(","))
+        matched = _NVIDIA_PCI.fullmatch(printed)
+        if not _DIGITS.fullmatch(index) or len(index) > DIGITS_MAX or not matched:
+            continue
+        high, low = (half.lower() for half in matched.groups())
+        nvidia = VENDOR_PCI["nvidia"][2:]
+        other = high if low == nvidia else low if high == nvidia else None
+        if other is not None and other != nvidia:
+            found[int(index)] = f"0x{other}"
+    return found
+
+
+def _pci_bus(printed: object) -> str | None:
+    """A printed PCI address as the kernel names it, else None."""
+    found = _PCI_BUS.fullmatch(printed.strip()) if isinstance(printed, str) else None
+    if found is None or int(found.group(1), 16) > 0xFFFF:
+        return None
+    domain, bus, device, function = found.groups()
+    return f"{int(domain, 16):04x}:{bus.lower()}:{device.lower()}.{function}"
+
+
+def _amd_buses(bound: float) -> dict[int, str]:
+    """Each card rocm-smi reads, by its index, with its PCI address; empty when
+    the tool fails or prints none."""
+    text, _ = _run((SECOND_TOOL, *SECOND_BUS_ARGS), bound=bound)
+    try:
+        data = json.loads(text or "")
+    except (ValueError, RecursionError):
+        return {}
+    found: dict[int, str] = {}
+    for key, entry in data.items() if isinstance(data, dict) else ():
+        number = re.fullmatch(r"card([0-9]{1,9})", key, re.ASCII)
+        bus = _pci_bus(entry.get(SECOND_BUS_KEY)) if isinstance(entry, dict) else None
+        if number is not None and bus is not None:
+            found[int(number.group(1))] = bus
+    return found
+
+
+def _uevent_bus(root: str, node: str) -> str | None:
+    text, _ = _read(root, f"{DRM}/{node}/device/uevent")
+    for line in (text or "").splitlines()[:LINES_MAX]:
+        name, sep, value = line.partition("=")
+        if sep and name == "PCI_SLOT_NAME":
+            return _pci_bus(value)
+    return None
+
+
+def _bus_ids(root: str, bus: str) -> tuple[str | None, str | None]:
+    """The PCI vendor and device id sysfs gives for the device at `bus` (an
+    address `_pci_bus` made), each None where sysfs gives none."""
+    found = []
+    for field in ("vendor", "device"):
+        printed, _ = _first_line(root, f"{PCI_DEVICES}/{bus}/{field}")
+        ok = printed is not None and _PCI_ID.fullmatch(printed)
+        found.append(printed.lower() if ok and printed is not None else None)
+    return found[0], found[1]
+
+
+def _drm_nodes(root: str) -> dict[str, dict[str, str]]:
+    """sysfs's DRM nodes by the PCI address of their device: the card<N> and the
+    renderD<N> (each under `card` and `render`). A PCI device shown by two nodes
+    of one kind is left out, as sysfs then names no one node for it."""
+    try:
+        entries = sorted(os.listdir(_at(root, DRM)))
+    except OSError:
+        return {}
+    found: dict[str, dict[str, str]] = {}
+    twice: set[tuple[str, str]] = set()
+    for node in entries[:LINES_MAX]:
+        kind = _DRM_NODE.fullmatch(node)
+        bus = _uevent_bus(root, node) if kind else None
+        if kind is None or bus is None:
+            continue
+        slot = "card" if kind.group(1) == "card" else "render"
+        held = found.setdefault(bus, {})
+        if slot in held:
+            twice.add((bus, slot))
+        held[slot] = node
+    for bus, slot in twice:
+        found[bus].pop(slot, None)
+    return found
+
+
+def _devices(
+    root: str, read: _Short, snapshot: _Snapshot, bound: float
+) -> list[dict[str, Any]]:
+    """Every card of the reading's card list, whatever its vendor, with the PCI ids
+    and address its source printed, its DRM nodes on Linux, its memory, an NVIDIA
+    card's compute capability (the snapshot query's, asked already) and the source
+    its entry came from. `id` places it on the machine whatever its vendor: its
+    PCI address where one was read, else its vendor and that vendor's index, never
+    one vendor's index alone."""
+    cards = read.document["cards"]
+    sources = {
+        (c["vendor"], c["index"]): read.reading.read_from.get((c["vendor"], c["index"]))
+        for c in cards
+    }
+    amd = _amd_buses(bound) if SECOND_TOOL in sources.values() else {}
+    linux = read.system == HOST_LINUX
+    nodes = _drm_nodes(root) if linux else {}
+    devices = []
+    for card in cards:
+        where = (card["vendor"], card["index"])
+        source = sources[where]
+        vid, did = read.reading.pci.get(where, (None, None))
+        if source in (FIRST_TOOL, SECOND_TOOL):
+            vid = VENDOR_PCI.get(card["vendor"])
+        compute = bus = None
+        if source == FIRST_TOOL:
+            facts = snapshot.nvidia.get(card["index"], [])
+            printed = facts[1] if len(facts) > 1 else ""
+            compute = printed if _COMPUTE_CAP.fullmatch(printed) else None
+            bus = _pci_bus(facts[0]) if facts else None
+        elif source == SECOND_TOOL:
+            bus = amd.get(card["index"])
+        elif source == "sysfs":
+            bus = _uevent_bus(root, f"card{card['index']}")
+        node = nodes.get(bus, {}) if bus is not None else {}
+        # A device id the source did not print is the one sysfs gives for the
+        # device at that address, when sysfs names the same vendor there.
+        if did is None and linux and bus is not None and vid is not None:
+            at_vendor, at_device = _bus_ids(root, bus)
+            did = at_device if at_vendor == vid else None
+        devices.append(
+            {
+                "id": f"pci:{bus}" if bus else f"{card['vendor']}:{card['index']}",
+                "vendor": card["vendor"],
+                "index": card["index"],
+                "name": card["name"],
+                "pci_vendor": vid,
+                "pci_device": did,
+                "pci_bus": bus,
+                "drm_card": node.get("card"),
+                "drm_render": node.get("render"),
+                "total_mib": card["total_mib"],
+                "used_mib": card["used_mib"],
+                "free_mib": card["free_mib"],
+                "kind": card.get("kind"),
+                "backend": card.get("backend"),
+                "figure": card.get("figure"),
+                "compute_cap": compute,
+                "read_from": source,
+            }
+        )
+    # The NVIDIA tool is run once more only for the ids sysfs did not give: a run
+    # of it can take seconds on a machine whose driver is not kept loaded.
+    unknown = [
+        d for d in devices if d["read_from"] == FIRST_TOOL and d["pci_device"] is None
+    ]
+    ids = _nvidia_ids(read.first_tool, bound) if unknown else {}
+    for device in unknown:
+        device["pci_device"] = ids.get(device["index"])
+    return devices
+
+
+def _processor_feature(number: int) -> bool | None:
+    """Windows' IsProcessorFeaturePresent for one PF_ number: True when it answers
+    nonzero, None for zero (not present, or not detectable) or no answer."""
+    try:
+        windll = ctypes.windll  # type: ignore[attr-defined]
+        present = windll.kernel32.IsProcessorFeaturePresent(ctypes.c_uint32(number))
+    except (AttributeError, OSError, ValueError):
+        return None
+    return True if present else None
+
+
+def _cpuinfo_line(cpuinfo: str | None, name: str) -> list[str] | None:
+    # The first processor's line of that name, as its space separated words.
+    for line in (cpuinfo or "").splitlines()[:LINES_MAX]:
+        key, sep, rest = line.partition(":")
+        if sep and key.strip() == name:
+            return rest.split()
+    return None
+
+
+def _cpu_flags(read: _Short) -> tuple[dict[str, bool], str | None]:
+    """The engine's CPU flags the system answered for, and where from: Linux's
+    /proc/cpuinfo (a flag missing from a line it prints is one the CPU lacks, as
+    far as that kernel, machine.kernel, has a name for it),
+    macOS's sysctl names (1 or 0 each), Windows' IsProcessorFeaturePresent (only
+    a flag it says is present). A flag of the other arch is never asked."""
+    arch = read.document["host"]["arch"]
+    if arch not in (ARCH_X86_64, ARCH_ARM64):
+        return {}, None
+    x86 = arch == ARCH_X86_64
+    flags: dict[str, bool] = {}
+    if read.system == HOST_LINUX:
+        line = "flags" if x86 else "Features"
+        words = _cpuinfo_line(read.cpuinfo, line)
+        if words is None:
+            return {}, None
+        held = set(words)
+        if x86:
+            flags = {flag: flag in held for flag in X86_FLAGS}
+        else:
+            flags = {
+                flag: all(word in held for word in printed)
+                for flag, printed in ARM_FLAGS.items()
+            }
+        return flags, f"/proc/cpuinfo {line}"
+    if read.system == HOST_DARWIN:
+        for flag, name in (SYSCTL_X86_FLAGS if x86 else SYSCTL_ARM_FLAGS).items():
+            value, _ = read.platform.sysctl(name)
+            if value in ("0", "1"):
+                flags[flag] = value == "1"
+        return flags, "sysctl hw.optional" if flags else None
+    if read.system == HOST_WINDOWS:
+        for flag, number in (WINDOWS_X86_FLAGS if x86 else WINDOWS_ARM_FLAGS).items():
+            if _processor_feature(number):
+                flags[flag] = True
+        return flags, "IsProcessorFeaturePresent" if flags else None
+    return {}, None
+
+
+def _cpu_clock(read: _Short, snapshot: _Snapshot) -> tuple[int | None, str | None]:
+    """The clock the system calls the CPU's maximum, in MHz, and where from: the
+    snapshot's cpu_max_mhz on Linux, hw.cpufrequency_max on macOS,
+    Win32_Processor's MaxClockSpeed on Windows. The systems need not mean one
+    figure by it, which is why the source is kept beside it."""
+    mhz: int | None = None
+    source: str | None = None
+    if read.system == HOST_LINUX:
+        mhz, source = _size(snapshot.values.get("cpu_max_mhz")), snapshot.mhz_from
+    elif read.system == HOST_DARWIN:
+        hz, _ = read.platform.sysctl_size(SYSCTL_MAX_HZ)
+        mhz = None if hz is None else hz // 1000000
+        source = f"sysctl {SYSCTL_MAX_HZ}"
+    elif read.system == HOST_WINDOWS:
+        mhz = _size(read.platform.cim_first("processors").get("mhz"))
+        source = "Win32_Processor MaxClockSpeed"
+    if mhz is None or not 0 < mhz <= MHZ_MAX:
+        return None, None
+    return mhz, source
+
+
+def _cpu_detail(read: _Short, snapshot: _Snapshot) -> dict[str, Any]:
+    flags, flags_from = _cpu_flags(read)
+    mhz, mhz_from = _cpu_clock(read, snapshot)
+    return {
+        "flags": flags,
+        "flags_from": flags_from,
+        "max_mhz": mhz,
+        "max_mhz_from": mhz_from,
+    }
+
+
 # The whole scan: the short reading first, then each section the short reading does
 # not carry, each kept with the {field, how} facts it rests on and the prose about
 # what could not be read, so a consumer can tell a measured value from a missing one.
@@ -2634,6 +3052,7 @@ def scan(
     root: str = "",
     bound: float = BOUND_S,
     system: str | None = None,
+    wider: bool = False,
 ) -> dict[str, Any]:
     """The whole reading of this machine, in one document.
 
@@ -2641,7 +3060,9 @@ def scan(
     docker, network, home and snapshot are added to it, with every fact, note and
     unread field gathered from those sections. The weights directory is the one
     given, or the default, and model_stores are searched alongside it. `system` is
-    read_machine's.
+    read_machine's. `wider` (the reader's ``--hardware``) adds ``devices`` and
+    ``cpu_detail`` and makes the reads only they need; without it the document,
+    and every call made for it, is the one it always was.
     """
     read = _Short(root, bound, system)
     short = read.document
@@ -2703,6 +3124,14 @@ def scan(
         "network": network,
         "home": home,
         "snapshot": snapshot.values,
+        **(
+            {
+                "devices": _devices(root, read, snapshot, bound),
+                "cpu_detail": _cpu_detail(read, snapshot),
+            }
+            if wider
+            else {}
+        ),
         "unread": [*short["unread"], *snapshot.unread],
         "notes": [*notes, *gpu_notes, *cpu_notes, *network_notes],
         "facts": [*facts, *disk_facts, *model_facts, *network_facts],
@@ -2710,14 +3139,16 @@ def scan(
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    """Print the scan, or the short reading with --cards, as JSON on stdout.
+    """Print the scan, or the short reading with --cards, as JSON on stdout;
+    with --hardware the scan carries its device list and CPU detail too.
 
     Three test hooks, set only by mcgyvr's own tests:
     MCGYVR_TEST_MACHINE_ROOT is prefixed to every path that is read, and
     MCGYVR_TEST_TOOL_SECONDS replaces the time bound when it holds 1 to 6 digits
     giving a whole number of seconds above zero; anything else in it is noted rather
     than used; so is MCGYVR_TEST_MACHINE_OS when it names none of HOST_OS. Any
-    argument other than --cards is a usage error, which returns 2.
+    argument other than one --cards or one --hardware is a usage error, which
+    returns 2.
     """
     args = list(sys.argv[1:] if argv is None else argv)
     root = os.environ.get(ROOT_VARIABLE, "")
@@ -2746,13 +3177,16 @@ def main(argv: Sequence[str] | None = None) -> int:
             }
         )
         system = None
-    if args not in ([], ["--cards"]):
-        print(f"rigscan: takes no argument but --cards, not {args!r}", file=sys.stderr)
+    if args not in ([], ["--cards"], [WIDER_ARG]):
+        print(
+            f"rigscan: takes no argument but --cards or {WIDER_ARG}, not {args!r}",
+            file=sys.stderr,
+        )
         return 2
     document = (
         read_machine(root=root, bound=bound, system=system)
-        if args
-        else scan(root=root, bound=bound, system=system)
+        if args == ["--cards"]
+        else scan(root=root, bound=bound, system=system, wider=args == [WIDER_ARG])
     )
     document["unread"] = [*named, *document["unread"]]
     print(json.dumps(document, indent=2))

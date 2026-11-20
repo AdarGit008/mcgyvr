@@ -173,13 +173,13 @@ def test_a_schema_error_re_wrap_carries_the_bad_key(repo: Index) -> None:
         decompose(
             repo,
             "fix",
-            propose=RecordedProposer((a_fix(stop_conditions=()),)),
+            propose=RecordedProposer((a_fix(allow=("docs/**",)),)),
         )
     )
 
     assert refusal.field == ""
     assert refusal.what_to_change
-    assert "stop_conditions" in refusal.what_to_change
+    assert "scope.allow" in refusal.what_to_change
 
 
 def test_a_target_too_large_points_at_the_target(repo: Index) -> None:
