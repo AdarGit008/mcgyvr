@@ -2,11 +2,12 @@
 
 A card is matched to its row by its PCI device id where the reading has one and
 the table lists ids for its vendor, whichever way the table spells the id, else
-by its name and memory. The record keeps the reading's own entry of the card,
-and beside it the row's cells as the table states them: a value, a stated no
-(false, an empty list, or no value with a page cited), or unknown (a field the
-row does not carry). A stated no stays a no; an absent cell stays unknown. The
-table and the machines are invented.
+by its name and memory; a name meets only a row of the same name, never one it
+only begins or extends (``Vector 7`` and ``Vector 7 Ti``). The record keeps the
+reading's own entry of the card, and beside it the row's cells as the table
+states them: a value, a stated no (false, an empty list, or no value with a page
+cited), or unknown (a field the row does not carry). A stated no stays a no; an
+absent cell stays unknown. The table and the machines are invented.
 """
 
 from __future__ import annotations
@@ -47,7 +48,16 @@ RIVER = row(
     memory__size_gb=20,
     memory__bandwidth_gbps=800,
 )
-TABLE = table(VECTOR, ARC, RIVER)
+VECTOR_TI = row(
+    "acme-vector-7-ti",
+    "nvidia",
+    "gpu",
+    name="Acme Vector 7 Ti",
+    pci_device_ids=["1A2C"],
+    memory__size_gb=16,
+    memory__bandwidth_gbps=504,
+)
+TABLE = table(VECTOR, VECTOR_TI, ARC, RIVER)
 
 
 def _card(card: Device) -> machine_capability.Card:
@@ -108,3 +118,11 @@ def test_a_stated_no_stays_a_no_and_an_absent_cell_stays_unknown() -> None:
     assert facts.cell("compute.fp64_tflops").state == UNKNOWN
     assert facts.cell("api.cuda_compute_capability").state == UNKNOWN
     assert facts.cell("api.cuda_compute_capability").value is None
+
+
+def test_a_name_meets_only_its_own_row_not_one_it_begins_or_extends() -> None:
+    base = _card(device("NVIDIA Acme Vector 7", total_mib=16384)).table
+    assert base.rows == ("acme-vector-7-16gb",)
+    extended = _card(device("NVIDIA Acme Vector 7 Ti", total_mib=16384)).table
+    assert extended.rows == ("acme-vector-7-ti",)
+    assert extended.cell("memory.bandwidth_gbps").value == 504

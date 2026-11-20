@@ -7,7 +7,16 @@ machine gives; its system, RAM and CPU name are the same. What the wire does not
 carry is unknown: PCI ids, compute capability, used memory, CPU flags and
 clock, physical cores, and the RAM probe unless the hello carries it as a
 reading. A card's bandwidth on the wire (the older class table's estimate) is
-not taken. The table and the machines are invented.
+not taken.
+
+Where the hello cannot give the reading's value the record holds the hello's,
+and the tests below pin each: a card's index is the wire's, counted per kind
+where a reading counts per vendor; its id is its vendor and that index, where a
+reading's is its PCI address, so the pools are named apart; a Vulkan card's
+vendor is unknown and it is matched among every vendor's rows; the RAM is the
+MiB the hello sent, where a reading's record has a tenth of a GiB; and a name
+the rig wrote for a card or CPU it read no name of matches no row. The table
+and the machines are invented.
 """
 
 from __future__ import annotations
@@ -27,6 +36,14 @@ TABLE = table(
         pci_device_ids=["1A2B"],
         memory__size_gb=16,
         memory__bandwidth_gbps=448,
+    ),
+    row(
+        "acme-river-9",
+        "amd",
+        "gpu",
+        name="AMD Acme River 9 XT",
+        memory__size_gb=20,
+        memory__bandwidth_gbps=800,
     ),
     row("acme-q9-family", "amd", "cpu", name="Acme Q9", models=["Q9 7700"]),
 )
@@ -157,3 +174,97 @@ def test_a_hellos_ram_bandwidth_is_taken_only_as_a_reading() -> None:
 def test_a_hellos_host_is_the_readings_host_type() -> None:
     hello = machine_capability.of_hello(_hello(), host=WIRE_HOST, table=TABLE)
     assert hello.system == Host(os="linux", arch="x86_64", version="6.1.0-example")
+
+
+def _card_resource(index: int, name: str, mib: int, backend: str) -> hubwire.Resource:
+    return hubwire.Resource(
+        kind=hubwire.RESOURCE_GPU,
+        index=index,
+        name=name,
+        total_mb=mib,
+        free_mb=mib,
+        figure=hubwire.FIGURE_READING,
+        backend=backend,
+    )
+
+
+def test_a_hellos_cards_of_two_vendors_keep_the_wires_index_and_id() -> None:
+    nvidia = dataclasses.replace(
+        device("NVIDIA Acme Vector 7", total_mib=16384, pci_device="0x1a2b"),
+        id="pci:0000:01:00.0",
+    )
+    amd = dataclasses.replace(
+        device("AMD Acme River 9 XT", vendor="amd", total_mib=20480, backend="rocm"),
+        id="pci:0000:03:00.0",
+    )
+    read = machine_capability.of_scan(scan(nvidia, amd), TABLE)
+    resources = [
+        _card_resource(0, "NVIDIA Acme Vector 7", 16384, hubwire.BACKEND_CUDA),
+        _card_resource(1, "AMD Acme River 9 XT", 20480, hubwire.BACKEND_ROCM),
+    ]
+    hubwire.resources_fit(resources)
+    hello = machine_capability.of_hello(resources, table=TABLE)
+    assert [c.table.rows for c in hello.cards] == [c.table.rows for c in read.cards]
+    assert [(c.reading.vendor, c.reading.index) for c in read.cards] == [
+        ("nvidia", 0),
+        ("amd", 0),
+    ]
+    assert [(c.reading.vendor, c.reading.index) for c in hello.cards] == [
+        ("nvidia", 0),
+        ("amd", 1),
+    ]
+    assert [c.reading.id for c in hello.cards] == ["nvidia:0", "amd:1"]
+    assert [p.name for p in hello.pools()][:2] == ["nvidia:0", "amd:1"]
+    assert [p.name for p in read.pools()][:2] == [
+        "pci:0000:01:00.0",
+        "pci:0000:03:00.0",
+    ]
+
+
+def test_a_hellos_vulkan_card_is_matched_among_every_vendors_rows() -> None:
+    river = _card_resource(0, "AMD Acme River 9 XT", 20480, hubwire.BACKEND_VULKAN)
+    resources = [river]
+    hubwire.resources_fit(resources)
+    (card,) = machine_capability.of_hello(resources, table=TABLE).cards
+    assert card.reading.vendor == machine_capability.UNKNOWN_VENDOR
+    assert card.table.rows == ("acme-river-9",)
+
+
+def test_a_hellos_ram_is_the_mib_it_sent() -> None:
+    resources = [
+        hubwire.Resource(
+            kind=hubwire.RESOURCE_RAM,
+            index=0,
+            name="host RAM",
+            total_mb=65471,
+            free_mb=60000,
+            figure=hubwire.FIGURE_READING,
+            backend=hubwire.BACKEND_CPU,
+        )
+    ]
+    hubwire.resources_fit(resources)
+    hello = machine_capability.of_hello(resources, table=TABLE)
+    assert (hello.ram.total_mib, hello.ram.available_mib) == (65471, 60000)
+    assert machine_capability.of_scan(scan(ram_gib=64), TABLE).ram.total_mib == 65536
+
+
+def test_a_name_the_rig_wrote_for_an_unnamed_card_or_cpu_matches_no_row() -> None:
+    resources = [
+        _card_resource(0, "nvidia card", 16384, hubwire.BACKEND_CUDA),
+        hubwire.Resource(
+            kind=hubwire.RESOURCE_CPU,
+            index=0,
+            name="CPU",
+            total_mb=0,
+            cores=16,
+            figure=hubwire.FIGURE_READING,
+            backend=hubwire.BACKEND_CPU,
+        ),
+    ]
+    hubwire.resources_fit(resources)
+    hello = machine_capability.of_hello(resources, table=TABLE)
+    (card,) = hello.cards
+    assert card.reading.name == "nvidia card"
+    assert not card.table.matched
+    assert hello.cpu.model == "CPU"
+    assert not hello.cpu.table.matched

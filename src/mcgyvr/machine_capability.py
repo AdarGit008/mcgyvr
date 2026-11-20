@@ -18,11 +18,10 @@ shipped table, nothing is run, nothing is asked.
 Matching a device to the table's rows:
 
 - a card: by its PCI device id when the reading has one and the table lists ids
-  for its vendor; an id that no row lists matches no row, since a laptop card
-  may carry a desktop card's name but never its id. Else by its name
-  (:func:`card_key`) among the rows of its vendor. Then by memory: a row that
-  states its size must hold the card's MiB / 1024, rounded; an unread memory or
-  an unknown size keeps the row;
+  for its vendor; an id that no row lists matches no row (the id was read, and
+  the name is no surer than it). Else by its name (:func:`card_key`) among the
+  rows of its vendor. Then by memory: a row that states its size must hold the
+  card's MiB / 1024, rounded; an unread memory or an unknown size keeps the row;
 - a GPU that shares the machine's memory (a Mac's) and an Apple CPU: the chip's
   row by the same name rule, narrowed by the machine's RAM against the sizes the
   row states;
@@ -32,6 +31,11 @@ Matching a device to the table's rows:
 Several rows may match (variants a reading cannot tell apart). A fact all of
 them state alike is kept; one they differ on is unknown, and the record names
 the rows and the fields. Choosing among them is not done here.
+
+A match says what the table holds and no more: these rows list this id, or
+carry this name. It is only as right as the table's lists: a vendor may give one
+id to more products than the row that lists it, or one name to a laptop part and
+a desktop part, and the record cannot tell.
 
 A unified device's memory is a share of the machine's RAM, not a second memory:
 :meth:`MachineCapability.pools` counts it once. The RAM's bandwidth is the
@@ -48,6 +52,7 @@ from types import MappingProxyType
 
 from mcgyvr import hubwire
 from mcgyvr.hardware_table import (
+    NO,
     UNKNOWN,
     UNKNOWN_CELL,
     VALUE,
@@ -198,15 +203,19 @@ def _none(why: str) -> TableFacts:
 
 
 def _agreed(rows: Sequence[Row]) -> tuple[Mapping[str, Cell], tuple[str, ...]]:
-    """The cells every row states alike (one state, one value), each as the
-    first row has it, and the fields they do not."""
+    """The cells every row states alike, each as the first row has it, and the
+    fields they do not. A value is alike when every row states the same value; a
+    no is alike when every row states a no, however each spells it (``false``,
+    an empty list, no value with a page cited)."""
     fields = sorted({field for row in rows for field in row.cells})
     kept: dict[str, Cell] = {}
     differing: list[str] = []
     for field in fields:
         cells = [row.cell(field) for row in rows]
         first = cells[0]
-        if all(c.state == first.state and c.value == first.value for c in cells):
+        if first.state == NO and all(c.state == NO for c in cells):
+            kept[field] = first
+        elif all(c.state == first.state and c.value == first.value for c in cells):
             if first.state != UNKNOWN:
                 kept[field] = first
         else:
@@ -214,14 +223,17 @@ def _agreed(rows: Sequence[Row]) -> tuple[Mapping[str, Cell], tuple[str, ...]]:
     return MappingProxyType(kept), tuple(differing)
 
 
-def _facts(rows: Sequence[Row], by: str, matched: str) -> TableFacts:
+def _facts(rows: Sequence[Row], by: str, listed: str) -> TableFacts:
+    """The facts of ``rows``, which list what ``listed`` says the reading gave.
+    The ``why`` says that the table lists it on these rows, not that the device
+    is one of them."""
     cells, differing = _agreed(rows)
     ids = tuple(row.id for row in rows)
     if len(rows) == 1:
-        why = f"row {ids[0]}, matched by {matched}"
+        why = f"the table lists {listed} on row {ids[0]}"
     else:
         why = (
-            f"{len(rows)} rows match by {matched} and the reading cannot tell them "
+            f"the table lists {listed} on {len(rows)} rows the reading cannot tell "
             f"apart: {', '.join(ids)}"
         )
     return TableFacts(rows=ids, by=by, why=why, cells=cells, differing=differing)
@@ -270,10 +282,13 @@ def _sized(
     kept, size = _by_size(rows, field, mib)
     if not kept:
         ids = ", ".join(row.id for row in rows)
-        return _none(f"the rows matched by {matched} ({ids}) state no size of {size}")
+        return _none(
+            f"the rows that list the reading's {matched} ({ids}) state no size of "
+            f"{size}"
+        )
     if size is None:
-        return _facts(kept, by, f"{matched}; {what} unread")
-    return _facts(kept, by, f"{matched} and {size}")
+        return _facts(kept, by, f"the reading's {matched} ({what} unread)")
+    return _facts(kept, by, f"the reading's {matched} with {size}")
 
 
 def _chip(table: HardwareTable, name: str | None, ram_mib: int | None) -> TableFacts:
@@ -332,7 +347,7 @@ def _processor(
     ]
     if not rows:
         return _none(f"no CPU row of the table lists a model of {' '.join(words)!r}")
-    return _facts(rows, BY_NAME, f"listed model in {' '.join(words)!r}")
+    return _facts(rows, BY_NAME, f"a model the CPU name {' '.join(words)!r} holds")
 
 
 @dataclass(frozen=True)
@@ -525,7 +540,25 @@ def of_hello(
     capability, used memory, CPU flags, clock or physical core count, so those
     are unknown and a card is matched by its name. A card's bandwidth on the wire
     is the older device-class table's estimate, not a reading, and is not taken;
-    the RAM's is taken only as a reading."""
+    the RAM's is taken only as a reading.
+
+    Where the hello cannot give the reading's value, the record holds the
+    hello's:
+
+    - a card's ``index`` is the wire's, which counts per kind (``gpu``,
+      ``unified``) where a reading counts per vendor, so on a machine with cards
+      of two vendors the second vendor's card has another index; it is kept as
+      the hello's because a heartbeat names the resource by it;
+    - a card's ``id`` is its vendor and that index, as a reading's is only when
+      it read no PCI address, so the pools of :meth:`MachineCapability.pools`
+      are named by it;
+    - a card whose engine build names no vendor (Vulkan) has the vendor
+      :data:`UNKNOWN_VENDOR`, and is matched by name among every vendor's rows;
+    - the RAM is the hello's MiB as sent, where a reading's record has its
+      total to a tenth of a GiB;
+    - a name the rig wrote for a card or a CPU it read no name of (the vendor
+      and ``card``, or ``CPU``) is held as the name the hello gives, and matches
+      no row."""
     table = table or shipped_table()
     cards = []
     ram = Ram(total_mib=None, available_mib=None, bandwidth=None, read_from=None)

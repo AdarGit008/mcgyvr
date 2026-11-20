@@ -5,14 +5,16 @@ cards share, a card whose memory was not read), a fact every candidate states
 alike, in one state with one value, is kept; a fact they state differently (a
 value against another value, a stated no against unknown) is unknown, and the
 record names the candidate rows and the fields they differ on. Nothing picks
-one of them. A memory read that only one variant holds leaves that one. The
+one of them. A no every candidate states is a no, however each spells it
+(``false``, no value with a page cited). A memory read that only one variant
+holds leaves that one. The
 table and the machines are invented.
 """
 
 from __future__ import annotations
 
 from mcgyvr import machine_capability
-from mcgyvr.hardware_table import UNKNOWN, VALUE, Cell
+from mcgyvr.hardware_table import NO, UNKNOWN, VALUE, Cell
 from mcgyvr.scan import Device
 from tests.invented_hardware import cell, device, row, scan, table
 
@@ -43,6 +45,24 @@ TABLE = table(
         compute__fp32_tflops=cell(29.1, "s2"),
         api__cuda_compute_capability="9.1",
         compute__matrix_units=False,
+    ),
+    row(
+        "acme-vector-6-a",
+        "nvidia",
+        "gpu",
+        name="Acme Vector 6",
+        pci_device_ids=["1C00"],
+        memory__size_gb=8,
+        compute__matrix_units=False,
+    ),
+    row(
+        "acme-vector-6-b",
+        "nvidia",
+        "gpu",
+        name="Acme Vector 6",
+        pci_device_ids=["1C00"],
+        memory__size_gb=8,
+        compute__matrix_units=Cell(value=None, source="s2"),
     ),
     row(
         "acme-arc-3-16gb",
@@ -88,7 +108,7 @@ def _facts(card: Device) -> machine_capability.TableFacts:
 def test_variants_of_one_id_keep_the_facts_they_share_and_name_the_rest() -> None:
     facts = _facts(device("Acme Vector 5", pci_device="0x1b01", total_mib=12282))
     assert facts.rows == ("acme-vector-5-fast", "acme-vector-5-slow")
-    assert "cannot tell them apart" in facts.why
+    assert "cannot tell apart" in facts.why
     assert facts.cell("compute.fp32_tflops").state == VALUE
     assert facts.cell("compute.fp32_tflops").value == 29.1
     assert facts.cell("api.cuda_compute_capability").value == "9.1"
@@ -132,3 +152,11 @@ def test_a_cpu_two_rows_list_is_matched_to_both() -> None:
     assert record.cpu.table.rows == ("acme-q9-desktop", "acme-q9-wide")
     assert record.cpu.table.cell("cores").state == UNKNOWN
     assert "models" in record.cpu.table.differing
+
+
+def test_a_no_every_candidate_states_stays_a_no_however_each_spells_it() -> None:
+    facts = _facts(device("Acme Vector 6", pci_device="0x1c00", total_mib=8192))
+    assert facts.rows == ("acme-vector-6-a", "acme-vector-6-b")
+    units = facts.cell("compute.matrix_units")
+    assert (units.state, units.value, units.source) == (NO, False, "s1")
+    assert "compute.matrix_units" not in facts.differing
