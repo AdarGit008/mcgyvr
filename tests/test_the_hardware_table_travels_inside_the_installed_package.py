@@ -1,11 +1,13 @@
-"""The hardware table travels inside the installed package; no product code reads it.
+"""The hardware table travels in the installed package; its one reader has no caller.
 
 The build copies the checkout's ``data/hardware-capabilities.json`` into the
 package (read here from ``pyproject.toml``; no wheel is built), and the loader
 finds the packaged copy first and the checkout's second; with neither, it
-refuses by the file's name. No module of the product imports the loader or
-names its file: the table ships ahead of its first reader, so it changes nothing
-a user gets.
+refuses by the file's name. One module of the product imports the loader: the
+capability record (``mcgyvr.machine_capability``), the table's first reader. No
+other module imports the loader, none but the loader names its file, and no
+module of the product imports the capability record, so the table changes
+nothing a user gets until a caller of that record ships.
 """
 
 from __future__ import annotations
@@ -68,10 +70,11 @@ def test_with_neither_the_table_is_refused_by_name(
         hardware_table.table_path()
 
 
-def test_no_product_module_imports_the_hardware_table() -> None:
-    readers = []
+def _importers(module: str) -> list[str]:
+    """The product's source files, other than ``module``'s own, that import it."""
+    found = []
     for path in sorted(SRC.rglob("*.py")):
-        if path.name == "hardware_table.py":
+        if path.name == f"{module}.py":
             continue
         for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
             names: list[str] = []
@@ -80,9 +83,18 @@ def test_no_product_module_imports_the_hardware_table() -> None:
             elif isinstance(node, ast.ImportFrom):
                 base = node.module or ""
                 names = [base, *(f"{base}.{alias.name}" for alias in node.names)]
-            if any(name.endswith("hardware_table") for name in names):
-                readers.append(str(path.relative_to(SRC)))
-    assert not readers, readers
+            if any(name.endswith(module) for name in names):
+                found.append(str(path.relative_to(SRC)))
+                break
+    return found
+
+
+def test_the_capability_record_alone_imports_the_hardware_table() -> None:
+    assert _importers("hardware_table") == ["machine_capability.py"]
+
+
+def test_no_product_module_imports_the_capability_record() -> None:
+    assert _importers("machine_capability") == []
 
 
 def test_no_product_module_names_the_table_file_but_its_loader() -> None:
