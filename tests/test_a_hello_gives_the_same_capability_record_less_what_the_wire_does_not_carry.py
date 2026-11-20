@@ -2,8 +2,12 @@
 
 A hub can build a machine's record from the resources a rig's hello lists
 (``hubwire.Resource``) and the host it names. Each card is matched by its name
-and memory to the same rows, with the same facts, as the reading of that
-machine gives; its system, RAM and CPU name are the same. What the wire does not
+and memory, since the wire carries no PCI id. Where the reading's match of the
+card meets the same rows (below, an id the table lists on the row of that name),
+the hello's record has the same rows and facts; where it does not, the two can
+differ: a card whose id no row lists has no row in the reading and may have one
+by its name in the hello, and a name a vendor reuses may meet rows its id would
+not. Its system, RAM and CPU name are the same. What the wire does not
 carry is unknown: PCI ids, compute capability, used memory, CPU flags and
 clock, physical cores, and the RAM probe unless the hello carries it as a
 reading. A card's bandwidth on the wire (the older class table's estimate) is

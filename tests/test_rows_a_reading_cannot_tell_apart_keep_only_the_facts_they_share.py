@@ -6,8 +6,9 @@ alike, in one state with one value, is kept; a fact they state differently (a
 value against another value, a stated no against unknown) is unknown, and the
 record names the candidate rows and the fields they differ on. Nothing picks
 one of them. A no every candidate states is a no, however each spells it
-(``false``, no value with a page cited). A memory read that only one variant
-holds leaves that one. The
+(``false``, no value with a page cited); a no on the first candidate against a
+value or an unknown on another is unknown, whichever row comes first. A memory
+read that only one variant holds leaves that one. The
 table and the machines are invented.
 """
 
@@ -63,6 +64,41 @@ TABLE = table(
         pci_device_ids=["1C00"],
         memory__size_gb=8,
         compute__matrix_units=Cell(value=None, source="s2"),
+    ),
+    row(
+        "acme-vector-4-no",
+        "nvidia",
+        "gpu",
+        name="Acme Vector 4",
+        pci_device_ids=["1D00"],
+        memory__size_gb=8,
+        compute__matrix_units=False,
+    ),
+    row(
+        "acme-vector-4-yes",
+        "nvidia",
+        "gpu",
+        name="Acme Vector 4",
+        pci_device_ids=["1D00"],
+        memory__size_gb=8,
+        compute__matrix_units=True,
+    ),
+    row(
+        "acme-vector-3-no",
+        "nvidia",
+        "gpu",
+        name="Acme Vector 3",
+        pci_device_ids=["1E00"],
+        memory__size_gb=8,
+        compute__matrix_units=False,
+    ),
+    row(
+        "acme-vector-3-unstated",
+        "nvidia",
+        "gpu",
+        name="Acme Vector 3",
+        pci_device_ids=["1E00"],
+        memory__size_gb=8,
     ),
     row(
         "acme-arc-3-16gb",
@@ -160,3 +196,14 @@ def test_a_no_every_candidate_states_stays_a_no_however_each_spells_it() -> None
     units = facts.cell("compute.matrix_units")
     assert (units.state, units.value, units.source) == (NO, False, "s1")
     assert "compute.matrix_units" not in facts.differing
+
+
+def test_a_no_on_the_first_candidate_against_a_value_or_an_unknown_is_unknown() -> None:
+    for pci, rows in (
+        ("0x1d00", ("acme-vector-4-no", "acme-vector-4-yes")),
+        ("0x1e00", ("acme-vector-3-no", "acme-vector-3-unstated")),
+    ):
+        facts = _facts(device(None, pci_device=pci, total_mib=8192))
+        assert facts.rows == rows
+        assert facts.cell("compute.matrix_units").state == UNKNOWN, pci
+        assert "compute.matrix_units" in facts.differing, pci
