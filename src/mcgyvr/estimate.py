@@ -11,27 +11,53 @@ efficiency (:data:`DECODE_EFFICIENCY`). The rule is the wire's
 device's class in the shipped table ``hardware-classes.json`` (Apple silicon
 chips and NVIDIA consumer cards, each row with its source); a device that
 matches no row gets no estimate, and :class:`NoEstimate` says why.
+
+For one line (a model file at a context and a slot count) on one device, three
+figures from numbers passed in: decode (:func:`decode_tps`, with the engine
+build and the cache of a filled context when given), prefill
+(:func:`prefill_tps`, the device's rate over the work a token takes) and the fit
+(:func:`line_fit`, the launch check's own verdict from the file's header). A
+build, path or input with no fit gets no figure, and :class:`NoEstimate` names
+what is missing.
 """
 
 from __future__ import annotations
 
 import json
+import math
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from functools import cache
 from pathlib import Path
-from typing import Any
+from types import MappingProxyType
+from typing import TYPE_CHECKING, Any
 
+from mcgyvr.hubwire import (
+    BACKEND_CUDA,
+    BACKEND_METAL,
+    DECODE_SHARES,
+    FIGURE_KINDS,
+    decode_efficiency,
+    decode_share,
+    quant_class,
+)
 from mcgyvr.hubwire import BYTES_PER_DECIMAL_GB as BYTES_PER_DECIMAL_GB
+from mcgyvr.hubwire import CUDA_SCOREBOARD as CUDA_SCOREBOARD
 from mcgyvr.hubwire import DECODE_EFFICIENCY as DECODE_EFFICIENCY
 from mcgyvr.hubwire import FIGURE_ESTIMATE as ESTIMATE
-from mcgyvr.hubwire import FIGURE_KINDS, decode_efficiency
 from mcgyvr.hubwire import FIGURE_READING as READING
 from mcgyvr.hubwire import FITTED_ON as FITTED_ON
 from mcgyvr.hubwire import HIGH_BANDWIDTH_EFFICIENCY as HIGH_BANDWIDTH_EFFICIENCY
 from mcgyvr.hubwire import HIGH_BANDWIDTH_GBPS as HIGH_BANDWIDTH_GBPS
+from mcgyvr.hubwire import PATH_MATRIX as PATH_MATRIX
+from mcgyvr.hubwire import PATH_VECTOR as PATH_VECTOR
+from mcgyvr.hubwire import FittedShare as FittedShare
 from mcgyvr.shipped import shipped_file
+
+if TYPE_CHECKING:
+    from mcgyvr.scan import Scan
+    from mcgyvr.serving import Fit
 
 CLASSES_FILENAME = "hardware-classes.json"
 
@@ -84,6 +110,17 @@ class HardwareClass:
     match_memory_gb: tuple[int, ...] = ()
 
 
+#: What the filled-context term of :func:`decode_tps` was checked on: the one
+#: public row found (llama-bench on an NVIDIA Thor, a 30B MoE at Q8_0 with an
+#: f16 cache, from an empty context to 32k tokens).
+CACHE_TERM_CHECK = (
+    "the cache term, checked on one public row "
+    "(https://github.com/ggml-org/llama.cpp/discussions/16578) as a ratio to the "
+    "empty context only, reads slow by 9% at 16k tokens and 13% at 32k; the "
+    "figure itself was not checked on that row"
+)
+
+
 def decode_tps(
     bandwidth_gbps: float,
     model_bytes: int,
@@ -92,6 +129,9 @@ def decode_tps(
     verified: bool = True,
     device: str = "",
     vendor: str = FITTED_ON,
+    build: str | None = None,
+    path: str | None = None,
+    cache_bytes: int | NoEstimate = 0,
 ) -> Figure | NoEstimate:
     """Estimated decode tokens per second of a dense model on one device.
 
@@ -99,25 +139,306 @@ def decode_tps(
     weight once, at the share of the bandwidth :data:`DECODE_EFFICIENCY` states
     for the quantisation. A quantisation with no efficiency class, or a
     non-positive size or bandwidth, gets no estimate.
+
+    ``build`` and ``path`` name the engine build and its compute path, for the
+    share fitted under that build (:func:`mcgyvr.hubwire.decode_efficiency`);
+    unnamed, the figure is today's. ``cache_bytes`` is the cache a token reads
+    beside the weights, the filled context's (:func:`context_bytes`); 0 reads
+    none, and anything but a count of bytes gets no estimate. That term is
+    checked on one public row only, as a ratio to the empty context
+    (:data:`CACHE_TERM_CHECK`): the row runs faster than it says at 16k and 32k
+    tokens.
     """
     if bandwidth_gbps <= 0 or model_bytes <= 0:
         return NoEstimate("no bandwidth or model size to estimate decode from")
-    eff = efficiency(bandwidth_gbps, quant, vendor=vendor)
+    if isinstance(cache_bytes, NoEstimate):
+        return NoEstimate(f"the cache a token reads is unknown: {cache_bytes.why}")
+    if isinstance(cache_bytes, bool) or not isinstance(cache_bytes, int):
+        return NoEstimate(
+            f"the cache a token reads is not a count of bytes: {cache_bytes!r}"
+        )
+    if cache_bytes < 0:
+        return NoEstimate("the cache a token reads cannot be negative")
+    eff = efficiency(bandwidth_gbps, quant, vendor=vendor, build=build, path=path)
     if eff is None:
+        if build is not None and build != BACKEND_METAL:
+            return _no_decode_share(build, path, quant)
         return NoEstimate(
             f"no decode estimate for quantisation {quant!r}: the rule was fitted "
             "to 16-, 8- and 4- to 6-bit weights"
         )
     on = f"{device}, " if device else ""
     fitted = "" if vendor == FITTED_ON else ", shares fitted on Apple silicon"
-    gb = model_bytes / BYTES_PER_DECIMAL_GB
+    if build is not None and build != BACKEND_METAL:
+        fitted = _fitted_on(build, path, decode_share(build, path, quant))
+    gb = (model_bytes + cache_bytes) / BYTES_PER_DECIMAL_GB
+    read = ""
+    if cache_bytes:
+        read = (
+            f" ({model_bytes / BYTES_PER_DECIMAL_GB:.2f} GB of weights and "
+            f"{cache_bytes / BYTES_PER_DECIMAL_GB:.2f} GB of cache; "
+            f"{CACHE_TERM_CHECK})"
+        )
     return Figure(
         eff * bandwidth_gbps / gb,
         ESTIMATE,
         f"{on}{bandwidth_gbps:g} GB/s x {eff:g} over {gb:.2f} GB read per "
-        f"token{fitted}",
+        f"token{read}{fitted}",
         verified=verified,
     )
+
+
+def _is_count(value: object) -> bool:
+    """Whether ``value`` is a whole number, and not a bool."""
+    return isinstance(value, int) and not isinstance(value, bool)
+
+
+def _fitted_on(build: str, path: str | None, share: FittedShare | None) -> str:
+    """What a fitted share is: its build, its path, and the spread behind it."""
+    if share is None:
+        return ""
+    return (
+        f", the {build} share on the {path} path: the median of {share.cards} "
+        f"cards, {share.low:g} to {share.high:g} (furthest: {share.worst}), "
+        f"{share.source}"
+    )
+
+
+def _no_decode_share(build: str, path: str | None, quant: str) -> NoEstimate:
+    """Why a build gets no decode share: the input that is missing or unfitted."""
+    if build not in DECODE_SHARES:
+        return NoEstimate(
+            f"no decode share for the {build} build: none is fitted on a public "
+            "table yet"
+        )
+    if path is None:
+        return NoEstimate(
+            f"the {build} build's compute path on this device is unknown, so no "
+            "decode share"
+        )
+    if path not in DECODE_SHARES[build]:
+        return NoEstimate(f"no {build} decode share on the {path} path")
+    return NoEstimate(
+        f"no {build} decode share for quantisation {quant!r} "
+        f"(class {quant_class(quant)}): its fit was on 4-bit files only"
+    )
+
+
+def context_bytes(
+    header: Mapping[str, Any], tokens: int, *, cache_type: str = "f16"
+) -> int | NoEstimate:
+    """The cache bytes one decoded token reads after ``tokens`` of context, at
+    ``cache_type`` for K and V: the fit law's own cache figure for one sequence
+    (:func:`mcgyvr.serving.vramfit.kv_bytes`), from the file's header row, so a
+    sliding layer is charged its window and no more."""
+    from mcgyvr.serving import vramfit
+
+    if not _is_count(tokens):
+        return NoEstimate(f"a context's length is a count of tokens, not {tokens!r}")
+    if tokens < 0:
+        return NoEstimate("a context cannot hold fewer than 0 tokens")
+    if cache_type not in vramfit.CACHE_ELEM_BYTES:
+        return NoEstimate(
+            f"cache type {cache_type!r} has no width; llama.cpp takes "
+            f"{', '.join(vramfit.LLAMACPP_CACHE_TYPES)}"
+        )
+    if not header.get("kv_layers"):
+        return NoEstimate("the header states no caching layers, so no cache figure")
+    try:
+        sized = vramfit.kv_bytes(
+            dict(header),
+            tokens,
+            n_seq_max=1,
+            cache_type_k=cache_type,
+            cache_type_v=cache_type,
+        )
+    except (KeyError, TypeError, ValueError) as exc:
+        return NoEstimate(f"the header's cache cannot be sized: {exc}")
+    return int(sized["total"])
+
+
+#: The prefill shares of an engine build, by compute path: 2 x the parameters x
+#: pp512 over the card's rate (the matrix units' FP16 rate on the matrix path,
+#: the FP32 rate on the vector path), the median over the CUDA scoreboard's cards
+#: the shipped hardware table names (``tools/speed-shares/fit_shares.py``). A
+#: share over 1 says the build ran faster than that rate. By build, path and
+#: efficiency class, as the decode shares are: fitted on a dense 7B model at
+#: Q4_0, one slot, a 512-token prompt, so no other class has a share; Metal and
+#: every other build have none yet.
+PREFILL_SHARES: Mapping[str, Mapping[str, Mapping[str, FittedShare]]] = (
+    MappingProxyType(
+        {
+            BACKEND_CUDA: MappingProxyType(
+                {
+                    PATH_MATRIX: MappingProxyType(
+                        {
+                            "4bit": FittedShare(
+                                1.049,
+                                17,
+                                0.666,
+                                1.136,
+                                "RTX 2060 SUPER 8 GB",
+                                CUDA_SCOREBOARD,
+                            )
+                        }
+                    ),
+                    PATH_VECTOR: MappingProxyType(
+                        {
+                            "4bit": FittedShare(
+                                1.23,
+                                4,
+                                0.399,
+                                1.29,
+                                "GTX 1660 6 GB",
+                                CUDA_SCOREBOARD,
+                            )
+                        }
+                    ),
+                }
+            )
+        }
+    )
+)
+#: What each path's rate is, by name, for a figure's basis and a refusal.
+PATH_RATES: Mapping[str, str] = MappingProxyType(
+    {PATH_MATRIX: "matrix FP16", PATH_VECTOR: "FP32"}
+)
+
+
+def prefill_params(header: Mapping[str, Any]) -> int | NoEstimate:
+    """The parameters a prompt token is computed through, from the file's header
+    row: all of them for a dense model. A mixture of experts, by the product's
+    one rule for it (:func:`mcgyvr.knowledge.record.architecture_of`), gets
+    none: the prefill share was fitted on a dense model only."""
+    from mcgyvr.knowledge.record import MOE, architecture_of
+
+    if architecture_of(header) == MOE:
+        return NoEstimate(
+            "a mixture of experts: the prefill share was fitted on dense models only"
+        )
+    params = header.get("params_total")
+    if isinstance(params, bool) or not isinstance(params, int) or params <= 0:
+        return NoEstimate("the header states no parameter count")
+    return params
+
+
+def prefill_tps(
+    rate_tflops: float | None,
+    params: int | None,
+    *,
+    quant: str | None = None,
+    build: str | None,
+    path: str | None,
+    device: str = "",
+    verified: bool = True,
+) -> Figure | NoEstimate:
+    """Estimated prefill tokens per second of a dense model on one device.
+
+    ``share x rate_tflops / (2 x params)``: a prompt token takes two operations
+    per parameter, and the device does them at the share of its rate on the
+    path the build takes there for the file's quantisation
+    (:data:`PREFILL_SHARES`, :data:`PATH_RATES`). A build, path or
+    quantisation with no share, an unknown quantisation, rate or parameter
+    count, or one that is not a finite number over 0, gets no estimate, and
+    says which.
+    """
+    if build is None:
+        return NoEstimate("the engine build is unknown, so no prefill share")
+    if build not in PREFILL_SHARES:
+        return NoEstimate(
+            f"no prefill share for the {build} build: none is fitted on a public "
+            "table yet"
+        )
+    if path is None:
+        return NoEstimate(
+            f"the {build} build's compute path on this device is unknown, so no "
+            "prefill share"
+        )
+    shares = PREFILL_SHARES[build].get(path)
+    if shares is None:
+        return NoEstimate(f"no {build} prefill share on the {path} path")
+    if quant is None:
+        return NoEstimate("the file's quantisation is unknown, so no prefill share")
+    share = shares.get(quant_class(quant) or "")
+    if share is None:
+        return NoEstimate(
+            f"no {build} prefill share for quantisation {quant!r} "
+            f"(class {quant_class(quant)}): its fit was on 4-bit files only"
+        )
+    if (
+        isinstance(rate_tflops, bool)
+        or not isinstance(rate_tflops, int | float)
+        or not math.isfinite(rate_tflops)
+        or rate_tflops <= 0
+    ):
+        return NoEstimate(
+            f"the device's {PATH_RATES[path]} rate is unknown: {rate_tflops!r}"
+        )
+    if isinstance(params, bool) or not isinstance(params, int) or params <= 0:
+        return NoEstimate(f"the model's parameter count is unknown: {params!r}")
+    on = f"{device}, " if device else ""
+    return Figure(
+        share.value * rate_tflops * 1e12 / (2 * params),
+        ESTIMATE,
+        f"{on}{rate_tflops:g} TFLOPS {PATH_RATES[path]} x {share.value:g} over 2 x "
+        f"{params / 1e9:.2f}B parameters, a short prompt at one slot"
+        f"{_fitted_on(build, path, share)}",
+        verified=verified,
+    )
+
+
+def line_fit(
+    scan: Scan,
+    header: Mapping[str, Any],
+    *,
+    ctx_per_slot: int,
+    slots: int = 1,
+    cache_type: str = "f16",
+) -> Fit | NoEstimate:
+    """Whether a model file fits the machine of ``scan`` at ``slots`` of
+    ``ctx_per_slot`` each, before it is downloaded: the launch check itself
+    (:func:`mcgyvr.serving.fit`, a llama.cpp unit on the roomiest card) on the
+    file's header row as its geometry, at ``cache_type`` for K and V. So the
+    verdict here is the one the launch check gives once the file is on disk. A
+    header the law cannot size gets no verdict, and says why; a ``Fit`` that
+    does not fit is a no, with the law's reason."""
+    from mcgyvr.config import DEFAULT_ENGINE
+    from mcgyvr.hubwire import BYTES_PER_GIB
+    from mcgyvr.serving import ModelSpec, UnitError, fit, vramfit
+
+    if not _is_count(ctx_per_slot) or not _is_count(slots):
+        return NoEstimate(
+            f"a context and a slot count are counts, not {ctx_per_slot!r} and {slots!r}"
+        )
+    if ctx_per_slot < 1 or slots < 1:
+        return NoEstimate("a context and a slot count are counts, so at least 1")
+    if cache_type not in vramfit.CACHE_ELEM_BYTES:
+        return NoEstimate(
+            f"cache type {cache_type!r} has no width; llama.cpp takes "
+            f"{', '.join(vramfit.LLAMACPP_CACHE_TYPES)}"
+        )
+    size = header.get("size_bytes")
+    if not isinstance(size, int) or isinstance(size, bool) or size <= 0:
+        return NoEstimate("the header states no file size")
+    try:
+        spec = ModelSpec(
+            name=Path(str(header.get("file") or "")).name.removesuffix(".gguf"),
+            vram_gb=0.0,
+            ram_gb=0.0,
+            disk_gb=size / BYTES_PER_GIB,
+            geometry=dict(header),
+            kv_cache_dtype_k=cache_type,
+            kv_cache_dtype_v=cache_type,
+        )
+        return fit(
+            scan,
+            spec,
+            engine=DEFAULT_ENGINE,
+            width=slots,
+            ctx_per_slot=ctx_per_slot,
+        )
+    except (UnitError, KeyError, TypeError, ValueError) as exc:
+        return NoEstimate(f"the fit law cannot size this header: {exc}")
 
 
 def prefer(

@@ -1865,7 +1865,8 @@ _MS_PER_S = 1000
 #: 0.50..0.60 at Q8_0 (0.57..0.71 at F16), so 0.50, the lowest, and 0.36..0.45
 #: at Q4_0 (median 0.42), so 0.40, under five of the six runs. The fit is Apple
 #: silicon's under Metal; an NVIDIA card takes the same shares, unchecked under
-#: CUDA. A current llama.cpp build runs about 1.2x faster than the build those
+#: CUDA, unless the caller names the engine build (:data:`DECODE_SHARES`, fitted
+#: under CUDA). A current llama.cpp build runs about 1.2x faster than the build those
 #: rows used; no allowance is made for it. A quantisation under 4 bits, or
 #: 32-bit weights, was not measured, and gets no efficiency.
 DECODE_EFFICIENCY: Mapping[str, float] = MappingProxyType({"8bit": 0.75, "4bit": 0.60})
@@ -1908,16 +1909,102 @@ def fitted_on(kind: str, backend: str) -> bool:
     return kind == RESOURCE_UNIFIED and backend == BACKEND_METAL
 
 
+#: The two ways an engine build computes on a device: with matrix units that
+#: take FP16 (``matrix``), or on the vector units alone (``vector``).
+PATH_MATRIX = "matrix"
+PATH_VECTOR = "vector"
+COMPUTE_PATHS: tuple[str, ...] = (PATH_MATRIX, PATH_VECTOR)
+
+
+@dataclass(frozen=True)
+class FittedShare:
+    """A share fitted on a public table: the median over the cards it matched,
+    the lowest and the highest of them, how many, and the card furthest from
+    the median."""
+
+    value: float
+    cards: int
+    low: float
+    high: float
+    worst: str
+    source: str
+
+
+#: llama.cpp's CUDA scoreboard: Llama 2 7B at Q4_0, pp512 and tg128 per card.
+CUDA_SCOREBOARD = "https://github.com/ggml-org/llama.cpp/discussions/15013"
+#: The decode shares of an engine build other than Metal, by build, compute path
+#: and efficiency class: tg128 x the file's bytes over the card's bandwidth, the
+#: median over the scoreboard's cards the shipped hardware table names
+#: (``tools/speed-shares/fit_shares.py``). Only a 4-bit file was on it, so no
+#: other class has a share under CUDA; Vulkan, ROCm, SYCL and CPU builds have
+#: none yet. A build or class with no share here gets no efficiency, never
+#: Metal's.
+DECODE_SHARES: Mapping[str, Mapping[str, Mapping[str, FittedShare]]] = MappingProxyType(
+    {
+        BACKEND_CUDA: MappingProxyType(
+            {
+                PATH_MATRIX: MappingProxyType(
+                    {
+                        "4bit": FittedShare(
+                            0.725,
+                            17,
+                            0.512,
+                            0.848,
+                            "RTX 2060 SUPER 8 GB",
+                            CUDA_SCOREBOARD,
+                        )
+                    }
+                ),
+                PATH_VECTOR: MappingProxyType(
+                    {
+                        "4bit": FittedShare(
+                            0.558,
+                            4,
+                            0.493,
+                            0.823,
+                            "GTX 1660 6 GB",
+                            CUDA_SCOREBOARD,
+                        )
+                    }
+                ),
+            }
+        )
+    }
+)
+
+
+def decode_share(build: str, path: str | None, quant: str) -> FittedShare | None:
+    """The fitted decode share of ``build`` on ``path`` for a quantisation; None
+    when its class, the path or the build has none (:data:`DECODE_SHARES`)."""
+    klass = quant_class(quant)
+    if klass is None or path is None:
+        return None
+    return DECODE_SHARES.get(build, {}).get(path, {}).get(klass)
+
+
 def decode_efficiency(
-    bandwidth_gbps: float, quant: str, *, vendor: str
+    bandwidth_gbps: float,
+    quant: str,
+    *,
+    vendor: str,
+    build: str | None = None,
+    path: str | None = None,
 ) -> float | None:
     """The decode efficiency for this bandwidth, quantisation and vendor, None
     when the quantisation has no class. The high-bandwidth ceiling holds for
     the vendor the shares were fitted on (:data:`FITTED_ON`) alone; the wire
-    names no vendor, so a hub tells it by :func:`fitted_on`."""
+    names no vendor, so a hub tells it by :func:`fitted_on`.
+
+    ``build`` names the engine build that decodes. None (every caller of the
+    wire) or ``metal`` takes the Apple shares as above; any other build takes
+    its fitted share on ``path`` (:func:`decode_share`), and None where it has
+    none."""
     klass = quant_class(quant)
     if klass is None:
         return None
+    if build is not None and build != BACKEND_METAL:
+        fitted = decode_share(build, path, quant)
+        return None if fitted is None else fitted.value
     eff = DECODE_EFFICIENCY[klass]
     if vendor == FITTED_ON and bandwidth_gbps >= HIGH_BANDWIDTH_GBPS:
         eff = min(eff, HIGH_BANDWIDTH_EFFICIENCY[klass])
@@ -1925,14 +2012,22 @@ def decode_efficiency(
 
 
 def decode_ms_per_gib(
-    bandwidth_gbps: float, quant: str, *, vendor: str
+    bandwidth_gbps: float,
+    quant: str,
+    *,
+    vendor: str,
+    build: str | None = None,
+    path: str | None = None,
 ) -> float | None:
     """Milliseconds a token takes per GiB of weights it reads, on a device of
     ``bandwidth_gbps`` (decimal GB/s) at the share of it
-    :func:`decode_efficiency` states; None when the quantisation has no class
-    or the bandwidth is not over 0. Each token reads every weight once, so a
-    model of ``n`` GiB decodes a token in ``n`` times this."""
-    eff = decode_efficiency(bandwidth_gbps, quant, vendor=vendor)
+    :func:`decode_efficiency` states for ``build`` on ``path``; None when the
+    quantisation has no class, the build no share, or the bandwidth is not
+    over 0. Each token reads every weight once, so a model of ``n`` GiB decodes
+    a token in ``n`` times this."""
+    eff = decode_efficiency(
+        bandwidth_gbps, quant, vendor=vendor, build=build, path=path
+    )
     if eff is None or not bandwidth_gbps > 0:
         return None
     return _MS_PER_S * BYTES_PER_GIB / (eff * bandwidth_gbps * BYTES_PER_DECIMAL_GB)
