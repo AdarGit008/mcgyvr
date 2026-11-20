@@ -94,7 +94,9 @@ from tests.wheels import (
 #: (detect), what the hardware measures and what that is worth running
 #: (scan, capability, propose, initialize), how fast a device is estimated
 #: to decode before a unit of it is measured (estimate), what a chip can do by
-#: the vendors' and third-party pages (hardware_table), what is known about a model
+#: the vendors' and third-party pages (hardware_table), what each device of a
+#: machine can do by its reading and those pages (machine_capability), what is
+#: known about a model
 #: before it is downloaded (knowledge.*), a serving unit to write out and
 #: launch (emit, serving.*), whether a card that is down is asleep and how it
 #: is woken (wake), the per-user temporary directories those keep their
@@ -146,6 +148,7 @@ BELOW_THE_SEAM: tuple[str, ...] = (
     "mcgyvr.knowledge.regenerate",
     "mcgyvr.knowledge.store",
     "mcgyvr.ladder_map",
+    "mcgyvr.machine_capability",
     "mcgyvr.policy_line",
     "mcgyvr.pressure",
     "mcgyvr.ladder_proposal",
